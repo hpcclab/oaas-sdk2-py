@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "oaas-sdk2-py"
+version = "0.1.0"
+description = ""
+authors = ["Pawissanutt <pawissanutt@gmail.com>"]
+readme = "README.adoc"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+grpcio-tools = "^1.67.1"
+asyncio = "^3.4.3"
+tsidpy = "^1.1.5"
+fastapi = "^0.115.4"
+betterproto = {extras = ["compiler"], version = "^2.0.0b7"}
+pydantic = "^2.9.1"
+grpcio = "^1.67.1"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.2"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

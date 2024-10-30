@@ -1,0 +1,29 @@
+services:
+
+  gateway:
+    image: harbor.129.114.109.85.nip.io/oaas/gateway
+    network_mode: host
+    depends_on:
+      - dev-pm
+    environment:
+      HTTP_PORT: 10000
+      RUST_LOG: INFO
+      OPRC_PM_URI: http://localhost:10002
+      OPRC_MAX_POOL_SIZE: 256
+
+
+  odgm:
+    network_mode: host
+    image: harbor.129.114.109.85.nip.io/oaas/odgm
+    environment:
+      RUST_LOG: INFO
+      ODGM_HTTP_PORT: 10001
+      ODGM_CLASS: example.hello
+
+  dev-pm:
+    network_mode: host
+    image: harbor.129.114.109.85.nip.io/oaas/dev-pm
+    environment:
+      HTTP_PORT: 10002
+      RUST_LOG: INFO
+      PM_CLS_LIST: example.hello!new=http://localhost:8080|greet=http://localhost:8080|talk=http://localhost:8080|change_intro=http://localhost:8080
