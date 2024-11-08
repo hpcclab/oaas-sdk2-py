@@ -7,3 +7,4 @@ protoc:
       --python_betterproto_opt=pydantic_dataclasses,typing.310 \
       ./protos/oprc-data.proto \
       ./protos/oprc-invoke.proto
+

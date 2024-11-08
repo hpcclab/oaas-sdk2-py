@@ -27,3 +27,18 @@ services:
       HTTP_PORT: 10002
       RUST_LOG: INFO
       PM_CLS_LIST: example.hello!new=http://localhost:8080|greet=http://localhost:8080|talk=http://localhost:8080|change_intro=http://localhost:8080
+
+  grpcui:
+    image: fullstorydev/grpcui
+    network_mode: host
+    command:
+      - localhost:10000
+  
+  hello-fn:
+    deploy:
+      replicas: 0
+    build:
+      context: .
+      args:
+        APP_DIR: helloworld
+    image: harbor.129.114.109.85.nip.io/oaas/hello-fn

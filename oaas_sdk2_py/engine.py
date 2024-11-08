@@ -5,6 +5,7 @@ from typing import Dict, Optional
 from fastapi import APIRouter
 from tsidpy import TSID
 
+from oaas_sdk2_py.config import OprcConfig
 from oaas_sdk2_py.data import DataManager, Ref
 from oaas_sdk2_py.model import ObjectMeta, ClsMeta
 from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, InvocationResponse
@@ -110,10 +111,11 @@ class Oparaca:
     rpc: RpcManager
 
     def __init__(self, default_pkg: str = "default",
-                 odgm_url=None):
-        if odgm_url is None:
-            odgm_url = os.environ.get("OPRC_ODGM_URL")
-        self.odgm_url = odgm_url
+                 config:OprcConfig=None):
+        if config is None:
+            config = OprcConfig()
+        self.config = config
+        self.odgm_url = config.oprc_odgm_url
         self.meta_repo = MetadataRepo()
         self.default_pkg = default_pkg
         self.default_partition_id = int(os.environ.get("OPRC_PARTITION", '0'))

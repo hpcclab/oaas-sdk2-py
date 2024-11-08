@@ -142,7 +142,7 @@ class ClsMeta:
 
         for k, f in self.func_list.items():
             pkg['functions'].append({
-                "name": "." + k,
+                "name": k,
                 "provision": {}
             })
         return pkg

@@ -48,9 +48,7 @@ class OprcFunction(OprcFunctionBase):
 
 async def start_grpc_server(oprc: Oparaca,
                             port=8080) -> Server:
-    logging.basicConfig(level=logging.DEBUG)
     oprc.init()
     grpc_server = Server([OprcFunction(oprc)])
     await grpc_server.start("0.0.0.0", port)
-    # await grpc_server.wait_closed()
     return grpc_server

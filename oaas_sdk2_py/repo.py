@@ -1,5 +1,7 @@
 from typing import Any
 
+import yaml
+
 from oaas_sdk2_py.model import ClsMeta
 
 
@@ -18,12 +20,17 @@ class MetadataRepo:
 
     def export_pkg(self) -> dict[str, Any]:
         output = {}
-        for (_, v) in self.cls_dict.items():
-            pkg_name = v.pkg
+        for (_, cls) in self.cls_dict.items():
+            pkg_name = cls.pkg
             if pkg_name not in output:
                 output[pkg_name] = {"name": pkg_name, "classes": [], "functions": []}
-            v.export_pkg(output[pkg_name])
+            cls.export_pkg(output[pkg_name])
         return output
+
+    def print_pkg(self):
+        for (_, pkg) in self.export_pkg().items():
+            print(yaml.dump(pkg, indent=2))
+            print("---")
 
     def get_cls_meta(self, cls_id: str) -> ClsMeta:
         return self.cls_dict[cls_id]

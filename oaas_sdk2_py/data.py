@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 import grpc
 from grpclib.client import Channel
+from pydantic.v1 import HttpUrl
 
 from oaas_sdk2_py.pb.oprc import DataServiceStub, SingleKeyRequest, SetObjectRequest, ObjData, ValData, \
     SingleObjectRequest
@@ -11,9 +12,8 @@ from oaas_sdk2_py.pb.oprc import DataServiceStub, SingleKeyRequest, SetObjectReq
 logger = logging.getLogger(__name__)
 
 class DataManager:
-    def __init__(self, addr: str = 'http://localhost:8001' ):
-        parsed_url = urlparse(addr)
-        channel = Channel(parsed_url.hostname, parsed_url.port)
+    def __init__(self, addr: HttpUrl ):
+        channel = Channel(addr.host, int(addr.port))
         self.client = DataServiceStub(channel)
 
     async def get(self,

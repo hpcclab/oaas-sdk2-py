@@ -1,16 +1,20 @@
 import asyncio
 import json
+import logging
+import os
+import sys
 from importlib.metadata import metadata
 
 from fastapi import FastAPI
 from tsidpy import TSID
 
 from oaas_sdk2_py import BaseObject, Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
-from oaas_sdk2_py.engine import InvocationContext
+from oaas_sdk2_py.config import OprcConfig
+from oaas_sdk2_py.engine import InvocationContext, logger
 from oaas_sdk2_py.model import ObjectMeta
 from oaas_sdk2_py.pb.oprc import ResponseStatus
 
-oaas = Oparaca(odgm_url="http://localhost:10001")
+oaas = Oparaca(config=OprcConfig())
 greeter = oaas.new_cls(pkg="example", name="hello")
 
 
@@ -79,11 +83,9 @@ app.include_router(router)
 
 
 async def main(port=8080):
+    level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO"))
+    logging.basicConfig(level=level)
     server = await start_grpc_server(oaas, port=port)
-    print(f'Serving on {port}')
+    logger.info(f'Serving on {port}')
     await server.wait_closed()
 
-
-if __name__ == '__main__':
-    # print(json.dumps(oaas.meta_repo.export_pkg(), indent=2))
-    asyncio.run(main())
