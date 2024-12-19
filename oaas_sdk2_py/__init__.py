@@ -5,7 +5,7 @@ import traceback
 from grpclib import Status, GRPCError
 from grpclib.server import Server
 
-from .engine import Oparaca, BaseObject
+from .engine import Oparaca
 from .pb.oprc import OprcFunctionBase, InvocationRequest, InvocationResponse, ObjectInvocationRequest
 
 

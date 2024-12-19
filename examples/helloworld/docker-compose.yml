@@ -32,6 +32,9 @@ services:
     image: fullstorydev/grpcui
     network_mode: host
     command:
+      - -plaintext
+      - -port 
+      - '18080' 
       - localhost:10000
   
   hello-fn:

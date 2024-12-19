@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import sys
-import yaml
 from .__init__ import main, oaas
 
 if __name__ == '__main__':

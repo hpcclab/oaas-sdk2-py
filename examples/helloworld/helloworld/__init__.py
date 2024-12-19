@@ -12,7 +12,7 @@ from oaas_sdk2_py import BaseObject, Oparaca, start_grpc_server, InvocationReque
 from oaas_sdk2_py.config import OprcConfig
 from oaas_sdk2_py.engine import InvocationContext, logger
 from oaas_sdk2_py.model import ObjectMeta
-from oaas_sdk2_py.pb.oprc import ResponseStatus
+from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, ResponseStatus
 
 oaas = Oparaca(config=OprcConfig())
 greeter = oaas.new_cls(pkg="example", name="hello")
@@ -48,7 +48,7 @@ class Greeter(BaseObject):
         )
 
     @greeter.func()
-    async def greet(self,  req: InvocationRequest):
+    async def greet(self,  req: ObjectInvocationRequest):
         if len(req.payload) == 0:
             name = "world"
         else:
@@ -68,7 +68,7 @@ class Greeter(BaseObject):
     #     friend.greet()
 
     @greeter.func()
-    async def change_intro(self, req: InvocationRequest):
+    async def change_intro(self, req: ObjectInvocationRequest):
         if len(req.payload) > 0:
             payloads = json.loads(req.payload)
             await self.set_intro(payloads.get("intro", "How are you?"))
