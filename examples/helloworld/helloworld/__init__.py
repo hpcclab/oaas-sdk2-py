@@ -8,9 +8,9 @@ from importlib.metadata import metadata
 from fastapi import FastAPI
 from tsidpy import TSID
 
-from oaas_sdk2_py import BaseObject, Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
+from oaas_sdk2_py import Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.engine import InvocationContext, logger
+from oaas_sdk2_py.engine import InvocationContext, logger, BaseObject
 from oaas_sdk2_py.model import ObjectMeta
 from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, ResponseStatus
 

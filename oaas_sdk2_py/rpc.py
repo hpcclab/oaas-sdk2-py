@@ -30,3 +30,14 @@ class RpcManager:
         return (f"{self.gateway_addr}/class/{obj_meta.cls}"
                 f"/partitions/{obj_meta.partition_id}"
                 f"/obj/{obj_meta.obj_id}/func/{fn}")
+        
+        
+        
+        # o1 = class1()
+        # o1.state = class2()
+        # o1.foo = fn {
+        #     var o2 = Oparaca.load(o1.state.id);
+        #     var out = o2.bar("...")
+        #     ....
+        #     o1.state = ...
+        #} 

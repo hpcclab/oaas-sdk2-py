@@ -46,9 +46,17 @@ class ObjectReponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ObjData(betterproto.Message):
+    metadata: "ObjMeta | None" = betterproto.message_field(1, optional=True)
     entries: "dict[int, ValData]" = betterproto.map_field(
-        1, betterproto.TYPE_UINT32, betterproto.TYPE_MESSAGE
+        2, betterproto.TYPE_UINT32, betterproto.TYPE_MESSAGE
     )
+
+
+@dataclass(eq=False, repr=False)
+class ObjMeta(betterproto.Message):
+    cls_id: str = betterproto.string_field(1)
+    partition_id: int = betterproto.uint32_field(2)
+    object_id: int = betterproto.uint64_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -56,22 +64,22 @@ class ValData(betterproto.Message):
     byte: "bytes | None" = betterproto.bytes_field(1, optional=True, group="data")
     crdt_map: "bytes | None" = betterproto.bytes_field(2, optional=True, group="data")
 
-    # @model_validator(mode="after")
-    # def check_oneof(cls, values):
-    #     return cls._validate_field_groups(values)
+    @model_validator(mode="after")
+    def check_oneof(cls, values):
+        return cls._validate_field_groups(values)
 
 
 @dataclass(eq=False, repr=False)
 class SingleObjectRequest(betterproto.Message):
     cls_id: str = betterproto.string_field(1)
-    partition_id: int = betterproto.int32_field(2)
+    partition_id: int = betterproto.uint32_field(2)
     object_id: int = betterproto.uint64_field(3)
 
 
 @dataclass(eq=False, repr=False)
 class SingleKeyRequest(betterproto.Message):
     cls_id: str = betterproto.string_field(1)
-    partition_id: int = betterproto.int32_field(2)
+    partition_id: int = betterproto.uint32_field(2)
     object_id: int = betterproto.uint64_field(3)
     key: int = betterproto.uint32_field(4)
 

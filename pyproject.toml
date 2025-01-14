@@ -6,7 +6,7 @@ authors = ["Pawissanutt <pawissanutt@gmail.com>"]
 readme = "README.adoc"
 
 [tool.poetry.dependencies]
-python = "<4.0, >=3.11"
+python = "<4.0, >=3.10"
 grpcio-tools = "^1.67.1"
 asyncio = "^3.4.3"
 tsidpy = "^1.1.5"

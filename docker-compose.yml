@@ -1,0 +1,68 @@
+services:
+
+  gateway:
+    image: harbor.129.114.109.85.nip.io/oaas/gateway
+    # network_mode: host
+    depends_on:
+      - dev-pm
+    ports:
+      - 10000:10000
+    environment:
+      HTTP_PORT: 10000
+      RUST_LOG: INFO
+      OPRC_PM_URI: http://dev-pm:10002
+      OPRC_MAX_POOL_SIZE: 256
+
+
+  odgm:
+    # network_mode: host
+    image: harbor.129.114.109.85.nip.io/oaas/odgm
+    ports:
+      - 10001:10001
+    environment:
+      ODGM_LOG: DEBUG,openraft=info,zenoh=info,h2=warn
+      ODGM_HTTP_PORT: 10001
+      ODGM_NODE_ID: 1
+      ODGM_COLLECTION: |
+        [
+          {"name":"example.hello","partition_count":1,"replica_count":1,"shard_assignments":[{"primary": 1, "replica":[1],"shard_ids":[1]}], "shard_type":"raft","options":{}}
+        ]
+
+  dev-pm:
+    # network_mode: host
+    image: harbor.129.114.109.85.nip.io/oaas/dev-pm
+    ports:
+      - 10002:10002
+    environment:
+      HTTP_PORT: 10002
+      RUST_LOG: INFO
+      PM_CLS_LIST: example.hello!new=http://hello-fn:8080|greet=http://hello-fn:8080|talk=http://hello-fn:8080|change_intro=http://hello-fn:8080
+
+  # grpcui:
+  #   image: fullstorydev/grpcui
+  #   network_mode: host
+  #   command:
+  #     - -plaintext
+  #     - -port 
+  #     - '18080' 
+  #     - localhost:10000
+  
+  hello-fn:
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
+      # args:
+      #   APP_DIR: helloworld
+    command: "'poetry sync && poetry run python -m examples.helloworld.helloworld'"
+    entrypoint: ["/bin/bash", "-c"]
+    image: harbor.129.114.109.85.nip.io/oaas/hello-fn-dev
+    environment:
+      OPRC_ODGM_URL: http://odgm:10001
+    volumes:
+      - .:/app
+      - poetry-cache:/app/.cache
+      - local:/app/.local
+
+volumes:
+  poetry-cache:
+  local:
