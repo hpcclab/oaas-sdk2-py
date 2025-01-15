@@ -53,16 +53,17 @@ services:
       dockerfile: dev.Dockerfile
       # args:
       #   APP_DIR: helloworld
-    command: "'poetry sync && poetry run python -m examples.helloworld.helloworld'"
+    command: "'poetry install && poetry run python -m examples.helloworld.helloworld'"
     entrypoint: ["/bin/bash", "-c"]
     image: harbor.129.114.109.85.nip.io/oaas/hello-fn-dev
     environment:
       OPRC_ODGM_URL: http://odgm:10001
+      POETRY_VIRTUALENVS_PATH: /opt/venvs
     volumes:
       - .:/app
       - poetry-cache:/app/.cache
-      - local:/app/.local
+      - envs:/opt/venvs
 
 volumes:
   poetry-cache:
-  local:
+  envs:
