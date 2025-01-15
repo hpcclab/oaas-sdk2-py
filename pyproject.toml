@@ -16,6 +16,7 @@ grpcio = "^1.67.1"
 pydantic-settings = "^2.6.1"
 betterproto = {extras = ["compiler"], version = ">=2.0.0b7"}
 pyyaml = "^6.0.2"
+eclipse-zenoh= "^1.1.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.2"

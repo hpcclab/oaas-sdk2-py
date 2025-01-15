@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from tsidpy import TSID
 
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.data import DataManager, Ref
+from oaas_sdk2_py.data import DataManager, Ref, ZenohDataManager
 from oaas_sdk2_py.model import ObjectMeta, ClsMeta
 from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, InvocationResponse
 from oaas_sdk2_py.repo import MetadataRepo
@@ -122,7 +122,8 @@ class Oparaca:
 
     def init(self):
         logger.debug(f"connect odgm: {self.odgm_url}")
-        self.data = DataManager(self.odgm_url)
+        # self.data = DataManager(self.odgm_url)
+        self.data = ZenohDataManager()
         self.rpc = RpcManager()
 
     def new_cls(self,

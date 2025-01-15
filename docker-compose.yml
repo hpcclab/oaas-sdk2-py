@@ -53,7 +53,7 @@ services:
       dockerfile: dev.Dockerfile
       # args:
       #   APP_DIR: helloworld
-    command: "'poetry install && poetry run python -m examples.helloworld.helloworld'"
+    command: "'poetry sync && poetry run python -m examples.helloworld.helloworld'"
     entrypoint: ["/bin/bash", "-c"]
     image: harbor.129.114.109.85.nip.io/oaas/hello-fn-dev
     environment:

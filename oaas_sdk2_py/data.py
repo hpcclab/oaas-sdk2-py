@@ -2,9 +2,9 @@ import logging
 from typing import Optional, Dict
 from urllib.parse import urlparse
 
-import grpc
 from grpclib.client import Channel
 from pydantic.v1 import HttpUrl
+import zenoh
 
 from oaas_sdk2_py.pb.oprc import DataServiceStub, SingleKeyRequest, SetObjectRequest, ObjData, ValData, \
     SingleObjectRequest
@@ -63,6 +63,62 @@ class DataManager:
             partition_id=partition_id,
             object_id=object_id,)
         )
+        
+        
+
+class ZenohDataManager:
+    session: zenoh.Session
+    
+    def __init__(self):
+        self.session = zenoh.open(config=zenoh.Config()) 
+
+    async def get(self,
+                  cls_id: str,
+                  partition_id: int,
+                  object_id: int,
+                  key: int, ) -> Optional[bytes]:
+        logger.info("get data %s %s %s %s", cls_id, partition_id, object_id, key)
+        resp = self.session.get(f"oprc/{cls_id}/{partition_id}/objects/{object_id}").recv
+        
+        logger.info("resp %s", resp)
+        resp = resp.ok
+        payload = resp.payload
+        obj = ObjData.parse(payload)
+        val = obj.entries[key]
+        match val:
+            case ValData(byte=value):
+                return value
+            case ValData(crdt_map=value):
+                return value
+
+
+    async def set_all(self,
+                      cls_id: str,
+                      partition_id: int,
+                      object_id: int,
+                      data: Dict[int, bytes], ):
+        logger.info("data %s", data)
+        entries = dict((k, ValData(byte=v)) for (k,v) in data.items())
+        obj = ObjData(
+                entries=entries
+            )
+        payload = obj.__bytes__();
+        resp = self.session.get(f"oprc/{cls_id}/{partition_id}/objects/{object_id}/set",
+                                payload=payload).recv
+        logger.info("resp %s", resp)
+        
+
+
+    async def delete(self,
+                     cls_id: str,
+                     partition_id: int,
+                     object_id: int):
+        self.session.delete(f"oprc/{cls_id}/{partition_id}/objects/{object_id}")
+        
+        
+
+
+
 
 
 class Ref:
