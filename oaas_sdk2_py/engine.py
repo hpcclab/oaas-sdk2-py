@@ -57,6 +57,7 @@ class InvocationContext:
         return self.rpc.rpc_call(obj.meta, fn_name, req)
 
     async def commit(self):
+        # TODO update only data that is dirty
         for (k, v) in self.local_obj_dict.items():
             await self.data_manager.set_all(cls_id=v.meta.cls,
                                             partition_id=v.meta.partition_id,

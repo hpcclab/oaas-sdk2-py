@@ -49,8 +49,8 @@ class StateMeta:
         self.name = name
 
 class ClsMeta:
-    func_list: dict[str, FuncMeta] = {}
-    state_list: dict[int, StateMeta] = {}
+    func_list: dict[str, FuncMeta]
+    state_list: dict[int, StateMeta]
 
     def __init__(self,
                  name: Optional[str],
@@ -60,6 +60,8 @@ class ClsMeta:
         self.pkg = pkg
         self.cls_id = f"{pkg}.{name}"
         self.update = update
+        self.func_list = {}
+        self.state_list = {}
 
     def __call__(self, cls):
         if self.name is None or self.name == '':

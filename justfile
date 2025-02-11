@@ -1,4 +1,6 @@
 
+compose cri="docker":
+    {{cri}} compose up -d
 
 protoc:
     poetry run python -m grpc_tools.protoc \
@@ -8,6 +10,8 @@ protoc:
       ./protos/oprc-data.proto \
       ./protos/oprc-invoke.proto
 
+restart-func cri="docker":
+    {{cri}} compose restart hello-fn
 
 step-1:
   echo "{}" | http POST :10000/api/class/example.hello/*/invokes/new

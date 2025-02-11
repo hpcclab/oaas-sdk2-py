@@ -67,9 +67,12 @@ services:
     command: "'poetry sync && poetry run python -m examples.helloworld.helloworld'"
     entrypoint: ["/bin/bash", "-c"]
     image: harbor.129.114.109.85.nip.io/oaas/hello-fn-dev
+    ports:
+      - "10002:8080"
     environment:
       OPRC_ODGM_URL: http://odgm:10001
       POETRY_VIRTUALENVS_PATH: /opt/venvs
+      LOG_LEVEL: DEBUG
     volumes:
       - .:/app
       - poetry-cache:/app/.cache
