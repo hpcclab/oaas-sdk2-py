@@ -25,7 +25,7 @@ class InvocationContext:
                  data: DataManager, ):
         self.partition_id = partition_id
         self.rpc = rpc
-        self.data = data
+        self.data_manager = data
 
     def create_empty_object(self, cls_meta: ClsMeta):
         obj_id = TSID.create().number
@@ -58,10 +58,10 @@ class InvocationContext:
 
     async def commit(self):
         for (k, v) in self.local_obj_dict.items():
-            await self.data.set_all(cls_id=v.meta.cls,
-                                    partition_id=v.meta.partition_id,
-                                    object_id=v.meta.obj_id,
-                                    data=v.state)
+            await self.data_manager.set_all(cls_id=v.meta.cls,
+                                            partition_id=v.meta.partition_id,
+                                            object_id=v.meta.obj_id,
+                                            data=v.state)
 
 
 class BaseObject:
@@ -93,7 +93,7 @@ class BaseObject:
     async def get_data(self, index: int) -> bytes:
         if index in self._state:
             return self._state[index]
-        raw = await self.ctx.data.get(self.meta.cls, self.meta.partition_id, self.meta.obj_id, index)
+        raw = await self.ctx.data_manager.get(self.meta.cls, self.meta.partition_id, self.meta.obj_id, index)
         self._state[index] = raw
         return raw
 
@@ -122,8 +122,8 @@ class Oparaca:
 
     def init(self):
         logger.debug(f"connect odgm: {self.odgm_url}")
-        # self.data = DataManager(self.odgm_url)
-        self.data = ZenohDataManager()
+        self.data = DataManager(self.odgm_url)
+        # self.data = ZenohDataManager()
         self.rpc = RpcManager()
 
     def new_cls(self,

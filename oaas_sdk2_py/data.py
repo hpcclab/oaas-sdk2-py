@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, Dict
 from urllib.parse import urlparse
 
@@ -77,10 +79,10 @@ class ZenohDataManager:
                   partition_id: int,
                   object_id: int,
                   key: int, ) -> Optional[bytes]:
-        logger.info("get data %s %s %s %s", cls_id, partition_id, object_id, key)
+        logger.debug("get data %s %s %s %s", cls_id, partition_id, object_id, key)
         resp = self.session.get(f"oprc/{cls_id}/{partition_id}/objects/{object_id}").recv
         
-        logger.info("resp %s", resp)
+        logger.debug("resp %s", resp)
         resp = resp.ok
         payload = resp.payload
         obj = ObjData.parse(payload)
@@ -97,7 +99,7 @@ class ZenohDataManager:
                       partition_id: int,
                       object_id: int,
                       data: Dict[int, bytes], ):
-        logger.info("data %s", data)
+        logger.debug("data %s", data)
         entries = dict((k, ValData(byte=v)) for (k,v) in data.items())
         obj = ObjData(
                 entries=entries

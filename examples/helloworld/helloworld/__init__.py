@@ -2,8 +2,8 @@ import asyncio
 import json
 import logging
 import os
-import sys
-from importlib.metadata import metadata
+import random
+import string
 
 from fastapi import FastAPI
 from tsidpy import TSID
@@ -35,16 +35,20 @@ class Greeter(BaseObject):
 
     @greeter.func(stateless=True)
     async def new(self, req: InvocationRequest):
-        if len(req.payload) == 0:
-            await self.set_intro("How are you?")
-        else:
-            payloads = json.loads(req.payload)
-            await self.set_intro(payloads.get("intro", "How are you?"))
+        payloads = json.loads(req.payload) if len(req.payload) > 0 else {}
+        await self.set_intro(payloads.get("intro", "How are you?"))
         tsid = TSID(self.meta.obj_id)
         resp = f'{{"id":{self.meta.obj_id},"tsid":"{tsid.to_string()}"}}'
         return InvocationResponse(
             status=ResponseStatus.OKAY,
             payload=resp.encode()
+        )
+        
+    @greeter.func(stateless=True)
+    async def echo(self, req: InvocationRequest):
+        return InvocationResponse(
+            status=ResponseStatus.OKAY,
+            payload=req.payload
         )
 
     @greeter.func()
@@ -77,14 +81,53 @@ class Greeter(BaseObject):
         )
 
 
-app = FastAPI()
-router = oaas.build_router()
-app.include_router(router)
+record = oaas.new_cls(pkg="example", name="record")
+
+
+
+def generate_text(num):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for _ in range(num))
+
+@record
+class Record(BaseObject):
+    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+        super().__init__(meta, ctx)
+
+    @record.data_getter(index=0)
+    async def get_record_data(self, raw: bytes=None) -> dict:
+        return json.loads(raw.decode("utf-8"))
+
+
+    @record.data_setter(index=0)
+    async def set_record_data(self, data: dict) -> bytes:
+        return json.dumps(data).encode("utf-8")
+
+
+    @record.func()
+    async def random(self, req: InvocationRequest):
+        payloads = json.loads(req.payload) if len(req.payload) > 0 else {}
+        entries = int(payloads.get('ENTRIES', '10'))
+        keys = int(payloads.get('KEYS', '10'))
+        values = int(payloads.get('VALUES', '10'))
+        data = {}
+        for _ in range(entries):
+            data[generate_text(keys)] = generate_text(values)
+        raw = await self.set_record_data(data)
+        return InvocationResponse(
+            status=ResponseStatus.OKAY,
+            payload=raw
+        )
+
+
+
+
+# app = FastAPI()
+# router = oaas.build_router()
+# app.include_router(router)
 
 
 async def main(port=8080):
-    level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO"))
-    logging.basicConfig(level=level)
     server = await start_grpc_server(oaas, port=port)
     logger.info(f'Serving on {port}')
     await server.wait_closed()

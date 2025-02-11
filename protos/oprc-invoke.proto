@@ -1,8 +1,12 @@
 syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "org.hpcclab.oaas.proto.v2";
+
 package oprc;
 
 message ObjectInvocationRequest{
-    int32 partition_id = 1;
+    uint32 partition_id = 1;
     uint64 object_id = 2;
     string cls_id = 3;
     string fn_id = 4;
@@ -25,7 +29,9 @@ message InvocationResponse{
 
 enum ResponseStatus{
     OKAY=0;
-    ERROR=1;
+    INVALID_REQUEST=1;
+    APP_ERROR=2;
+    SYSTEM_ERROR=3;
 }
 
 service OprcFunction {

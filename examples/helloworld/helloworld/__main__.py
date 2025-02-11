@@ -1,12 +1,19 @@
 import asyncio
 import json
+import logging
 import os
 import sys
 from .__init__ import main, oaas
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+level = logging.getLevelName(LOG_LEVEL)
+logging.basicConfig(level=level)
 
 if __name__ == '__main__':
     os.environ.setdefault("OPRC_ODGM_URL", "http://localhost:10000")
     if sys.argv.__len__() > 1 and sys.argv[1] == "gen":
         oaas.meta_repo.print_pkg()
     else:
-        asyncio.run(main())
+        os.environ.setdefault("HTTP_PORT", "8080")
+        port = int(os.environ.get("HTTP_PORT"))
+        asyncio.run(main(port))
