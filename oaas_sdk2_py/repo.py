@@ -33,4 +33,4 @@ class MetadataRepo:
             print("---")
 
     def get_cls_meta(self, cls_id: str) -> ClsMeta:
-        return self.cls_dict[cls_id]
+        return self.cls_dict.get(cls_id)
