@@ -20,7 +20,9 @@ from pydantic.dataclasses import rebuild_dataclass
 
 class ResponseStatus(betterproto.Enum):
     OKAY = 0
-    ERROR = 1
+    INVALID_REQUEST = 1
+    APP_ERROR = 2
+    SYSTEM_ERROR = 3
 
     @classmethod
     def __get_pydantic_core_schema__(cls, _source_type, _handler):
@@ -35,12 +37,30 @@ class EmptyResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class StatsRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class StatsResponse(betterproto.Message):
+    shards: "list[ShardStats]" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ShardStats(betterproto.Message):
+    collection: str = betterproto.string_field(1)
+    partition_id: int = betterproto.uint32_field(2)
+    shard_id: int = betterproto.uint64_field(3)
+    count: int = betterproto.uint64_field(4)
+
+
+@dataclass(eq=False, repr=False)
 class ValueResponse(betterproto.Message):
     value: "ValData" = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
-class ObjectReponse(betterproto.Message):
+class ObjectResponse(betterproto.Message):
     obj: "ObjData" = betterproto.message_field(1)
 
 
@@ -102,8 +122,53 @@ class SetObjectRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CreateCollectionRequest(betterproto.Message):
+    name: str = betterproto.string_field(1)
+    partition_count: int = betterproto.int32_field(2)
+    replica_count: int = betterproto.int32_field(3)
+    shard_assignments: "list[ShardAssignment]" = betterproto.message_field(4)
+    shard_type: str = betterproto.string_field(6)
+    options: "dict[str, str]" = betterproto.map_field(
+        7, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    invocations: "InvocationRoute | None" = betterproto.message_field(8, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class ShardAssignment(betterproto.Message):
+    primary: "int | None" = betterproto.uint64_field(1, optional=True)
+    replica: "list[int]" = betterproto.uint64_field(2)
+    shard_ids: "list[int]" = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class InvocationRoute(betterproto.Message):
+    fn_routes: "dict[str, FuncInvokeRoute]" = betterproto.map_field(
+        1, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
+    )
+
+
+@dataclass(eq=False, repr=False)
+class FuncInvokeRoute(betterproto.Message):
+    url: str = betterproto.string_field(1)
+    stateless: bool = betterproto.bool_field(2)
+    standby: bool = betterproto.bool_field(3)
+    active_group: "list[int]" = betterproto.uint64_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class CreateCollectionResponse(betterproto.Message):
+    name: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ShardGroup(betterproto.Message):
+    shard_ids: "list[int]" = betterproto.uint64_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class ObjectInvocationRequest(betterproto.Message):
-    partition_id: int = betterproto.int32_field(1)
+    partition_id: int = betterproto.uint32_field(1)
     object_id: int = betterproto.uint64_field(2)
     cls_id: str = betterproto.string_field(3)
     fn_id: str = betterproto.string_field(4)
@@ -137,11 +202,11 @@ class DataServiceStub(betterproto.ServiceStub):
         timeout: "float | None" = None,
         deadline: "Deadline | None" = None,
         metadata: "MetadataLike | None" = None
-    ) -> "ObjectReponse":
+    ) -> "ObjectResponse":
         return await self._unary_unary(
             "/oprc.DataService/Get",
             single_object_request,
-            ObjectReponse,
+            ObjectResponse,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -222,11 +287,28 @@ class DataServiceStub(betterproto.ServiceStub):
         timeout: "float | None" = None,
         deadline: "Deadline | None" = None,
         metadata: "MetadataLike | None" = None
-    ) -> "ObjectReponse":
+    ) -> "ObjectResponse":
         return await self._unary_unary(
             "/oprc.DataService/Merge",
             set_object_request,
-            ObjectReponse,
+            ObjectResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def stats(
+        self,
+        stats_request: "StatsRequest",
+        *,
+        timeout: "float | None" = None,
+        deadline: "Deadline | None" = None,
+        metadata: "MetadataLike | None" = None
+    ) -> "StatsResponse":
+        return await self._unary_unary(
+            "/oprc.DataService/Stats",
+            stats_request,
+            StatsResponse,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -273,7 +355,7 @@ class DataServiceBase(ServiceBase):
 
     async def get(
         self, single_object_request: "SingleObjectRequest"
-    ) -> "ObjectReponse":
+    ) -> "ObjectResponse":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def get_value(
@@ -292,11 +374,14 @@ class DataServiceBase(ServiceBase):
     async def set_value(self, set_key_request: "SetKeyRequest") -> "EmptyResponse":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
-    async def merge(self, set_object_request: "SetObjectRequest") -> "ObjectReponse":
+    async def merge(self, set_object_request: "SetObjectRequest") -> "ObjectResponse":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def stats(self, stats_request: "StatsRequest") -> "StatsResponse":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def __rpc_get(
-        self, stream: "grpclib.server.Stream[SingleObjectRequest, ObjectReponse]"
+        self, stream: "grpclib.server.Stream[SingleObjectRequest, ObjectResponse]"
     ) -> None:
         request = await stream.recv_message()
         response = await self.get(request)
@@ -331,10 +416,17 @@ class DataServiceBase(ServiceBase):
         await stream.send_message(response)
 
     async def __rpc_merge(
-        self, stream: "grpclib.server.Stream[SetObjectRequest, ObjectReponse]"
+        self, stream: "grpclib.server.Stream[SetObjectRequest, ObjectResponse]"
     ) -> None:
         request = await stream.recv_message()
         response = await self.merge(request)
+        await stream.send_message(response)
+
+    async def __rpc_stats(
+        self, stream: "grpclib.server.Stream[StatsRequest, StatsResponse]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.stats(request)
         await stream.send_message(response)
 
     def __mapping__(self) -> "dict[str, grpclib.const.Handler]":
@@ -343,7 +435,7 @@ class DataServiceBase(ServiceBase):
                 self.__rpc_get,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 SingleObjectRequest,
-                ObjectReponse,
+                ObjectResponse,
             ),
             "/oprc.DataService/GetValue": grpclib.const.Handler(
                 self.__rpc_get_value,
@@ -373,7 +465,13 @@ class DataServiceBase(ServiceBase):
                 self.__rpc_merge,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 SetObjectRequest,
-                ObjectReponse,
+                ObjectResponse,
+            ),
+            "/oprc.DataService/Stats": grpclib.const.Handler(
+                self.__rpc_stats,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                StatsRequest,
+                StatsResponse,
             ),
         }
 
@@ -422,11 +520,14 @@ class OprcFunctionBase(ServiceBase):
         }
 
 
+rebuild_dataclass(StatsResponse)  # type: ignore
 rebuild_dataclass(ValueResponse)  # type: ignore
-rebuild_dataclass(ObjectReponse)  # type: ignore
+rebuild_dataclass(ObjectResponse)  # type: ignore
 rebuild_dataclass(ObjData)  # type: ignore
 rebuild_dataclass(SetKeyRequest)  # type: ignore
 rebuild_dataclass(SetObjectRequest)  # type: ignore
+rebuild_dataclass(CreateCollectionRequest)  # type: ignore
+rebuild_dataclass(InvocationRoute)  # type: ignore
 rebuild_dataclass(ObjectInvocationRequest)  # type: ignore
 rebuild_dataclass(InvocationRequest)  # type: ignore
 rebuild_dataclass(InvocationResponse)  # type: ignore

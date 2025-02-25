@@ -1,6 +1,4 @@
 import logging
-import sys
-import traceback
 
 from grpclib import Status, GRPCError
 from grpclib.server import Server

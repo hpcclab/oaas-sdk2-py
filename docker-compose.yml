@@ -19,11 +19,11 @@ services:
     image: ghcr.io/pawissanutt/oaas/odgm
     ports:
       - "10001:10001"
-      - "17447:17447"
+      # - "17447:17447"
     environment:
       ODGM_LOG: DEBUG,openraft=info,h2=warn
       ODGM_HTTP_PORT: 10001
-      OPRC_ZENOH_PORT: 17447
+      # OPRC_ZENOH_PORT: 17447
       ODGM_NODE_ID: 1
       ODGM_COLLECTION: |
         [
@@ -47,6 +47,16 @@ services:
           }
         ]
 
+  router:
+    deploy:
+      replicas: 1
+    image: ghcr.io/pawissanutt/oaas/router
+    # network_mode: "host"
+    ports:
+      - "7447:7447"
+    environment:
+      OPRC_LOG: "INFO"
+      OPRC_ZENOH_PORT: "7447"
 #  dev-pm:
 #    # network_mode: host
 #    image: ghcr.io/pawissanutt/oaas/dev-pm
@@ -61,22 +71,16 @@ services:
   hello-fn:
     build:
       context: .
-      dockerfile: dev.Dockerfile
-      # args:
-      #   APP_DIR: helloworld
-    command: "'poetry sync && poetry run python -m examples.helloworld.helloworld'"
-    entrypoint: ["/bin/bash", "-c"]
-#    image: harbor.129.114.109.85.nip.io/oaas/hello-fn-dev
+      dockerfile: examples/Dockerfile
+      args:
+        APP_DIR: examples.helloworld
+    # command: "'uv sync && uv run python -m examples.helloworld'"
+    # entrypoint: ["/bin/bash", "-c"]
     ports:
       - "10002:8080"
     environment:
       OPRC_ODGM_URL: http://odgm:10001
-      POETRY_VIRTUALENVS_PATH: /opt/venvs
       LOG_LEVEL: DEBUG
-    volumes:
-      - .:/app
-      - poetry-cache:/app/.cache
-      - envs:/opt/venvs
 
 volumes:
   poetry-cache:

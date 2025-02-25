@@ -1,14 +1,12 @@
 import logging
 import os
 from typing import Dict, Optional
-
-from fastapi import APIRouter
 from tsidpy import TSID
 
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.data import DataManager, Ref, ZenohDataManager
+from oaas_sdk2_py.data import DataManager, Ref
 from oaas_sdk2_py.model import ObjectMeta, ClsMeta
-from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, InvocationResponse
+from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest
 from oaas_sdk2_py.repo import MetadataRepo
 from oaas_sdk2_py.rpc import RpcManager
 
@@ -140,41 +138,3 @@ class Oparaca:
         return InvocationContext(
             partition_id if partition_id is not None else self.default_partition_id,
             self.rpc, self.data)
-
-    def _rest_invoke_object(self,
-                            cls: str,
-                            fn: str,
-                            obj_id: Optional[str],
-                            partition_id: int,
-                            payload: bytes) -> Optional[InvocationResponse]:
-        meta = self.meta_repo.cls_dict[cls]
-        if meta is None:
-            return None
-        fn_meta = meta.func_list[fn]
-        if fn_meta is None:
-            return None
-        ctx = self.new_context(partition_id)
-        obj_id = TSID.from_string(obj_id).number
-        obj = ctx.create_object(meta, obj_id)
-        request = ObjectInvocationRequest(
-            cls_id=cls,
-            fn_id=fn,
-            object_id=obj_id,
-            partition_id=partition_id,
-            payload=payload,
-        )
-        payload = fn_meta.func(obj, request)
-        return InvocationResponse(payload=payload)
-
-    def _rest_invoke_function(self,
-                              cls: str,
-                              fn: str,
-                              partition_id: int,
-                              payload: bytes):
-        return self._rest_invoke_object(cls, fn, None, partition_id, payload)
-
-    def build_router(self) -> APIRouter:
-        router = APIRouter()
-        router.post("/class/{cls}/partitions/{partition_key}/obj/{obj_id}/func/{fn}")(self._rest_invoke_object)
-        router.post("/class/{cls}/partitions/{partition_key}/func/{fn}")(self._rest_invoke_function)
-        return router

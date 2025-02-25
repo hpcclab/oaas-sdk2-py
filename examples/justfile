@@ -1,7 +1,6 @@
 cri:="podman"
 
 build:
-    poetry lock
     {{cri}} compose build
 #    {{cri}} build . --build-arg APP_DIR=helloword -t harbor.129.114.109.85.nip.io/oaas/hello-fn
 

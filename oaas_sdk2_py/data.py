@@ -43,7 +43,7 @@ class DataManager:
                       partition_id: int,
                       object_id: int,
                       data: Dict[int, bytes], ):
-        logger.info("data %s", data)
+        logger.debug("set_all %s", data)
         obj = dict((k, ValData(byte=v)) for (k,v) in data.items())
         req = SetObjectRequest(
             cls_id=cls_id,

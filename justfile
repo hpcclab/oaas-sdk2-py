@@ -1,14 +1,26 @@
 
-compose cri="docker":
-    {{cri}} compose up -d
+compose:
+  docker compose pull
+  docker compose up -d --build
+
+    
+compose-podman :
+  podman compose pull
+  podman compose up -d --build
 
 protoc:
-    poetry run python -m grpc_tools.protoc \
-      -Ioaas_sdk2_py/pb=./protos \
-      --python_betterproto_out=oaas_sdk2_py/pb \
-      --python_betterproto_opt=pydantic_dataclasses,typing.310 \
-      ./protos/oprc-data.proto \
-      ./protos/oprc-invoke.proto
+  uv run python -m grpc_tools.protoc \
+    -Ioaas_sdk2_py/pb=./protos \
+    --python_betterproto_out=oaas_sdk2_py/pb \
+    --python_betterproto_opt=pydantic_dataclasses,typing.310 \
+    ./protos/oprc-data.proto \
+    ./protos/oprc-invoke.proto
+
+
+publish:
+  rm -rf dist
+  uv build
+  uvx twine upload dist/*
 
 restart-func cri="docker":
     {{cri}} compose restart hello-fn

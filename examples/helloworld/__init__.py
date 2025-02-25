@@ -1,11 +1,7 @@
-import asyncio
 import json
-import logging
-import os
 import random
 import string
 
-from fastapi import FastAPI
 from tsidpy import TSID
 
 from oaas_sdk2_py import Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
@@ -36,9 +32,13 @@ class Greeter(BaseObject):
     @greeter.func(stateless=True)
     async def new(self, req: InvocationRequest):
         payloads = json.loads(req.payload) if len(req.payload) > 0 else {}
+        id = payloads.get("id", 0)
+        if id == 0:
+            id = TSID.create().number
+        self.meta.obj_id = id
         await self.set_intro(payloads.get("intro", "How are you?"))
-        tsid = TSID(self.meta.obj_id)
-        resp = f'{{"id":{self.meta.obj_id},"tsid":"{tsid.to_string()}"}}'
+        # tsid = TSID(self.meta.obj_id)
+        resp = f'{{"id":{self.meta.obj_id}}}'
         return InvocationResponse(
             status=ResponseStatus.OKAY,
             payload=resp.encode()
@@ -119,12 +119,6 @@ class Record(BaseObject):
             payload=raw
         )
 
-
-
-
-# app = FastAPI()
-# router = oaas.build_router()
-# app.include_router(router)
 
 
 async def main(port=8080):
