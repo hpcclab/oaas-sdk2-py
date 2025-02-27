@@ -8,10 +8,10 @@
 
 ### Features
 
-- [x] Load data  
-- [x] Update data  
+- [x] read data  
+- [x] Write data  
 - [x] Serve gRPC for invocation  
-- [ ] Call gRPC to invoke a foreign function
+- [ ] Call gRPC to invoke a foreign function 
 - [ ] Implement thread Pool  
 - [ ] Connect to Zenoh  
 - [ ] Device Agent:  
