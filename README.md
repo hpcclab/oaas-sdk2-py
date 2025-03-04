@@ -13,12 +13,14 @@ Python Lib for OaaS-IoT
 ```bash
 uv sync
 ./.venv/Scripts/activate
+# or
+source ./.venv/bin/activate # for Mac or Linux 
 ```
 
 ## Run Example with Docker Compose
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 # invoke new function of 'example.hello' class
 echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p 
 
