@@ -19,12 +19,14 @@ services:
     image: ghcr.io/pawissanutt/oaas-rs/odgm
     ports:
       - "10001:10001"
-      # - "17447:17447"
+      - "17447:17447"
     environment:
       ODGM_LOG: DEBUG,openraft=info,h2=warn
       ODGM_HTTP_PORT: 10001
-      # OPRC_ZENOH_PORT: 17447
+      OPRC_ZENOH_PORT: 17447
+      ODGM_MAX_SESSIONS: 1
       ODGM_NODE_ID: 1
+      OPRC_ZENOH_PEERS: tcp/router:7447
       ODGM_COLLECTION: |
         [
           {"name":"example.hello","partition_count":1,"replica_count":1,"shard_assignments":[{"primary": 1, "replica":[1],"shard_ids":[1]}], 
