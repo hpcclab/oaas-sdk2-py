@@ -30,7 +30,7 @@ step-1:
   echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
 
 step-1-verify id="1":
-  oprc-cli o g example.hello 0 {{id}} -z tcp/127.0.0.1:17447 --peer
+  oprc-cli o g example.hello 0 {{id}} -z tcp/127.0.0.1:7447
 
 step-2 id="1":
   #echo "{}" | http POST :10000/api/class/example.hello/0/objects/{{id}}/invokes/greet
