@@ -48,11 +48,16 @@ class InvocationContext:
         self.remote_obj_dict[meta] = obj
         return obj
 
-    def rpc_call(self,
+    def obj_rpc(self,
                  obj,
                  fn_name: str,
                  req: ObjectInvocationRequest, ):
-        return self.rpc.rpc_call(obj.meta, fn_name, req)
+        obj_meta = obj.meta
+        req.cls_id = obj_meta.cls
+        req.partition_id = obj_meta.partition_id
+        req.obj_id = obj_meta.obj_id
+        req.fn_id = fn_name
+        return self.rpc.obj_rpc(obj.meta, fn_name, req)
 
     async def commit(self):
         # TODO update only data that is dirty
@@ -123,7 +128,7 @@ class Oparaca:
         logger.debug(f"connect odgm: {self.odgm_url}")
         self.data = DataManager(self.odgm_url)
         # self.data = ZenohDataManager()
-        self.rpc = RpcManager()
+        self.rpc = RpcManager(self.odgm_url)
 
     def new_cls(self,
                 name: Optional[str] = None,

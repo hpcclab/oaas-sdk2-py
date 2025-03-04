@@ -1,10 +1,10 @@
-from typing import Any
-
-import grpc
 from pydantic.v1 import HttpUrl
-
-from oaas_sdk2_py.model import ObjectMeta
-from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, OprcFunctionStub
+from oaas_sdk2_py.pb.oprc import (
+    InvocationRequest,
+    InvocationResponse,
+    ObjectInvocationRequest,
+    OprcFunctionStub,
+)
 from grpclib.client import Channel
 
 
@@ -13,29 +13,23 @@ class ArgWrapper:
         self.args = args
         self.kwargs = kwargs
 
+
 class RpcManager:
-    def __init__(self, addr: HttpUrl ):
+    def __init__(self, addr: HttpUrl):
         channel = Channel(addr.host, int(addr.port))
         self.client = OprcFunctionStub(channel)
 
-    def rpc_call(self,
-                 obj_meta: ObjectMeta,
-                 fn_name: str,
-                 req: ObjectInvocationRequest,):
-        print("target:", obj_meta)
-        print("fn_name:", fn_name)
+    async def obj_rpc(
+        self,
+        req: ObjectInvocationRequest,
+    ) -> InvocationResponse:
         print("req:", req)
-        return {}
+        return await self.client.invoke_obj(req)
 
-    def resolve_addr(self,
-                     obj_meta: ObjectMeta,
-                     fn: str) -> str:
-        return (f"{self.gateway_addr}/class/{obj_meta.cls}"
-                f"/partitions/{obj_meta.partition_id}"
-                f"/obj/{obj_meta.obj_id}/func/{fn}")
-        
-        
-        
+    async def fn_rpc(self, req: InvocationRequest) -> InvocationResponse:
+        print("req:", req)
+        return await self.client.invoke_fn(req)
+
         # o1 = class1()
         # o1.state = class2()
         # o1.foo = fn {
@@ -43,4 +37,4 @@ class RpcManager:
         #     var out = o2.bar("...")
         #     ....
         #     o1.state = ...
-        #} 
+        # }

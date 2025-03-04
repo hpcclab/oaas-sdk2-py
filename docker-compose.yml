@@ -16,7 +16,7 @@ services:
 
   odgm:
     # network_mode: host
-    image: ghcr.io/pawissanutt/oaas/odgm
+    image: ghcr.io/pawissanutt/oaas-rs/odgm
     ports:
       - "10001:10001"
       # - "17447:17447"
@@ -50,7 +50,7 @@ services:
   router:
     deploy:
       replicas: 1
-    image: ghcr.io/pawissanutt/oaas/router
+    image: ghcr.io/pawissanutt/oaas-rs/router
     # network_mode: "host"
     ports:
       - "7447:7447"

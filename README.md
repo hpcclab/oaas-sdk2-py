@@ -20,14 +20,8 @@ uv sync
 ```bash
 docker compose up -d
 # invoke new function of 'example.hello' class
-echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p 
-
+echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
 ```
-
-### Oprc-CLI
-
-
-
 
 ## TODOs
 
