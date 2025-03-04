@@ -1,9 +1,11 @@
 from typing import Any
 
 import grpc
+from pydantic.v1 import HttpUrl
 
 from oaas_sdk2_py.model import ObjectMeta
-from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest
+from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, OprcFunctionStub
+from grpclib.client import Channel
 
 
 class ArgWrapper:
@@ -12,8 +14,9 @@ class ArgWrapper:
         self.kwargs = kwargs
 
 class RpcManager:
-    def __init__(self):
-        self.gateway_addr = "http://127.0.0.1:8000"
+    def __init__(self, addr: HttpUrl ):
+        channel = Channel(addr.host, int(addr.port))
+        self.client = OprcFunctionStub(channel)
 
     def rpc_call(self,
                  obj_meta: ObjectMeta,

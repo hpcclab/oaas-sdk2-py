@@ -27,6 +27,6 @@ exclude = ["protos"]
 [dependency-groups]
 dev = [
     "psutil>=7.0.0",
-    "pytest>=8.3.4",
+    "pytest>=8.3.5",
 ]
 

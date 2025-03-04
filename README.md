@@ -1,9 +1,36 @@
 # OaaS-SDK2
 
-Python SDK for OaaS
+Python Lib for OaaS-IoT
+
+## Prerequisites
+- cargo (install via [rust](https://rustup.rs/))
+- oprc-cli `cargo install --git https://github.com/pawissanutt/oaas-rs.git oprc-cli`
+- [uv](https://github.com/astral-sh/uv) (python package manager)
+- docker or podman
+
+## Setup
+
+```bash
+uv sync
+./.venv/Scripts/activate
+```
+
+## Run Example with Docker Compose
+
+```bash
+docker compose up -d
+# invoke new function of 'example.hello' class
+echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p 
+
+```
+
+### Oprc-CLI
+
+
 
 
 ## TODOs
+
 
 
 ### Features
