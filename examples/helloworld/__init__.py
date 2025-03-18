@@ -2,18 +2,38 @@ import json
 import random
 import string
 
+from pydantic import BaseModel
 from tsidpy import TSID
 
 from oaas_sdk2_py import Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
 from oaas_sdk2_py.config import OprcConfig
 from oaas_sdk2_py.engine import InvocationContext, logger, BaseObject
 from oaas_sdk2_py.model import ObjectMeta
-from oaas_sdk2_py.pb.oprc import ObjectInvocationRequest, ResponseStatus
+from oaas_sdk2_py.pb.oprc import ResponseStatus
 
 oaas = Oparaca(config=OprcConfig())
 greeter = oaas.new_cls(pkg="example", name="hello")
 
 
+class GreetCreator(BaseModel):
+    id: int = 0
+    intro: str = "How are you?"
+
+class GreetCreatorResponse(BaseModel):
+    id: int
+    
+
+class Greet(BaseModel):
+    name: str = "world"
+    
+
+class GreetResponse(BaseModel):
+    message: str
+    
+
+class UpdateIntro(BaseModel):
+    intro: str = "How are you?"
+    
 @greeter
 class Greeter(BaseObject):
     def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
@@ -30,19 +50,12 @@ class Greeter(BaseObject):
 
 
     @greeter.func(stateless=True)
-    async def new(self, req: InvocationRequest):
-        payloads = json.loads(req.payload) if len(req.payload) > 0 else {}
-        id = payloads.get("id", 0)
-        if id == 0:
-            id = TSID.create().number
-        self.meta.obj_id = id
-        await self.set_intro(payloads.get("intro", "How are you?"))
-        # tsid = TSID(self.meta.obj_id)
-        resp = f'{{"id":{self.meta.obj_id}}}'
-        return InvocationResponse(
-            status=ResponseStatus.OKAY,
-            payload=resp.encode()
-        )
+    async def new(self, req: GreetCreator) -> GreetCreatorResponse:
+        if req.id == 0:
+            req.id = TSID.create().number
+        self.meta.obj_id = req.id
+        await self.set_intro(req.intro)
+        return GreetCreatorResponse(id=self.meta.obj_id)
         
     @greeter.func(stateless=True)
     async def echo(self, req: InvocationRequest):
@@ -52,18 +65,10 @@ class Greeter(BaseObject):
         )
 
     @greeter.func()
-    async def greet(self,  req: ObjectInvocationRequest):
-        if len(req.payload) == 0:
-            name = "world"
-        else:
-            payloads = json.loads(req.payload)
-            name = payloads.get("name", "world")
+    async def greet(self,  req: Greet) -> GreetResponse:
         intro = await self.get_intro()
-        resp = "hello " + name + ". " + intro
-        return InvocationResponse(
-            status=ResponseStatus.OKAY,
-            payload=resp.encode()
-        )
+        resp = "hello " + req.name + ". " + intro
+        return GreetResponse(message=resp)
 
     # @greeter.func()
     # async def talk(self, friend_id: int):
@@ -72,13 +77,8 @@ class Greeter(BaseObject):
     #     friend.greet()
 
     @greeter.func()
-    async def change_intro(self, req: ObjectInvocationRequest):
-        if len(req.payload) > 0:
-            payloads = json.loads(req.payload)
-            await self.set_intro(payloads.get("intro", "How are you?"))
-        return InvocationResponse(
-            status=ResponseStatus.OKAY
-        )
+    async def change_intro(self, req: UpdateIntro):
+        await self.set_intro(req.intro)
 
 
 record = oaas.new_cls(pkg="example", name="record")
@@ -88,6 +88,11 @@ record = oaas.new_cls(pkg="example", name="record")
 def generate_text(num):
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for _ in range(num))
+
+class RandomRequest(BaseModel):
+    entries: int = 10
+    keys: int = 10
+    values: int = 10
 
 @record
 class Record(BaseObject):
@@ -105,14 +110,10 @@ class Record(BaseObject):
 
 
     @record.func()
-    async def random(self, req: InvocationRequest):
-        payloads = json.loads(req.payload) if len(req.payload) > 0 else {}
-        entries = int(payloads.get('ENTRIES', '10'))
-        keys = int(payloads.get('KEYS', '10'))
-        values = int(payloads.get('VALUES', '10'))
+    async def random(self, req: RandomRequest):
         data = {}
-        for _ in range(entries):
-            data[generate_text(keys)] = generate_text(values)
+        for _ in range(req.entries):
+            data[generate_text(req.keys)] = generate_text(req.values)
         raw = await self.set_record_data(data)
         return InvocationResponse(
             status=ResponseStatus.OKAY,

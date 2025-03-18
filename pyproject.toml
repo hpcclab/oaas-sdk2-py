@@ -9,10 +9,10 @@ dependencies = [
     "asyncio>=3.4.3",
     "betterproto[compiler]==2.0.0b7",
     "eclipse-zenoh>=1.2.1",
-    "grpcio-tools>=1.70.0",
-    "grpcio>=1.70.0",
+    "grpcio-tools>=1.71.0",
+    "grpcio>=1.71.0",
     "pydantic>=2.10.6",
-    "pydantic-settings>=2.6.1",
+    "pydantic-settings>=2.8.1",
     "pyyaml>=6.0.2",
     "tsidpy>=1.1.5"
 ]

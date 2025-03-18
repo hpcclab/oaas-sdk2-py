@@ -39,7 +39,7 @@ services:
             },
             "shard_type":"basic","options":{}
           },
-          {"name":"example.record","partition_count":1,"replica_count":1,"shard_assignments":[{"primary": 1, "replica":[1],"shard_ids":[1]}], 
+          {"name":"example.record","partition_count":1,"replica_count":1,"shard_assignments":[{"primary": 1, "replica":[1],"shard_ids":[2]}], 
             "invocations": {
               "fn_routes": {
                 "random": {"url":"http://hello-fn:8080", "stateless": false, "standby": false, "active_group":[]}
@@ -82,7 +82,9 @@ services:
       - "10002:8080"
     environment:
       OPRC_ODGM_URL: http://odgm:10001
-      LOG_LEVEL: DEBUG
+      OPRC_ZENOH_PEERS: tcp/router:7447
+      LOG_LEVEL: INFO
+      RUST_LOG: info
 
 volumes:
   poetry-cache:

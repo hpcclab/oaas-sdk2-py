@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, Dict
@@ -71,27 +72,51 @@ class DataManager:
 class ZenohDataManager:
     session: zenoh.Session
     
-    def __init__(self):
-        self.session = zenoh.open(config=zenoh.Config()) 
+    def __init__(self, peer_url: str):
+        zenoh.init_log_from_env_or("error")
+        logger.debug(f"connect zenoh peer: {peer_url}")
+        conf = {
+            'connect': {
+                'endpoints': [peer_url],
+            },
+            'mode': 'client',
+        }
+        zenoh_config = zenoh.Config.from_json5(json.dumps(conf))
+        self.session = zenoh.open(config=zenoh_config) 
+        self.executor = ThreadPoolExecutor()
 
     async def get(self,
                   cls_id: str,
                   partition_id: int,
                   object_id: int,
                   key: int, ) -> Optional[bytes]:
-        logger.debug("get data %s %s %s %s", cls_id, partition_id, object_id, key)
-        resp = self.session.get(f"oprc/{cls_id}/{partition_id}/objects/{object_id}").recv
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self.executor, self._blocking_get, cls_id, partition_id, object_id, key)
+            
+
+    def _blocking_get(self,
+                  cls_id: str,
+                  partition_id: int,
+                  object_id: int,
+                  key: int, ) -> Optional[bytes]:
         
-        logger.debug("resp %s", resp)
-        resp = resp.ok
-        payload = resp.payload
-        obj = ObjData.parse(payload)
-        val = obj.entries[key]
-        match val:
-            case ValData(byte=value):
-                return value
-            case ValData(crdt_map=value):
-                return value
+        logger.debug("get data %s %s %s %s", cls_id, partition_id, object_id, key)
+        
+        resp = self.session.get(f"oprc/{cls_id}/{partition_id}/objects/{object_id}")
+        for reply in resp:
+            sample = reply.ok
+            if sample is not None:
+                payload = sample.payload
+                obj = ObjData.parse(payload)
+                val = obj.entries[key]
+                match val:
+                    case ValData(byte=value):
+                        return value
+                    case ValData(crdt_map=value):
+                        return value
+            else:
+                logger.error(f"Received (ERROR: '{reply.err.payload.to_string()}')")
+                return None
 
 
     async def set_all(self,
@@ -99,24 +124,50 @@ class ZenohDataManager:
                       partition_id: int,
                       object_id: int,
                       data: Dict[int, bytes], ):
-        logger.debug("data %s", data)
-        entries = dict((k, ValData(byte=v)) for (k,v) in data.items())
-        obj = ObjData(
-                entries=entries
-            )
-        payload = obj.__bytes__();
-        resp = self.session.get(f"oprc/{cls_id}/{partition_id}/objects/{object_id}/set",
-                                payload=payload).recv
-        logger.info("resp %s", resp)
-        
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(self.executor, self._blocking_set_all, cls_id, partition_id, object_id, data)
 
+    def _blocking_set_all(self,
+                          cls_id: str,
+                          partition_id: int,
+                          object_id: int,
+                          data: Dict[int, bytes], ):
+        logger.debug("data %s", data)
+        entries = dict((k, ValData(byte=v)) for (k, v) in data.items())
+        obj = ObjData(
+            entries=entries
+        )
+        payload = obj.__bytes__()
+        resp = self.session.get(f"oprc/{cls_id}/{partition_id}/objects/{object_id}/set",
+                                payload=payload)
+        for reply in resp:
+            try:
+                logger.debug(
+                    f"Received ('{reply.ok.key_expr}': '{reply.ok.payload.to_string()}')"
+                )
+            except:  # noqa: E722
+                logger.error(f"Received (ERROR: '{reply.err.payload.to_string()}')")
+            break
 
     async def delete(self,
                      cls_id: str,
                      partition_id: int,
                      object_id: int):
-        self.session.delete(f"oprc/{cls_id}/{partition_id}/objects/{object_id}")
-        
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(self.executor, self._blocking_delete, cls_id, partition_id, object_id)
+
+    def _blocking_delete(self,
+                         cls_id: str,
+                         partition_id: int,
+                         object_id: int):
+        resp = self.session.delete(f"oprc/{cls_id}/{partition_id}/objects/{object_id}")
+        for reply in resp:
+            try:
+                logger.debug(
+                    f"Received ('{reply.ok.key_expr}': '{reply.ok.payload.to_string()}')"
+                )
+            except:  # noqa: E722
+                logger.error(f"Received (ERROR: '{reply.err.payload.to_string()}')")
         
 
 

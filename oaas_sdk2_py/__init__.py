@@ -3,7 +3,7 @@ import logging
 from grpclib import Status, GRPCError
 from grpclib.server import Server
 
-from .engine import Oparaca
+from .engine import Oparaca, BaseObject
 from .pb.oprc import OprcFunctionBase, InvocationRequest, InvocationResponse, ObjectInvocationRequest
 
 
@@ -24,7 +24,7 @@ class OprcFunction(OprcFunctionBase):
             fn_meta = meta.func_list[invocation_request.fn_id]
             ctx = self.oprc.new_context()
             obj = ctx.create_empty_object(meta)
-            resp = await fn_meta.func(obj, invocation_request)
+            resp = await fn_meta.caller(obj, invocation_request)
             await ctx.commit()
         except Exception as e:
             logging.error("Exception occurred", exc_info=True)
@@ -42,7 +42,7 @@ class OprcFunction(OprcFunctionBase):
             fn_meta = meta.func_list[invocation_request.fn_id]
             ctx = self.oprc.new_context(invocation_request.partition_id)
             obj = ctx.create_object(meta, invocation_request.object_id)
-            resp = await fn_meta.func(obj, invocation_request)
+            resp = await fn_meta.caller(obj, invocation_request)
             await ctx.commit()
         except Exception as e:
             logging.error("Exception occurred", exc_info=True)
