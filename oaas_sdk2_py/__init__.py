@@ -18,7 +18,6 @@ class OprcFunction(OprcFunctionBase):
             if invocation_request.cls_id not in self.oprc.meta_repo.cls_dict:
                 raise GRPCError(Status.NOT_FOUND, message=f"cls_id '{invocation_request.cls_id}' not found")
             meta = self.oprc.meta_repo.get_cls_meta(invocation_request.cls_id)
-            logging.debug("func list %s", meta.func_list)
             if invocation_request.fn_id not in meta.func_list:
                 raise GRPCError(Status.NOT_FOUND, message=f"fn_id '{invocation_request.fn_id}' not found")
             fn_meta = meta.func_list[invocation_request.fn_id]

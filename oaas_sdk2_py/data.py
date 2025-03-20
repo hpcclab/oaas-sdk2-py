@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, Dict
@@ -97,9 +96,16 @@ class ZenohDataManager:
             sample = reply.ok
             if sample is not None:
                 payload = sample.payload
-                obj = ObjData.parse(payload.to_bytes())
-                val = obj.entries[key]
-                match val:
+                if payload is None:
+                    logger.warning("No payload")
+                    return None
+                b = payload.to_bytes()
+                logger.debug(f"Received ('{reply.ok.key_expr}': '{b}')")
+                obj = ObjData().parse(b)
+                logger.debug(f"loaded data '{obj}')")
+                if key not in obj.entries:
+                    return None
+                match obj.entries[key]:
                     case ValData(byte=value):
                         return value
                     case ValData(crdt_map=value):

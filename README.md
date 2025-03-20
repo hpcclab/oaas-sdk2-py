@@ -65,3 +65,4 @@ echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
 
     https://github.com/llucax/python-grpc-benchmark
 
+- There is an error on `oneof`. We need to remove data validation function on `ValData` class after the code generation.

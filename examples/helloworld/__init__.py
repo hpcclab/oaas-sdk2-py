@@ -41,7 +41,7 @@ class Greeter(BaseObject):
 
     @greeter.data_getter(index=0)
     async def get_intro(self, raw: bytes=None) -> str:
-        return raw.decode("utf-8")
+        return raw.decode("utf-8") if raw is not None else ""
 
 
     @greeter.data_setter(index=0)

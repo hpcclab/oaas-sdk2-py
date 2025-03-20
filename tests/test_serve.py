@@ -1,3 +1,4 @@
+import logging
 import unittest
 
 
@@ -18,9 +19,11 @@ class TestStuff(unittest.IsolatedAsyncioTestCase):
             cls_meta = oaas.meta_repo.get_cls_meta("default.test")
             obj: SampleObj = ctx.create_object_from_ref(cls_meta, 1)
             result = await obj.sample_fn(msg=Msg(msg="test"))
+            logging.debug("result: %s", result)
             assert result is not None
             assert result.ok
             assert result.msg == "test"
         finally:
+            oaas.z_session.close()
             task.cancel()
             grpc_server.close()

@@ -257,7 +257,7 @@ class Oparaca:
                 if payload is not None:
                     payload = payload.to_bytes()
                     logger.debug("payload %s", payload)
-                    req = ObjectInvocationRequest.parse(payload)
+                    req = ObjectInvocationRequest().parse(payload)
                     logger.debug("Received request %s", req)
                     resp = await self.handle_obj_invoke(req)
                     resp_bytes = bytes(resp)

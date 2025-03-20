@@ -84,10 +84,6 @@ class ValData(betterproto.Message):
     byte: "bytes | None" = betterproto.bytes_field(1, optional=True, group="data")
     crdt_map: "bytes | None" = betterproto.bytes_field(2, optional=True, group="data")
 
-    @model_validator(mode="after")
-    def check_oneof(cls, values):
-        return cls._validate_field_groups(values)
-
 
 @dataclass(eq=False, repr=False)
 class SingleObjectRequest(betterproto.Message):

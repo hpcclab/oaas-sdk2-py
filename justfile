@@ -33,8 +33,7 @@ step-1-verify id="1":
   oprc-cli o g example.hello 0 {{id}} -z tcp/127.0.0.1:7447
 
 step-2 id="1":
-  #echo "{}" | http POST :10000/api/class/example.hello/0/objects/{{id}}/invokes/greet
-  echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 greet -p -
+  echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 greet -o {{id}} -p -
 
 bench-echo:
   echo "{}" | bench-g-invoke -g http://localhost:10002 example.hello echo 1 -c 16 -d 10s -p -

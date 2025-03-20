@@ -59,7 +59,7 @@ class ZenohRpcManager:
             sample = reply.ok
             if sample is not None:
                 payload = sample.payload
-                return InvocationResponse.parse(payload)
+                return InvocationResponse().parse(payload.to_bytes())
             else:
                 logger.error(f"Received (ERROR: '{reply.err.payload.to_string()}')")
                 return None
@@ -82,7 +82,7 @@ class ZenohRpcManager:
             sample = reply.ok
             if sample is not None:
                 payload = sample.payload
-                return InvocationResponse.parse(payload)
+                return InvocationResponse().parse(payload.to_bytes())
             else:
                 logger.error(f"Received (ERROR: '{reply.err.payload.to_string()}')")
                 return None

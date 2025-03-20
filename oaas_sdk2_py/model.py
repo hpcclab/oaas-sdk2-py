@@ -101,17 +101,20 @@ class ClsMeta:
             sig = inspect.signature(function)
 
             @functools.wraps(function)
-            def wrapper(obj_self, *args, **kwargs):
+            async def wrapper(obj_self, *args, **kwargs):
                 if obj_self.remote:
                     if stateless:
                         req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
-                        return obj_self.ctx.fn_rpc(req)
+                        resp = await obj_self.ctx.fn_rpc(req)              
                     else:
                         req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
-                        return obj_self.ctx.obj_rpc(req)
-                    
+                        resp =  await obj_self.ctx.obj_rpc(req)
+                    if issubclass(sig.return_annotation, BaseModel):
+                        return sig.return_annotation.model_validate_json(resp.payload, strict=strict)
+                    else:
+                        return resp
                 else:
-                    return function(obj_self, *args, **kwargs)
+                    return await function(obj_self, *args, **kwargs)
 
             caller = self._create_caller(function, sig, strict)
             self.func_list[fn_name] = FuncMeta(
