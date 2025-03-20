@@ -26,10 +26,10 @@ class OprcFunction(OprcFunctionBase):
             obj = ctx.create_empty_object(meta)
             resp = await fn_meta.caller(obj, invocation_request)
             await ctx.commit()
+            return resp
         except Exception as e:
             logging.error("Exception occurred", exc_info=True)
             raise GRPCError(Status.INTERNAL, str(e))
-        return resp
 
     async def invoke_obj(self, invocation_request: 'ObjectInvocationRequest') -> InvocationResponse:
         logging.debug(f"received {invocation_request}")

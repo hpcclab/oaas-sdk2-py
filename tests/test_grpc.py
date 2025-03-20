@@ -8,7 +8,7 @@ from oaas_sdk2_py.pb.oprc import OprcFunctionStub
 from .sample_cls import oaas
 
 class TestStuff(unittest.IsolatedAsyncioTestCase):
-    async def test_my_func(self):
+    async def test_with_grpc(self):
         port=28080
         grpc_server = await start_grpc_server(oaas, port=port)
         async with Channel('127.0.0.1', port) as channel:

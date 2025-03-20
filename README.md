@@ -34,10 +34,12 @@ echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
 - [x] read data  
 - [x] Write data  
 - [x] Serve gRPC for invocation  
-- [ ] Create an object reference  
-- [ ] Call gRPC to invoke a foreign function 
-- [ ] Implement thread Pool  
-- [ ] Connect to Zenoh  
+- [x] Create an object reference  
+    - [ ] need testing!
+- [x] Call gRPC to invoke a foreign function 
+    - [ ] need testing!
+- [x] Implement thread Pool  
+- [x] Connect to Zenoh  
 - [ ] Device Agent:  
     - [ ] Invoke a remote function on the referenced object  
     - [ ] Invoke a local function on the referenced object  

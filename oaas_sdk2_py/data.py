@@ -3,7 +3,6 @@ import json
 import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional, Dict
-from urllib.parse import urlparse
 
 from grpclib.client import Channel
 from pydantic.v1 import HttpUrl
@@ -72,17 +71,8 @@ class DataManager:
 class ZenohDataManager:
     session: zenoh.Session
     
-    def __init__(self, peer_url: str):
-        zenoh.init_log_from_env_or("error")
-        logger.debug(f"connect zenoh peer: {peer_url}")
-        conf = {
-            'connect': {
-                'endpoints': [peer_url],
-            },
-            'mode': 'client',
-        }
-        zenoh_config = zenoh.Config.from_json5(json.dumps(conf))
-        self.session = zenoh.open(config=zenoh_config) 
+    def __init__(self, z_session: zenoh.Session):
+        self.session = z_session 
         self.executor = ThreadPoolExecutor()
 
     async def get(self,
@@ -107,7 +97,7 @@ class ZenohDataManager:
             sample = reply.ok
             if sample is not None:
                 payload = sample.payload
-                obj = ObjData.parse(payload)
+                obj = ObjData.parse(payload.to_bytes())
                 val = obj.entries[key]
                 match val:
                     case ValData(byte=value):

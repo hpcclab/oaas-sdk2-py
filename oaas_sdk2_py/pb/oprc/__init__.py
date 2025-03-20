@@ -180,6 +180,7 @@ class ObjectInvocationRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class InvocationRequest(betterproto.Message):
+    partition_id: int = betterproto.uint32_field(1)
     cls_id: str = betterproto.string_field(3)
     fn_id: str = betterproto.string_field(4)
     options: "dict[str, str]" = betterproto.map_field(

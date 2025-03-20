@@ -1,28 +1,30 @@
 from pydantic import BaseModel
 from oaas_sdk2_py import Oparaca, BaseObject, ObjectInvocationRequest
+from oaas_sdk2_py.engine import InvocationContext
+from oaas_sdk2_py.model import ObjectMeta
 
 oaas = Oparaca()
 
 test = oaas.new_cls("test")
 
+
 class Msg(BaseModel):
     msg: str
-    
-    
+
+
 class Result(BaseModel):
     ok: bool
     msg: str
 
+
 @test
 class SampleObj(BaseObject):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        
-        
-    @test.data_getter(index=0)
-    async def get_intro(self, raw: bytes=None) -> str:
-        return raw.decode("utf-8")
+    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+        super().__init__(meta, ctx)
 
+    @test.data_getter(index=0)
+    async def get_intro(self, raw: bytes = None) -> str:
+        return raw.decode("utf-8")
 
     @test.data_setter(index=0)
     async def set_intro(self, data: str) -> bytes:
@@ -31,7 +33,7 @@ class SampleObj(BaseObject):
     @test.func("fn-1")
     async def sample_fn(self, msg: Msg) -> Result:
         print(msg)
-        return Result(ok=True, msg="ok")
+        return Result(ok=True, msg=msg.msg)
 
     @test.func()
     async def sample_fn2(self, req: ObjectInvocationRequest) -> Result:

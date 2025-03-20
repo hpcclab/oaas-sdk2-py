@@ -12,6 +12,9 @@ from oaas_sdk2_py.pb.oprc import (
     ObjectInvocationRequest,
     ResponseStatus,
 )
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from oaas_sdk2_py.engine import BaseObject
 
 
 def create_obj_meta(
@@ -100,8 +103,13 @@ class ClsMeta:
             @functools.wraps(function)
             def wrapper(obj_self, *args, **kwargs):
                 if obj_self.remote:
-                    req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
-                    return obj_self.ctx.rpc_call(obj_self, fn_name, req)
+                    if stateless:
+                        req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
+                        return obj_self.ctx.fn_rpc(req)
+                    else:
+                        req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
+                        return obj_self.ctx.obj_rpc(req)
+                    
                 else:
                     return function(obj_self, *args, **kwargs)
 
@@ -113,7 +121,7 @@ class ClsMeta:
 
         return decorator
     
-    def _extract_request(self, obj_self, fn_name, args, kwargs, stateless):
+    def _extract_request(self, obj_self, fn_name, args, kwargs, stateless) -> (InvocationRequest| ObjectInvocationRequest| None):
         """Extract or create a request object from function arguments."""
         # Try to find an existing request object
         req = self._find_request_object(args, kwargs)
@@ -122,13 +130,10 @@ class ClsMeta:
         
         # Try to find a BaseModel to create a request
         model = self._find_base_model(args, kwargs)
-        if model is not None:
-            return self._create_request_from_model(obj_self, fn_name, model, stateless)
-        
-        # No suitable parameter found
-        return None
+        return self._create_request_from_model(obj_self, fn_name, model, stateless)
     
-    def _find_request_object(self, args, kwargs):
+    
+    def _find_request_object(self, args, kwargs) -> (InvocationRequest| ObjectInvocationRequest| None):
         """Find InvocationRequest or ObjectInvocationRequest in args or kwargs."""
         # Check in args first
         for arg in args:
@@ -156,8 +161,13 @@ class ClsMeta:
         
         return None
     
-    def _create_request_from_model(self, obj_self, fn_name, model, stateless):
+    def _create_request_from_model(self, obj_self: "BaseObject", fn_name: str, model: BaseModel, stateless: bool):
         """Create appropriate request object from a BaseModel."""
+        if model is None:
+            if stateless:
+                return obj_self.create_request(fn_name)
+            else:
+                return obj_self.create_obj_request(fn_name)
         payload = model.model_dump_json().encode()
         if stateless:
             return obj_self.create_request(fn_name, payload=payload)
