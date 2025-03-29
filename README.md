@@ -34,23 +34,23 @@ echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
 - [x] read data  
 - [x] Write data  
 - [x] Serve gRPC for invocation  
-- [x] Create an object reference  
-    - [ ] need testing!
+- [x] Create an object reference 
 - [x] Call gRPC to invoke a foreign function 
-    - [ ] need testing!
 - [x] Implement thread Pool  
 - [x] Connect to Zenoh  
 - [ ] Device Agent:  
-    - [ ] Invoke a remote function on the referenced object  
-    - [ ] Invoke a local function on the referenced object  
-    - [ ] Invoke a local function on device agent from the anywhere else  
-    - [ ] Access data from the referenced object  
-
+    - [x] Invoke a remote function on the referenced object  
+    - [x] Invoke a local function on the referenced object
+        - [ ] Need testings!  
+    - [x] Invoke a local function on device agent from the anywhere else  
+        - [ ] Need testings!
+    - [x] Access data from the referenced object  
+        - [ ] Need testings!
 - [ ] create interface of referenced object 
 - [ ] declare deployment configuration in code
 
 ### QoL Features
-- [ ] Improve data encode/decode
+- [x] Improve data encode/decode
 - [ ] Development CLI
     - [ ] generate project
     - [ ] setup development environment (e.g., generate docker compose for ODGM)
