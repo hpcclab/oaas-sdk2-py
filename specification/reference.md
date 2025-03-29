@@ -9,8 +9,10 @@ Table of Contents:
         - [DataManager Class](#datamanager-class)
         - [ZenohDataManager Class](#zenohdatamanager-class)
     - [Metadata and Model Classes](#metadata-and-model-classes)
-
-
+        - [ClsMeta Class](#clsmeta-class)
+        - [ObjectMeta Class](#objectmeta-class)
+        - [StateMeta Class](#statemeta-class)
+        
 # *Core Classes*
 These are the primary classes that define the OaaS framework and its execution flow. 
 
