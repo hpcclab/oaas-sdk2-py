@@ -8,16 +8,23 @@ Table of Contents:
     - [Data Management Classes](#data-managment-classes)
         - [DataManager Class](#datamanager-class)
         - [ZenohDataManager Class](#zenohdatamanager-class)
-    - [RPC Communication Classes](#rpc-communication-classes)
-        - [RpcManager Class](#rpcmanager-class)
-        - [ZenohRpcManager Class](#zenohrpcmanager-class)
     - [Metadata and Model Classes](#metadata-and-model-classes)
+
 
 # *Core Classes*
 These are the primary classes that define the OaaS framework and its execution flow. 
 
 ## *Oparaca Class*
 The `Oparaca` class is a core class of OaaS-SDK2-PY, responsible for managing the application's class registration, invocation context, and execution. 
+
+Attributes:
+| Attribute | Type | Description |
+| ----------|------|-------------|
+| `config` | `OprcConfig` | Configuration settings for OaaS |
+| `meta_repo` | `MetadataRepo` | Stores metadata about registered classes |
+| `default_pkg` | `str` | The default package for class registration |
+| `rpc` | `RpcManager` | Manages function calls over gRPC |
+| `data` | `DataManager` | Handles data storage and retrieval | 
 
 ### *Import Path*
 ```python
@@ -26,7 +33,7 @@ from oaas_sdk2_py.engine import Oparaca
 
 ### *Constructor*
 ```python
-Oparaca(default_pkg: str = "default", config: [OprcConfig] = None)
+def __init__(default_pkg: str = "default", config: [OprcConfig] = None)
 ```
 
 Parameters:
@@ -37,22 +44,8 @@ Parameters:
 
 Example:
 ```python
-from oaas_sdk2_py import Oparaca
-from oaas_sdk2_py.config import OprcConfig
-
 oaas = Oparaca(config=OprcConfig())
 ```
-
-
-### *Attributes*
-
-| Attribute | Type | Description |
-| ----------|------|-------------|
-| `config` | `OprcConfig` | Configuration settings for OaaS |
-| `meta_repo` | `MetadataRepo` | Stores metadata about registered classes |
-| `default_pkg` | `str` | The default package for class registration |
-| `rpc` | `RpcManager` | Manages function calls over gRPC |
-| `data` | `DataManager` | Handles data storage and retrieval | 
 
 ### *Methods*
 1. `new_cls()`
@@ -148,6 +141,14 @@ await oaas.serve_local_function(cls_id="example.hello", fn_name="greet", obj_id=
 ## *BaseObject Class*
 The `BaseObject` class is a core class that all user-defined objects inherit from, enabling function invocation and state. 
 
+Attributes:
+| Attribute | Type | Description |
+| ----------|------|-------------|
+| `meta` | `ObjectMeta` | Object metadata |
+| `ctx` | `InvocationContext` | The execution context managing the object |
+| `_state` | `dict[int, bytes]` | Stores object state |
+| `_dirty` | `bool` | Indicates whether the object has been modified |
+
 ### *Import Path*
 ```python
 from oaas_sdk2_py.engine import BaseObject
@@ -155,7 +156,7 @@ from oaas_sdk2_py.engine import BaseObject
 
 ### *Constructor*
 ```python
-BaseObject(meta: ObjectMeta = None, ctx: InvocationContext = None)
+def __init__(meta: ObjectMeta = None, ctx: InvocationContext = None)
 ```
 
 Parameters:
@@ -163,15 +164,6 @@ Parameters:
 | ----------|------|---------|-------------|
 | `meta` | `ObjectMeta` | `None` | The metadata for the object instance |
 | `ctx` | `InvocationContext` | `None` | The invocation context that manages the object |
-
-
-### *Attributes*
-| Attribute | Type | Description |
-| ----------|------|-------------|
-| `meta` | `ObjectMeta` | Object metadata |
-| `ctx` | `InvocationContext` | The execution context managing the object |
-| `_state` | `dict[int, bytes]` | Stores object state |
-| `_dirty` | `bool` | Indicates whether the object has been modified |
 
 ### *Methods*
 
@@ -323,6 +315,15 @@ request = obj.create_obj_request("greet", b"Alice")
 ## *InvocationContext Class*
 The `InvocationContext` class is a core class that manages obejct lifecycle and function exeuction within an invocation.
 
+Attributes:
+| Attribute | Type | Description |
+| ----------|------|-------------|
+| `partition_id` | `int` | The partition assigned to the execution context |
+| `rpc` | `RpcManager` | Manages function calls over gRPC |
+| `data_manager` | `DataManager` | Handles data retrieval and persistence |
+| `local_obj_dict` | `dict` | Stores local objects in the current invocation |
+| `remote_obj_dict` | `dict` | Stores remote object references |
+
 ### *Import Path*
 ```python
 from oaas_sdk2_py.engine import InvocationContext
@@ -339,16 +340,6 @@ Parameters:
 | `partition_id` | `int` | - | The parition ID assigned to this execution context |
 | `rpc` | `RpcManager` | - | The RPC manager for remote function invocation |
 | `data` | `DataManager` | - | The data manager for handling object state |
-
-
-### *Attributes*
-| Attribute | Type | Description |
-| ----------|------|-------------|
-| `partition_id` | `int` | The partition assigned to the execution context |
-| `rpc` | `RpcManager` | Manages function calls over gRPC |
-| `data_manager` | `DataManager` | Handles data retrieval and persistence |
-| `local_obj_dict` | `dict` | Stores local objects in the current invocation |
-| `remote_obj_dict` | `dict` | Stores remote object references |
 
 
 ### *Methods*
@@ -479,6 +470,12 @@ These classes handle database, retrieval, and synchronization using both gRPC an
 ## *DataManager Class*
 The `DataManager` class handles data retrieval, setting, and deletion via gRPC. 
 
+Attributes:
+| Attribute | Type | Description |
+| ----------|------|-------------|
+| `channel` | `Channel` | The gRPC communication channel |
+| `client` | `DataServiceStub` | The gRPC client for sending requests |
+
 ### *Import Path*
 ```python
 from oaas_sdk2_py.data import DataManager
@@ -486,88 +483,318 @@ from oaas_sdk2_py.data import DataManager
 
 ### *Constructor*
 ```python
-DataManager(addr: HttpUrl)
+def __init__(addr: HttpUrl)
 ```
 
-### *Attributes*
-| Attribute | Type | Description |
-| ----------|------|-------------|
-|
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `addr` | `HttpUrl` | - | The gRPC server address for database |
 
 ### *Methods*
+
+1. `get()`
+
+Description:
+Retrieves stored data for on object
 
 ```python
 async def get(self, cls_id: str, partition_id: int, object_id: int, key: int) -> Optional[bytes]
 ```
 
-The `get` method retrieves data from database
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `cls_id` | `str` | - | The object's class ID |
+| `partition_id` | `int` | - | The partition the object belongs to |
+| `object_id` | `int` | - | The unique object identifier |
+| `key` | `int` | - | The index key of the stored data |
+
+Returns:
+`Optional[bytes]` (The retrieved data, or `None` if not found)
+
+Example:
+```python
+data = await data_manager.get("example.class", 0, 1, 0)
+```
+
+2. `set_all()`
+
+Description:
+Stores multiple key-value pairs in an object
 
 ```python
 async def set_all(self, cls_id: str, partition_id: int, object_id: int, data: Dict[int, bytes])
 ```
 
-The `set_all` method stores multiple values at once
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `cls_id` | `str` | - | The object's class ID |
+| `partition_id` | `int` | - | The partition the object belongs to |
+| `object_id` | `int` | - | The unique object identifier |
+| `data` | `dict[int, bytes]` | - | A dictionary mapping keys to data |
+
+Example:
+```python
+await data_manager.set_all("example.class", 0, 12345, {0: b"Hello", 1: b"World"})
+```
+
+3. `delete()`
+
+Description:
+Deletes all stored data for an object
 
 ```python
 async def delete(self, cls_id: str, partition_id: int, object_id: int)
 ```
 
-The `delete` method delete 
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `cls_id` | `str` | - | The object's class ID |
+| `partition_id` | `int` | - | The partition the object belongs to |
+| `object_id` | `int` | - | The unique object identifier |
+
+Example:
+```python
+await data_manager.delete("example.class", 0, 1)
+```
 
 ## *ZenohDataManager Class*
-### *Import Path*
-### *Constructor*
-### *Attributes*
+The `ZenohDataManager` class provides a Zenoh-based distributed system.
+
+Attributes:
 | Attribute | Type | Description |
 | ----------|------|-------------|
-|
+| `session` | `zenoh.Session` | The Zenoh session for distributed system |
+| `executor` | `ThreadPoolExecutor` | Used for async execution of blocking Zenoh calls |
 
-### *Methods*
-
+### *Import Path*
 ```python
+from oaas_sdk2_py.data import ZenohDataManager
 ```
 
-
-
-# *RPC Communication Classes*
-## *RpcManager Class*
-### *Import Path*
 ### *Constructor*
-### *Attributes*
-| Attribute | Type | Description |
-| ----------|------|-------------|
-|
-
-### *Methods*
-
 ```python
+def __init__(self, z_session: zenoh.Session)
 ```
 
-## *ZenohRpcManager Class*
-### *Import Path*
-### *Constructor*
-### *Attributes*
-| Attribute | Type | Description |
-| ----------|------|-------------|
-|
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `z_session` | `zenoh.Session` | - | The active Zenoh session |
 
 ### *Methods*
+1. `get()`
+
+Description: 
+Retrieves stored data using Zenoh
 
 ```python
+async def get(self, cls_id: str, partition_id: int, object_id: int, key: int) -> Optional[bytes]
+```
+
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `cls_id` | `str` | - | The object's class ID |
+| `partition_id` | `int` | - | The partition the object belongs to |
+| `object_id` | `int` | - | The unique object identifier |
+| `key` | `int` | - | The index key of the stored data |
+
+Returns:
+`Optional[bytes]` (The retrieved binary data, or `None` if not found)
+
+Example:
+```python
+data = await zdm.get("example.class", 0, 1, 0)
+```
+
+2. `set_all()`
+
+Description:
+Stores multiple key-value pairs using Zenoh
+
+```python
+async def set_all(self, cls_id: str, partition_id: int, object_id: int, data: Dict[int, bytes])
+```
+
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `cls_id` | `str` | - | The object's class ID |
+| `partition_id` | `int` | - | The partition the object belongs to |
+| `object_id` | `int` | - | The unique object identifier |
+| `data` | `dict[int, bytes]` | - | The index key of the stored data |
+
+Example:
+```python
+await zdm.set_all("example.class", 0, 1, {0: b"Data"})
+```
+
+3. `delete()`
+
+Description:
+Deletes all stored data for an object using Zenoh
+
+```python
+async def delete(self, cls_id: str, partition_id: int, object_id: int)
+```
+
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `cls_id` | `str` | - | The object's class ID |
+| `partition_id` | `int` | - | The partition the object belongs to |
+| `object_id` | `int` | - | The unique object identifier |
+
+Example:
+```python
+await zdm.delete("example.class", 0, 1)
 ```
 
 # *Metadata and Model Classes*
-## *InvocationContext Class*
-### *Import Path*
-### *Constructor*
-### *Attributes*
+These classes define the metadata structures used for managing objects, functions, and state within the `OaaS-SDK2-PY` framework.
+
+## *ClsMeta Class*
+The `ClsMeta` class is used to define objects' metadata class in OaaS
+
+Attributes:
 | Attribute | Type | Description |
 | ----------|------|-------------|
-|
+| `name` | `Optional[str]` | The name of the class |
+| `pkg` | `str` | The package name for the class |
+| `cls_id` | `str` | A unique identifier for the class |
+| `func_list` | `dict[str, FuncMeta]` | Registered functions in the class |
+| `state_list` | `dict[int, StateMeta]` | State properties in the class
+
+### *Import Path*
+```python
+from oaas_sdk2_py.model import ClsMeta
+```
+
+### *Constructor*
+```python
+def __init__(self, name: Optional[str] = None, pkg: str = "default", update: Callable = None)
+```
+
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `name` | `Optional[str]` | `None` | The name of the class |
+| `pkg` | `str` | `"default"` | The package name |
+| `update` | `Callable` | `None` | Callback function to update metadata
+
+Example:
+```python
+oaas = Oparaca()
+greeter = oaas.new_cls(pkg="example", name="hello")
+```
 
 ### *Methods*
 
+1. `func()`
+
+Description:
+Registers a function in the class 
+
 ```python
+def func(self, name: str = "", stateless: bool = False, strict: bool = False)
+```
+
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `name` | `str` | `""` | The function name |
+| `stateless` | `bool` | `False` | Whether the function is stateless (`True`) or stateful (`False`) |
+| `strict` | `bool` | `False` | Whether strict type validation is enforced |
+
+Returns:
+A decorator function that registers the function
+
+Example:
+```python
+@greeter.func(stateless=True)
+async def echo(self, req: InvocationRequest):
+    return InvocationResponse(status=ResponseStatus.OKAY, payload=req.payload)
 ```
 
 
+## *ObjectMeta Class*
+The `ObjectMeta` class stores metadata information for objects.
+
+Attributes:
+| Attribute | Type | Description |
+| ----------|------|-------------|
+| `cls_id` | `str` | The object's class ID |
+| `partition_id` | `int` | The partition the object belongs to |
+| `object_id` | `Optional[int]` | The unique object identifier |
+| `remote` | `bool` | Indicates if the object is remote (`True`) or local (`False`) |
+
+### *Import Path*
+```python
+from oaas_sdk2_py.model import ObjectMeta
+```
+
+### *Constructor*
+```python
+def __init__(self, cls: str, partition_id: int, obj_id: Optional[int] = None, remote=False)
+```
+
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `cls_id` | `str` | - | The object's class ID |
+| `partition_id` | `int` | - | The partition the object belongs to |
+| `object_id` | `Optional[int]` | `None` | The unique object identifier |
+| `remote` | `bool` | `False` | Indicates if the object is remote (`True`) or local (`False`) |
+
+Example:
+```python
+class Greeter(BaseObject):
+    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+        super().__init__(meta, ctx)
+```
+
+### *Methods*
+
+## *StateMeta Class*
+The `StateMeta` class manages stateful properties of OaaS objects.
+
+Attributes:
+| Attribute | Type | Description |
+| ----------|------|-------------|
+| `index` | `int` | The index of the state property |
+| `name` | `Optional[str]` | The name of the state property |
+| `setter` | `Callable` | A function to set the state value |
+| `getter` | `Callable` | A function to retrieve the state value |
+
+### *Import Path*
+```python
+from oaas_sdk2_py.model import StateMeta
+```
+
+### *Constructor*
+```python
+def __init__(self, index: int, name: Optional[str] = None)
+```
+
+Parameters:
+| Parameter | Type | Default | Description |
+| ----------|------|---------|-------------|
+| `index` | `int` | - | The index of the state property |
+| `name` | `Optional[str]` | `None` | The name of the state property |
+
+Example: 
+```python
+@greeter.data_getter(index=0)
+async def get_intro(self, raw: bytes = None) -> str:
+    return raw.decode("utf-8")
+
+@greeter.data_setter(index=0)
+async def set_intro(self, data: str) -> bytes:
+    return data.encode("utf-8")
+```
+
+### *Methods*
