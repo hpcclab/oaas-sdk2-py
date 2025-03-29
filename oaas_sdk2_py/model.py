@@ -88,6 +88,15 @@ class ClsMeta:
         self.state_list = {}
 
     def __call__(self, cls):
+        """
+        Make the ClsMeta instance callable to work as a class decorator.
+        
+        Args:
+            cls: The class being decorated
+            
+        Returns:
+            The decorated class
+        """
         if self.name is None or self.name == "":
             self.name = cls.__name__
         self.cls = cls
@@ -96,12 +105,44 @@ class ClsMeta:
         return cls
 
     def func(self, name="", stateless=False, strict=False):
+        """
+        Decorator for registering class methods as invokable functions in OaaS platform.
+        
+        Args:
+            name: Optional function name override. Defaults to the method's original name.
+            stateless: Whether the function doesn't modify object state.
+            strict: Whether to use strict validation when deserializing models.
+            
+        Returns:
+            A decorator function that wraps the original method
+        """
+        
         def decorator(function):
+            """
+            Inner decorator that wraps the class method.
+            
+            Args:
+                function: The method to wrap
+                
+            Returns:
+                The wrapped method
+            """
             fn_name = name if len(name) != 0 else function.__name__
             sig = inspect.signature(function)
 
             @functools.wraps(function)
             async def wrapper(obj_self, *args, **kwargs):
+                """
+                Wrapper function that handles remote/local method invocation.
+                
+                Args:
+                    obj_self: The object instance
+                    *args: Positional arguments
+                    **kwargs: Keyword arguments
+                    
+                Returns:
+                    The result of the function call or a response object
+                """
                 if obj_self.remote:
                     if stateless:
                         req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
