@@ -287,6 +287,7 @@ dependencies = [
     { name = "eclipse-zenoh" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
+    { name = "oprc-py" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyyaml" },
@@ -307,6 +308,7 @@ requires-dist = [
     { name = "eclipse-zenoh", specifier = ">=1.2.1" },
     { name = "grpcio", specifier = ">=1.71.0" },
     { name = "grpcio-tools", specifier = ">=1.71.0" },
+    { name = "oprc-py", directory = "oprc-py" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
@@ -319,6 +321,10 @@ dev = [
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pytest", specifier = ">=8.3.5" },
 ]
+
+[[package]]
+name = "oprc-py"
+source = { directory = "oprc-py" }
 
 [[package]]
 name = "packaging"

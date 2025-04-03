@@ -15,8 +15,13 @@ dependencies = [
     "pydantic>=2.10.6",
     "pydantic-settings>=2.8.1",
     "pyyaml>=6.0.2",
-    "tsidpy>=1.1.5"
+    "tsidpy>=1.1.5",
+    "oprc-py>=0.1.0"
 ]
+
+
+[tool.uv.sources]
+oprc-py = { path = "oprc-py" }
 
 [tool.uv]
 prerelease = "allow"
