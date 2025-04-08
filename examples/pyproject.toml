@@ -5,7 +5,7 @@ description = ""
 requires-python = ">=3.11"
 readme = "README.md"
 dependencies = [
-    "oaas-sdk2-py>=0.1.5",
+    "oaas-sdk2-py>=0.1.6",
     "psutil>=7.0.0",
 ]
 

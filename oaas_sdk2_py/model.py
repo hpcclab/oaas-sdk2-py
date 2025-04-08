@@ -71,6 +71,10 @@ def parse_resp(resp) -> InvocationResponse:
     elif isinstance(resp, BaseModel):
         b = resp.model_dump_json().encode()
         return InvocationResponse(status=ResponseStatus.OKAY, payload=b)
+    elif isinstance(resp, bytes):
+        return InvocationResponse(status=ResponseStatus.OKAY, payload=resp)
+    elif isinstance(resp, str):
+        return InvocationResponse(status=ResponseStatus.OKAY, payload=resp.encode())
 
 
 class ClsMeta:
@@ -255,8 +259,20 @@ class ClsMeta:
                 second_param.annotation == ObjectInvocationRequest):
             @functools.wraps(function)
             async def caller(obj_self, req):
-                result = await function(obj_self, req)
-                return parse_resp(result)
+                resp = await function(obj_self, req)
+                return parse_resp(resp)
+            return caller
+        elif issubclass(second_param.annotation, bytes):
+            @functools.wraps(function)
+            async def caller(obj_self, req):
+                resp = await function(obj_self, req.payload)
+                return parse_resp(resp)
+            return caller
+        elif issubclass(second_param.annotation, str):
+            @functools.wraps(function)
+            async def caller(obj_self, req):
+                resp = await function(obj_self, req.payload.decode())
+                return parse_resp(resp)
             return caller
         else:
             raise ValueError(f"Unsupported parameter type: {second_param.annotation}")

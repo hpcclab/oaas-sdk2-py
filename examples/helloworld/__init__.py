@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import string
 
@@ -7,7 +8,7 @@ from tsidpy import TSID
 
 from oaas_sdk2_py import Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.engine import InvocationContext, logger, BaseObject
+from oaas_sdk2_py.engine import InvocationContext, BaseObject
 from oaas_sdk2_py.model import ObjectMeta
 from oaas_sdk2_py.pb.oprc import ResponseStatus
 
@@ -124,6 +125,6 @@ class Record(BaseObject):
 
 async def main(port=8080):
     server = await start_grpc_server(oaas, port=port)
-    logger.info(f'Serving on {port}')
+    logging.info(f'Serving on {port}')
     await server.wait_closed()
 
