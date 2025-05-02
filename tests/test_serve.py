@@ -15,9 +15,9 @@ class TestStuff(unittest.IsolatedAsyncioTestCase):
             cls_id="default.test", fn_name="fn-1", partition_id=p_id, obj_id=1
         )
         try:
-            ctx = oaas.new_context(partition_id=p_id)
+            ctx = oaas.new_session(partition_id=p_id)
             cls_meta = oaas.meta_repo.get_cls_meta("default.test")
-            obj: SampleObj = ctx.create_object_from_ref(cls_meta, 1)
+            obj: SampleObj = ctx.load_object(cls_meta, 1)
             result = await obj.sample_fn(msg=Msg(msg="test"))
             logging.debug("result: %s", result)
             assert result is not None

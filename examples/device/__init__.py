@@ -1,7 +1,7 @@
 import json
 from oaas_sdk2_py import Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.engine import InvocationContext, logger, BaseObject
+from oaas_sdk2_py.engine import Session, logger, BaseObject
 from oaas_sdk2_py.model import ObjectMeta
 from oaas_sdk2_py.pb.oprc import ResponseStatus
 import psutil
@@ -11,7 +11,7 @@ device = oaas.new_cls(pkg="example", name="device")
 
 @device
 class ComputeDevice(BaseObject):
-    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+    def __init__(self, meta: ObjectMeta = None, ctx: Session = None):
         super().__init__(meta, ctx)
 
     @device.data_getter(index=0)

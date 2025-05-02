@@ -3,7 +3,7 @@ import logging
 from grpclib import Status, GRPCError
 from grpclib.server import Server
 
-from .engine import Oparaca, BaseObject
+from .engine import Oparaca
 from .pb.oprc import OprcFunctionBase, InvocationRequest, InvocationResponse, ObjectInvocationRequest
 
 
@@ -13,7 +13,10 @@ class OprcFunction(OprcFunctionBase):
         self.oprc = oprc
 
     async def invoke_fn(self, invocation_request: InvocationRequest) -> InvocationResponse:
-        logging.debug(f"received {invocation_request}")
+        logging.debug("received ObjectInvocationRequest: cls_id=%s, fn_id=%s, partition_id=%s, object_id=%s",
+                  invocation_request.cls_id,
+                  invocation_request.fn_id,
+                  invocation_request.partition_id)
         try:
             if invocation_request.cls_id not in self.oprc.meta_repo.cls_dict:
                 raise GRPCError(Status.NOT_FOUND, message=f"cls_id '{invocation_request.cls_id}' not found")
@@ -21,8 +24,8 @@ class OprcFunction(OprcFunctionBase):
             if invocation_request.fn_id not in meta.func_list:
                 raise GRPCError(Status.NOT_FOUND, message=f"fn_id '{invocation_request.fn_id}' not found")
             fn_meta = meta.func_list[invocation_request.fn_id]
-            ctx = self.oprc.new_context()
-            obj = ctx.create_empty_object(meta)
+            ctx = self.oprc.new_session()
+            obj = ctx.create_object(meta)
             resp = await fn_meta.caller(obj, invocation_request)
             await ctx.commit()
             return resp
@@ -31,7 +34,11 @@ class OprcFunction(OprcFunctionBase):
             raise GRPCError(Status.INTERNAL, str(e))
 
     async def invoke_obj(self, invocation_request: 'ObjectInvocationRequest') -> InvocationResponse:
-        logging.debug(f"received {invocation_request}")
+        logging.debug("received ObjectInvocationRequest: cls_id=%s, fn_id=%s, partition_id=%s, object_id=%s",
+                  invocation_request.cls_id,
+                  invocation_request.fn_id,
+                  invocation_request.partition_id,
+                  invocation_request.object_id)
         try:
             if invocation_request.cls_id not in self.oprc.meta_repo.cls_dict:
                 raise GRPCError(Status.NOT_FOUND, message=f"cls_id {invocation_request.cls_id} not found")
@@ -39,7 +46,7 @@ class OprcFunction(OprcFunctionBase):
             if invocation_request.fn_id not in meta.func_list:
                 raise GRPCError(Status.NOT_FOUND, message=f"fn_id {invocation_request.fn_id} not found")
             fn_meta = meta.func_list[invocation_request.fn_id]
-            ctx = self.oprc.new_context(invocation_request.partition_id)
+            ctx = self.oprc.new_session(invocation_request.partition_id)
             obj = ctx.create_object(meta, invocation_request.object_id)
             resp = await fn_meta.caller(obj, invocation_request)
             await ctx.commit()

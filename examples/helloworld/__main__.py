@@ -9,13 +9,19 @@ def setup_event_loop():
     import platform
     if platform.system() != "Windows":
         try:
-            import uvloop
+            import uvloop # type: ignore
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
             logging.info("Using uvloop")
         except ImportError:
             logging.warning("uvloop not available, using asyncio")
     else:
-        logging.info("Running on Windows, using asyncio")
+        logging.info("Running on Windows, using winloop")
+        try:
+            import winloop # type: ignore
+            winloop.install()
+            logging.info("Using winloop")
+        except ImportError:
+            logging.warning("winloop not available, using asyncio")
 
 if __name__ == '__main__':
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

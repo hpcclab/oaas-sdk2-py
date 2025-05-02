@@ -72,8 +72,6 @@ example_object = oaas.new_cls(pkg="example", name="example_service")
 
 @example_object
 class ExampleService(BaseObject):
-    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
-        super().__init__(meta, ctx)
 
     @example_object.func(stateless=True)
     async def echo(self, req):

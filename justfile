@@ -21,6 +21,7 @@ publish:
   rm -rf dist
   uv build
   uvx twine upload dist/*
+  rm -rf dist
 
 restart-func cri="docker":
     {{cri}} compose restart hello-fn
