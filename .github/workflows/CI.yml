@@ -122,12 +122,6 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set PROTOC environment variable
-        run: |
-          echo "PROTOC=$(which protoc 2>nul || where protoc 2>nul)" >> $env:GITHUB_ENV
-          echo "Protoc location: $(which protoc 2>nul || where protoc 2>nul)"
-          echo "Protoc version:"
-          protoc --version
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
