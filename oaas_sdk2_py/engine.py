@@ -1,7 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
-import os
 from typing import Dict, Optional
 from tsidpy import TSID
 import zenoh
@@ -10,57 +9,52 @@ import asyncio
 from oaas_sdk2_py.config import OprcConfig
 from oaas_sdk2_py.data import DataManager, ZenohDataManager
 from oaas_sdk2_py.model import ObjectMeta, ClsMeta
-from oaas_sdk2_py.pb.oprc import InvocationRequest, InvocationResponse, ObjectInvocationRequest, ResponseStatus
+from oaas_sdk2_py.pb.oprc import InvocationRequest, InvocationResponse, ObjectInvocationRequest, ResponseStatus, ValData
 from oaas_sdk2_py.repo import MetadataRepo
 from oaas_sdk2_py.rpc import RpcManager, ZenohRpcManager
 
 logger = logging.getLogger(__name__)
 
 
-class InvocationContext:
+class Session:
     local_obj_dict: Dict[ObjectMeta, "BaseObject"]
     remote_obj_dict: Dict[ObjectMeta, "BaseObject"]
 
     def __init__(
         self,
         partition_id: int,
-        rpc: RpcManager,
-        data: DataManager,
+        rpc_manager: ZenohRpcManager,
+        data_manager: ZenohDataManager,
+        remote_only: bool = False,
     ):
         self.partition_id = partition_id
-        self.rpc = rpc
-        self.data_manager = data
+        self.rpc_manager = rpc_manager
+        self.data_manager = data_manager
         self.local_obj_dict = {}
         self.remote_obj_dict = {}
-
-    def create_empty_object(self, cls_meta: ClsMeta):
-        obj_id = TSID.create().number
-        meta = ObjectMeta(
-            cls=cls_meta.cls_id,
-            partition_id=self.partition_id,
-            obj_id=obj_id,
-            remote=False,
-        )
-        obj = cls_meta.cls(meta=meta, ctx=self)
-        self.local_obj_dict[meta] = obj
-        return obj
+        self.remote_only = remote_only
 
     def create_object(
         self,
         cls_meta: ClsMeta,
-        obj_id: int,
+        obj_id: int = None,
     ):
+        if obj_id is None:
+            obj_id = TSID.create().number
         meta = ObjectMeta(
             cls=cls_meta.cls_id,
             partition_id=self.partition_id,
             obj_id=obj_id,
-            remote=False,
+            remote=False or self.remote_only,
         )
         obj = cls_meta.cls(meta=meta, ctx=self)
-        self.local_obj_dict[meta] = obj
+        if self.remote_only:
+            self.remote_obj_dict[meta] = obj
+        else:
+            self.local_obj_dict[meta] = obj
         return obj
 
-    def create_object_from_ref(self, cls_meta: ClsMeta, obj_id: int):
+    def load_object(self, cls_meta: ClsMeta, obj_id: int):
         meta = ObjectMeta(
             cls=cls_meta.cls_id,
             partition_id=self.partition_id,
@@ -75,17 +69,17 @@ class InvocationContext:
         self,
         req: ObjectInvocationRequest,
     ) -> InvocationResponse:
-        return await self.rpc.obj_rpc(req)
+        return await self.rpc_manager.obj_rpc(req)
 
     async def fn_rpc(
         self,
         req: InvocationRequest,
     ) -> InvocationResponse:
-        return await self.rpc.fn_rpc(req)
+        return await self.rpc_manager.fn_rpc(req)
 
     async def commit(self):
         for k, v in self.local_obj_dict.items():
-            logger.debug("commit %s %s %s %s", v.meta.cls, v.meta.partition_id, v.meta.obj_id, v.dirty)
+            logger.debug("check of committing [%s, %s, %s, %s]", v.meta.cls, v.meta.partition_id, v.meta.obj_id, v.dirty)
             if v.dirty:
                 await self.data_manager.set_all(
                     cls_id=v.meta.cls,
@@ -93,28 +87,35 @@ class InvocationContext:
                     object_id=v.meta.obj_id,
                     data=v.state,
                 )
+                v._dirty = False
 
+    async def ff_fn_rpc(
+        self,
+        req: InvocationRequest,
+    ) -> InvocationResponse:
+        # TODO: implement ff_fn_rpc
+        pass
 
+    async def ff_obj_rpc(
+        self,
+        req: InvocationRequest,
+    ) -> InvocationResponse:
+        # TODO: implement ff_fn_rpc
+        pass
+    
+    
 class BaseObject:
     # _refs: Dict[int, Ref]
     _state: Dict[int, bytes]
     _dirty: bool
 
-    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+    def __init__(self, meta: ObjectMeta = None, session: Session = None):
         self.meta = meta
-        self.ctx = ctx
+        self.ctx = session
+        self.session = session
         self._state = {}
         self._dirty = False
-
-    # def create_data_ref(self, index: int) -> Ref:
-    #     ref = Ref(
-    #         cls_id=self.meta.cls,
-    #         object_id=self.meta.obj_id,
-    #         partition_id=self.meta.partition_id,
-    #         key=index,
-    #     )
-    #     self._refs[index] = ref
-    #     return ref
+        self._full_loaded = False
 
     def set_data(self, index: int, data: bytes):
         self._state[index] = data
@@ -123,11 +124,21 @@ class BaseObject:
     async def get_data(self, index: int) -> bytes:
         if index in self._state:
             return self._state[index]
-        raw = await self.ctx.data_manager.get(
-            self.meta.cls, self.meta.partition_id, self.meta.obj_id, index
+        if self._full_loaded:
+            return None
+        obj = await self.ctx.data_manager.get_all(
+            self.meta.cls, self.meta.partition_id, self.meta.obj_id
         )
-        self._state[index] = raw
-        return raw
+        if obj is None:
+            return None
+        for index, v in obj.entries.items():
+            match v:
+                case ValData(byte=value):
+                    self._state[index] = value
+                case ValData(crdt_map=value):
+                    self._state[index] = value
+        self._full_loaded = True
+        return self._state.get(index)
 
     @property
     def dirty(self):
@@ -173,7 +184,7 @@ class BaseObject:
 
 
 class Oparaca:
-    data: DataManager
+    data_manager: ZenohDataManager
     rpc: RpcManager
 
     def __init__(self, default_pkg: str = "default", config: OprcConfig = None):
@@ -183,26 +194,38 @@ class Oparaca:
         self.odgm_url = config.oprc_odgm_url
         self.meta_repo = MetadataRepo()
         self.default_pkg = default_pkg
-        self.default_partition_id = int(os.environ.get("OPRC_PARTITION", "0"))
+        self.default_partition_id = config.oprc_partition_default
 
-    def init(self):
+    def init(self, enabla_scout: bool = False):
         # self.data = DataManager(self.odgm_url)
         
         zenoh.init_log_from_env_or("error")
-        peer_url = self.config.oprc_zenoh_peers
-        if peer_url is None:
+        peers = self.config.get_zenoh_peers()
+        if peers is None:
             conf = {}
         else:
             conf = {
                 'connect': {
-                    'endpoints': [peer_url],
+                    'endpoints': peers,
                 },
-                'mode': 'client',
+                'mode': 'peer',
             }
+        if not enabla_scout:
+            conf['scouting'] = {
+                'multicast':{
+                    'enabled': False,
+                },
+                'gossip': {
+                    'enabled': False,
+                    'autoconnect': { 'router': [], 'peer': [] },
+                }
+            }
+                
         zenoh_config = zenoh.Config.from_json5(json.dumps(conf))
+        logger.debug("zenoh config: %s", zenoh_config)
         self.z_session = zenoh.open(zenoh_config)    
         self.executor = ThreadPoolExecutor()
-        self.data = ZenohDataManager(self.z_session)
+        self.data_manager = ZenohDataManager(self.z_session)
         self.rpc = ZenohRpcManager(self.z_session)
 
     def new_cls(self, name: Optional[str] = None, pkg: Optional[str] = None) -> ClsMeta:
@@ -213,17 +236,17 @@ class Oparaca:
         )
         return meta
 
-    def new_context(self, partition_id: Optional[int] = None) -> InvocationContext:
-        return InvocationContext(
+    def new_session(self, partition_id: Optional[int] = None) -> Session:
+        return Session(
             partition_id if partition_id is not None else self.default_partition_id,
             self.rpc,
-            self.data,
+            self.data_manager,
         )
     
     async def handle_obj_invoke(self, req: ObjectInvocationRequest) -> InvocationResponse:
         meta = self.meta_repo.get_cls_meta(req.cls_id)
         fn_meta = meta.func_list[req.fn_id]
-        ctx = self.new_context()
+        ctx = self.new_session()
         obj = ctx.create_object(meta, req.object_id)
         try:
             logger.debug("calling %s", fn_meta)

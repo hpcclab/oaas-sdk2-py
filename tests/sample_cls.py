@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from oaas_sdk2_py import Oparaca, BaseObject, ObjectInvocationRequest
-from oaas_sdk2_py.engine import InvocationContext
+from oaas_sdk2_py.engine import Session
 from oaas_sdk2_py.model import ObjectMeta
 
 oaas = Oparaca()
@@ -19,7 +19,7 @@ class Result(BaseModel):
 
 @test
 class SampleObj(BaseObject):
-    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+    def __init__(self, meta: ObjectMeta = None, ctx: Session = None):
         super().__init__(meta, ctx)
 
     @test.data_getter(index=0)

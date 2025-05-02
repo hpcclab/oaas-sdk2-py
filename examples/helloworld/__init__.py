@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import string
 
@@ -7,12 +8,9 @@ from tsidpy import TSID
 
 from oaas_sdk2_py import Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.engine import InvocationContext, logger, BaseObject
+from oaas_sdk2_py.engine import Session, BaseObject
 from oaas_sdk2_py.model import ObjectMeta
 from oaas_sdk2_py.pb.oprc import ResponseStatus
-
-oaas = Oparaca(config=OprcConfig())
-greeter = oaas.new_cls(pkg="example", name="hello")
 
 
 class GreetCreator(BaseModel):
@@ -34,9 +32,14 @@ class GreetResponse(BaseModel):
 class UpdateIntro(BaseModel):
     intro: str = "How are you?"
     
+    
+
+oaas = Oparaca(config=OprcConfig())
+greeter = oaas.new_cls(pkg="example", name="hello")
+    
 @greeter
 class Greeter(BaseObject):
-    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+    def __init__(self, meta: ObjectMeta = None, ctx: Session = None):
         super().__init__(meta, ctx)
 
     @greeter.data_getter(index=0)
@@ -57,12 +60,6 @@ class Greeter(BaseObject):
         await self.set_intro(req.intro)
         return GreetCreatorResponse(id=self.meta.obj_id)
         
-    @greeter.func(stateless=True)
-    async def echo(self, req: InvocationRequest):
-        return InvocationResponse(
-            status=ResponseStatus.OKAY,
-            payload=req.payload
-        )
 
     @greeter.func()
     async def greet(self,  req: Greet) -> GreetResponse:
@@ -96,7 +93,7 @@ class RandomRequest(BaseModel):
 
 @record
 class Record(BaseObject):
-    def __init__(self, meta: ObjectMeta = None, ctx: InvocationContext = None):
+    def __init__(self, meta: ObjectMeta = None, ctx: Session = None):
         super().__init__(meta, ctx)
 
     @record.data_getter(index=0)
@@ -119,11 +116,19 @@ class Record(BaseObject):
             status=ResponseStatus.OKAY,
             payload=raw
         )
+    
+    
+    @record.func(stateless=True)
+    async def echo(self, req: InvocationRequest):
+        return InvocationResponse(
+            status=ResponseStatus.OKAY,
+            payload=req.payload
+        )
 
 
 
 async def main(port=8080):
     server = await start_grpc_server(oaas, port=port)
-    logger.info(f'Serving on {port}')
+    logging.info(f'Serving on {port}')
     await server.wait_closed()
 
