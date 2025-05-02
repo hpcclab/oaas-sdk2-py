@@ -46,6 +46,12 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set PROTOC environment variable
+        run: |
+          echo "PROTOC=$(which protoc 2>/dev/null || where protoc 2>/dev/null)" >> $GITHUB_ENV
+          echo "Protoc location: $(which protoc 2>/dev/null || where protoc 2>/dev/null)"
+          echo "Protoc version:"
+          protoc --version
       - name: Setup GCC
         uses: egor-tensin/setup-gcc@v1.3
       - uses: actions/setup-python@v5
@@ -116,6 +122,12 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set PROTOC environment variable
+        run: |
+          echo "PROTOC=$(which protoc 2>nul || where protoc 2>nul)" >> $env:GITHUB_ENV
+          echo "Protoc location: $(which protoc 2>nul || where protoc 2>nul)"
+          echo "Protoc version:"
+          protoc --version
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
@@ -148,6 +160,12 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set PROTOC environment variable
+        run: |
+          echo "PROTOC=$(which protoc 2>/dev/null || where protoc 2>/dev/null)" >> $GITHUB_ENV
+          echo "Protoc location: $(which protoc 2>/dev/null || where protoc 2>/dev/null)"
+          echo "Protoc version:"
+          protoc --version
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
