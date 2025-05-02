@@ -28,17 +28,17 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.02
             target: x86_64
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.02
             target: x86
-          - runner: ubuntu-22.04
-            target: aarch64
-          - runner: ubuntu-22.04
+          # - runner: ubuntu-24.04
+          #   target: aarch64
+          - runner: ubuntu-24.02
             target: armv7
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.02
             target: s390x
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.02
             target: ppc64le
     steps:
       - uses: actions/checkout@v4
@@ -63,20 +63,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.platform.target }}
-          path: dist
+          path: ${{ env.WORKING_DIRECTORY }}/dist
 
   # musllinux:
   #   runs-on: ${{ matrix.platform.runner }}
   #   strategy:
   #     matrix:
   #       platform:
-  #         - runner: ubuntu-22.04
+  #         - runner: ubuntu-24.02
   #           target: x86_64
-  #         - runner: ubuntu-22.04
+  #         - runner: ubuntu-24.02
   #           target: x86
-  #         - runner: ubuntu-22.04
+  #         - runner: ubuntu-24.02
   #           target: aarch64
-  #         - runner: ubuntu-22.04
+  #         - runner: ubuntu-24.02
   #           target: armv7
   #   steps:
   #     - uses: actions/checkout@v4
@@ -131,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-windows-${{ matrix.platform.target }}
-          path: dist
+          path: ${{ env.WORKING_DIRECTORY }}/dist
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
@@ -162,7 +162,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-macos-${{ matrix.platform.target }}
-          path: dist
+          path: ${{ env.WORKING_DIRECTORY }}/dist
 
   sdist:
     runs-on: ubuntu-latest
@@ -178,7 +178,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wheels-sdist
-          path: dist
+          path: ${{ env.WORKING_DIRECTORY }}/dist
 
   release:
     name: Release
@@ -206,4 +206,4 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing wheels-*/*
-          working-directory: ${{ env.WORKING_DIRECTORY }}
+          # working-directory: ${{ env.WORKING_DIRECTORY }}
