@@ -20,7 +20,7 @@ permissions:
 
 env:
   WORKING_DIRECTORY: oprc-py
-
+  PROTOBUF_VERSION: 30.2
 
 jobs:
   linux:
@@ -46,9 +46,11 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ env.PROTOBUF_VERSION }}
       - name: Set PROTOC environment variable
         run: |
           echo "PROTOC=$(which protoc 2>/dev/null || where protoc 2>/dev/null)" >> $GITHUB_ENV
+          echo "PROTOC_VERSION=${{ env.PROTOBUF_VERSION }}" >> $GITHUB_ENV
           echo "Protoc location: $(which protoc 2>/dev/null || where protoc 2>/dev/null)"
           echo "Protoc version:"
           protoc --version
@@ -63,6 +65,16 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          before-script-linux: |
+            which unzip || apt install unzip || echo "not apt"
+            which unzip || yum install unzip || echo "not yum"
+            which unzip
+            PROTOC=protoc-${{ env.PROTOBUF_VERSION }}-linux-x86_64.zip
+            if [ "$(arch)" == "i686" ]; then PROTOC=protoc-${{ env.PROTOBUF_VERSION }}-linux-x86_32.zip; fi
+            curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOBUF_VERSION }}/$PROTOC
+            unzip $PROTOC -d protoc3
+            mv -v protoc3/bin/* /usr/local/bin/
+            mv -v protoc3/include/* /usr/local/include/
           manylinux: auto
           working-directory: ${{ env.WORKING_DIRECTORY }}
       - name: Upload wheels
@@ -122,6 +134,7 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ env.PROTOBUF_VERSION }}
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
@@ -154,9 +167,11 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ env.PROTOBUF_VERSION }}
       - name: Set PROTOC environment variable
         run: |
           echo "PROTOC=$(which protoc 2>/dev/null || where protoc 2>/dev/null)" >> $GITHUB_ENV
+          echo "PROTOC_VERSION=${{ env.PROTOBUF_VERSION }}" >> $GITHUB_ENV
           echo "Protoc location: $(which protoc 2>/dev/null || where protoc 2>/dev/null)"
           echo "Protoc version:"
           protoc --version
@@ -206,10 +221,10 @@ jobs:
       attestations: write
     steps:
       - uses: actions/download-artifact@v4
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: 'wheels-*/*'
+      # - name: Generate artifact attestation
+      #   uses: actions/attest-build-provenance@v2
+      #   with:
+      #     subject-path: 'wheels-*/*'
       - name: Publish to PyPI
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         uses: PyO3/maturin-action@v1
