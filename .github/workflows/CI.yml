@@ -46,6 +46,8 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup GCC
+        uses: egor-tensin/setup-gcc@v1.3
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
