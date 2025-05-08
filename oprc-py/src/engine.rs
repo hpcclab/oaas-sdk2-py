@@ -116,8 +116,8 @@ async fn start_tonic(
 }
 
 async fn start_zenoh(
-    service: InvocationHandler,
-    z_session: zenoh::Session,
+    _service: InvocationHandler,
+    _z_session: zenoh::Session,
 ) -> PyResult<()> {
     todo!()    
 }

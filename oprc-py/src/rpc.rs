@@ -1,7 +1,6 @@
-use std::result;
 
 use oprc_invoke::proxy::ObjectProxy;
-use pyo3::{exceptions::PyRuntimeError, IntoPyObjectExt, Py, PyResult, Python};
+use pyo3::{exceptions::PyRuntimeError, Py, PyResult, Python};
 
 use crate::model::{InvocationRequest, InvocationResponse, ObjectInvocationRequest};
 
@@ -32,11 +31,6 @@ impl RpcManager {
         result
             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
             .map(|resp| InvocationResponse::from(resp))
-        // Python::with_gil(|py| {
-        //     let resp = InvocationResponse::from(resp);
-        //     Ok(resp)
-        //     // Ok(resp.into_py_any(py))
-        // })
     }
 
     pub async fn invoke_obj(
