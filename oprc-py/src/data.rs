@@ -5,17 +5,17 @@ use pyo3::{
 };
 pub(crate) use zenoh::Session;
 
-use crate::model::ObjectData;
+use crate::model::{ObjectData, ObjectMetadata};
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass]
 pub struct DataManager {
-    proxy: oprc_offload::proxy::ObjectProxy,
+    proxy: oprc_invoke::proxy::ObjectProxy,
 }
 
 impl DataManager {
-    pub fn new(session: Session) -> Self {
-        let proxy = oprc_offload::proxy::ObjectProxy::new(session);
+    pub fn new(z_session: Session) -> Self {
+        let proxy = oprc_invoke::proxy::ObjectProxy::new(z_session);
         DataManager { proxy }
     }
 }
@@ -53,10 +53,24 @@ impl DataManager {
     pub async fn set_obj(&self, obj: Py<ObjectData>) -> PyResult<()> {
         let proto = Python::with_gil(|py| {
             let obj = obj.borrow(py);
-            obj.to_proto()
+            obj.into_proto()
         });
         self.proxy
-            .set_obj(proto.into())
+            .set_obj(proto)
+            .await
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        Ok(())
+    }
+
+    
+
+    pub async fn del_obj(&self, meta: Py<ObjectMetadata>) -> PyResult<()> {
+        let proto = Python::with_gil(|py| {
+            let meta = meta.borrow(py);
+            meta.into_proto()
+        });
+        self.proxy
+            .del_obj(proto)
             .await
             .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
         Ok(())

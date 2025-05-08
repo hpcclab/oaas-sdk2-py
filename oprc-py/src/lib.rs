@@ -3,6 +3,7 @@ mod engine;
 mod handler;
 mod model;
 mod data;
+mod rpc;
 use engine::OaasEngine;
 
 
@@ -40,7 +41,9 @@ fn oprc_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init_logger, m)?)?;
     m.add_class::<OaasEngine>()?;
     m.add_class::<data::DataManager>()?;
+    m.add_class::<rpc::RpcManager>()?;
     m.add_class::<model::InvocationRequest>()?;
+    m.add_class::<model::InvocationResponseCode>()?;
     m.add_class::<model::InvocationResponse>()?;
     m.add_class::<model::ObjectInvocationRequest>()?;
     m.add_class::<model::ObjectMetadata>()?; 

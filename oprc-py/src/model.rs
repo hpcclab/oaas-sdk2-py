@@ -3,19 +3,43 @@ use std::collections::HashMap;
 use oprc_pb::{ObjMeta, ValType};
 
 #[derive(Clone)]
-#[pyo3::pyclass]
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyo3::pyclass]
 pub struct InvocationRequest {
     #[pyo3(get, set)]
-    partition_id: u32,
+    pub partition_id: u32,
     #[pyo3(get, set)]
-    cls_id: String,
+    pub cls_id: String,
     #[pyo3(get, set)]
-    fn_id: String,
+    pub fn_id: String,
     #[pyo3(get, set)]
-    options: HashMap<String, String>,
+    pub options: HashMap<String, String>,
     #[pyo3(get, set)]
-    payload: Vec<u8>,
+    pub payload: Vec<u8>,
+}
+
+impl InvocationRequest {
+    pub fn into_proto(&self) -> oprc_pb::InvocationRequest {
+        oprc_pb::InvocationRequest {
+            partition_id: self.partition_id,
+            cls_id: self.cls_id.clone(),
+            fn_id: self.fn_id.clone(),
+            options: self.options.clone(),
+            payload: self.payload.clone(),
+        }
+    }
+}
+
+impl Into<oprc_pb::InvocationRequest> for InvocationRequest {
+    fn into(self) -> oprc_pb::InvocationRequest {
+        oprc_pb::InvocationRequest {
+            partition_id: self.partition_id,
+            cls_id: self.cls_id,
+            fn_id: self.fn_id,
+            options: self.options,
+            payload: self.payload,
+        }
+    }
 }
 
 impl From<oprc_pb::InvocationRequest> for InvocationRequest {
@@ -30,9 +54,19 @@ impl From<oprc_pb::InvocationRequest> for InvocationRequest {
     }
 }
 
+#[pyo3_stub_gen::derive::gen_stub_pyclass_enum]
+#[pyo3::pyclass(eq, eq_int)]
+#[derive(PartialEq)]
+pub enum InvocationResponseCode {
+    Okay = 0,
+    InvalidRequest = 1,
+    AppError = 2,
+    SystemError = 3,
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[derive(Clone)]
 #[pyo3::pyclass]
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
 pub struct InvocationResponse {
     #[pyo3(get, set)]
     payload: Vec<u8>,
@@ -41,6 +75,17 @@ pub struct InvocationResponse {
     #[pyo3(get, set)]
     header: HashMap<String, String>,
 }
+
+impl From<oprc_pb::InvocationResponse> for InvocationResponse {
+    fn from(value: oprc_pb::InvocationResponse) -> Self {
+        Self {
+            payload: value.payload.unwrap_or_default(),
+            status: value.status,
+            header: value.headers,
+        }
+    }
+}
+
 
 impl From<InvocationResponse> for oprc_pb::InvocationResponse {
     fn from(value: InvocationResponse) -> Self {
@@ -62,8 +107,8 @@ impl From<&InvocationResponse> for oprc_pb::InvocationResponse {
     }
 }
 
-#[pyo3::pymethods]
 #[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pyo3::pymethods]
 impl InvocationResponse {
     #[new]
     #[pyo3(signature = (payload=vec![], status=0, header=HashMap::new()))]
@@ -76,9 +121,9 @@ impl InvocationResponse {
     }
 }
 
-#[derive(Clone)]
-#[pyo3::pyclass]
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[derive(Clone)]
+#[pyo3::pyclass()]
 pub struct ObjectInvocationRequest {
     #[pyo3(get, set)]
     partition_id: u32,
@@ -107,15 +152,30 @@ impl From<oprc_pb::ObjectInvocationRequest> for ObjectInvocationRequest {
     }
 }
 
-#[pyo3::pyclass]
+
+impl ObjectInvocationRequest {
+    pub fn into_proto(&self) -> oprc_pb::ObjectInvocationRequest {
+        oprc_pb::ObjectInvocationRequest {
+            partition_id: self.partition_id,
+            cls_id: self.cls_id.clone(),
+            fn_id: self.fn_id.clone(),
+            object_id: self.object_id,
+            options: self.options.clone(),
+            payload: self.payload.clone(),
+        }
+    }
+}
+
+
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
-#[derive(Clone)]
+#[pyo3::pyclass(hash, eq, frozen)]
+#[derive(Clone, PartialEq, Eq, Hash, Default)]
 pub struct ObjectMetadata {
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     object_id: u64,
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     cls_id: String,
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     partition_id: u32,
 }
 
@@ -139,33 +199,63 @@ impl From<oprc_pb::ObjMeta> for ObjectMetadata {
     }
 }
 
-#[pyo3::pyclass]
+impl ObjectMetadata {
+    pub fn into_proto(&self) -> oprc_pb::ObjMeta {
+        oprc_pb::ObjMeta {
+            object_id: self.object_id,
+            cls_id: self.cls_id.clone(),
+            partition_id: self.partition_id,
+        }
+    }
+    
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pyo3::pymethods]
+impl ObjectMetadata {
+    #[new]
+    pub fn new(cls_id: String, partition_id: u32, object_id: u64) -> Self {
+        ObjectMetadata {
+            object_id,
+            cls_id,
+            partition_id,
+        }
+    }
+}
+
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[pyo3::pyclass]
 #[derive(Clone)]
 pub struct ObjectData {
     #[pyo3(get, set)]
-    meta: Option<ObjectMetadata>,
+    pub(crate) meta: ObjectMetadata,
     #[pyo3(get, set)]
-    entries: HashMap<u32, Vec<u8>>,
+    pub(crate) entries: HashMap<u32, Vec<u8>>,
+    #[pyo3(get, set)]
+    pub(crate) dirty: bool,
+    #[pyo3(get, set)]
+    pub(crate) remote: bool,
 }
 
 impl From<oprc_pb::ObjData> for ObjectData {
     fn from(value: oprc_pb::ObjData) -> Self {
         ObjectData {
-            meta: value.metadata.map(|m| ObjectMetadata::from(m)),
+            meta: value.metadata.map(|m| ObjectMetadata::from(m)).unwrap_or_default(),
             entries: value
                 .entries
                 .into_iter()
                 .map(|(k, v)| (k, v.data))
                 .collect(),
+            dirty: false,
+            remote: false,
         }
     }
 }
 
 impl ObjectData {
-    pub fn to_proto(&self) -> oprc_pb::ObjData {
+    pub fn into_proto(&self) -> oprc_pb::ObjData {
         oprc_pb::ObjData {
-            metadata: self.meta.as_ref().map(|m| m.into()),
+            metadata: Some((&self.meta).into()),
             entries: self
                 .entries
                 .iter()
@@ -181,10 +271,11 @@ impl ObjectData {
                 .collect(),
         }
     }
+
 }
 
 impl Into<oprc_pb::ObjData> for &ObjectData {
     fn into(self) -> oprc_pb::ObjData {
-        self.to_proto()
+        self.into_proto()
     }
 }

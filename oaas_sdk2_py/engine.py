@@ -1,30 +1,24 @@
-from concurrent.futures import ThreadPoolExecutor
-import json
 import logging
 from typing import Dict, Optional
 from tsidpy import TSID
-import zenoh
-import asyncio
-
+import oprc_py
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.data import DataManager, ZenohDataManager
+from oaas_sdk2_py.handler import OprcFunction
 from oaas_sdk2_py.model import ObjectMeta, ClsMeta
-from oaas_sdk2_py.pb.oprc import InvocationRequest, InvocationResponse, ObjectInvocationRequest, ResponseStatus, ValData
 from oaas_sdk2_py.repo import MetadataRepo
-from oaas_sdk2_py.rpc import RpcManager, ZenohRpcManager
 
 logger = logging.getLogger(__name__)
 
 
 class Session:
-    local_obj_dict: Dict[ObjectMeta, "BaseObject"]
-    remote_obj_dict: Dict[ObjectMeta, "BaseObject"]
+    local_obj_dict: Dict[oprc_py.ObjectMetadata, "BaseObject"]
+    remote_obj_dict: Dict[oprc_py.ObjectMetadata, "BaseObject"]
 
     def __init__(
         self,
         partition_id: int,
-        rpc_manager: ZenohRpcManager,
-        data_manager: ZenohDataManager,
+        rpc_manager: oprc_py.RpcManager,
+        data_manager: oprc_py.DataManager,
         remote_only: bool = False,
     ):
         self.partition_id = partition_id
@@ -67,19 +61,25 @@ class Session:
 
     async def obj_rpc(
         self,
-        req: ObjectInvocationRequest,
-    ) -> InvocationResponse:
-        return await self.rpc_manager.obj_rpc(req)
+        req: oprc_py.ObjectInvocationRequest,
+    ) -> oprc_py.InvocationResponse:
+        return await self.rpc_manager.invoke_obj(req)
 
     async def fn_rpc(
         self,
-        req: InvocationRequest,
-    ) -> InvocationResponse:
-        return await self.rpc_manager.fn_rpc(req)
+        req: oprc_py.InvocationRequest,
+    ) -> oprc_py.InvocationResponse:
+        return await self.rpc_manager.invoke_fn(req)
 
     async def commit(self):
         for k, v in self.local_obj_dict.items():
-            logger.debug("check of committing [%s, %s, %s, %s]", v.meta.cls, v.meta.partition_id, v.meta.obj_id, v.dirty)
+            logger.debug(
+                "check of committing [%s, %s, %s, %s]",
+                v.meta.cls,
+                v.meta.partition_id,
+                v.meta.obj_id,
+                v.dirty,
+            )
             if v.dirty:
                 await self.data_manager.set_all(
                     cls_id=v.meta.cls,
@@ -89,27 +89,13 @@ class Session:
                 )
                 v._dirty = False
 
-    async def ff_fn_rpc(
-        self,
-        req: InvocationRequest,
-    ) -> InvocationResponse:
-        # TODO: implement ff_fn_rpc
-        pass
 
-    async def ff_obj_rpc(
-        self,
-        req: InvocationRequest,
-    ) -> InvocationResponse:
-        # TODO: implement ff_fn_rpc
-        pass
-    
-    
 class BaseObject:
     # _refs: Dict[int, Ref]
     _state: Dict[int, bytes]
     _dirty: bool
 
-    def __init__(self, meta: ObjectMeta = None, session: Session = None):
+    def __init__(self, meta: oprc_py.ObjectMetadata = None, session: Session = None):
         self.meta = meta
         self.ctx = session
         self.session = session
@@ -126,17 +112,14 @@ class BaseObject:
             return self._state[index]
         if self._full_loaded:
             return None
-        obj = await self.ctx.data_manager.get_all(
-            self.meta.cls, self.meta.partition_id, self.meta.obj_id
+        obj: oprc_py.ObjectData | None = await self.ctx.data_manager.get_obj(
+            self.meta.cls_id,
+            self.meta.partition_id,
+            self.meta.object_id,
         )
         if obj is None:
             return None
-        for index, v in obj.entries.items():
-            match v:
-                case ValData(byte=value):
-                    self._state[index] = value
-                case ValData(crdt_map=value):
-                    self._state[index] = value
+        self._state = obj.entries
         self._full_loaded = True
         return self._state.get(index)
 
@@ -157,8 +140,8 @@ class BaseObject:
         fn_name: str,
         payload: bytes | None = None,
         options: dict[str, str] | None = None,
-    ) -> InvocationRequest:
-        o =  InvocationRequest(
+    ) -> oprc_py.InvocationRequest:
+        o = oprc_py.InvocationRequest(
             cls_id=self.meta.cls, fn_id=fn_name, payload=payload
         )
         if options is not None:
@@ -170,8 +153,8 @@ class BaseObject:
         fn_name: str,
         payload: bytes | None = None,
         options: dict[str, str] | None = None,
-    ) -> ObjectInvocationRequest:
-        o = ObjectInvocationRequest(
+    ) -> oprc_py.ObjectInvocationRequest:
+        o = oprc_py.ObjectInvocationRequest(
             cls_id=self.meta.cls,
             partition_id=self.meta.partition_id,
             object_id=self.meta.obj_id,
@@ -184,49 +167,47 @@ class BaseObject:
 
 
 class Oparaca:
-    data_manager: ZenohDataManager
-    rpc: RpcManager
+    data_manager: oprc_py.DataManager
+    rpc: oprc_py.RpcManager
 
     def __init__(self, default_pkg: str = "default", config: OprcConfig = None):
         if config is None:
             config = OprcConfig()
         self.config = config
-        self.odgm_url = config.oprc_odgm_url
+        # self.odgm_url = config.oprc_odgm_url
         self.meta_repo = MetadataRepo()
         self.default_pkg = default_pkg
+        self.engine = oprc_py.OaasEngine()
         self.default_partition_id = config.oprc_partition_default
 
-    def init(self, enabla_scout: bool = False):
-        # self.data = DataManager(self.odgm_url)
-        
-        zenoh.init_log_from_env_or("error")
-        peers = self.config.get_zenoh_peers()
-        if peers is None:
-            conf = {}
-        else:
-            conf = {
-                'connect': {
-                    'endpoints': peers,
-                },
-                'mode': 'peer',
-            }
-        if not enabla_scout:
-            conf['scouting'] = {
-                'multicast':{
-                    'enabled': False,
-                },
-                'gossip': {
-                    'enabled': False,
-                    'autoconnect': { 'router': [], 'peer': [] },
-                }
-            }
-                
-        zenoh_config = zenoh.Config.from_json5(json.dumps(conf))
-        logger.debug("zenoh config: %s", zenoh_config)
-        self.z_session = zenoh.open(zenoh_config)    
-        self.executor = ThreadPoolExecutor()
-        self.data_manager = ZenohDataManager(self.z_session)
-        self.rpc = ZenohRpcManager(self.z_session)
+    # def init(self, enabla_scout: bool = False):
+    # zenoh.init_log_from_env_or("error")
+    # peers = self.config.get_zenoh_peers()
+    # if peers is None:
+    #     conf = {}
+    # else:
+    #     conf = {
+    #         "connect": {
+    #             "endpoints": peers,
+    #         },
+    #         "mode": "peer",
+    #     }
+    # if not enabla_scout:
+    #     conf["scouting"] = {
+    #         "multicast": {
+    #             "enabled": False,
+    #         },
+    #         "gossip": {
+    #             "enabled": False,
+    #             "autoconnect": {"router": [], "peer": []},
+    #         },
+    #     }
+
+    # zenoh_config = zenoh.Config.from_json5(json.dumps(conf))
+    # logger.debug("zenoh config: %s", zenoh_config)
+    # self.z_session = zenoh.open(zenoh_config)
+
+    # self.rpc = ZenohRpcManager(self.z_session)
 
     def new_cls(self, name: Optional[str] = None, pkg: Optional[str] = None) -> ClsMeta:
         meta = ClsMeta(
@@ -239,57 +220,69 @@ class Oparaca:
     def new_session(self, partition_id: Optional[int] = None) -> Session:
         return Session(
             partition_id if partition_id is not None else self.default_partition_id,
-            self.rpc,
-            self.data_manager,
+            self.engine.rpc_manager,
+            self.engine.data_manager,
         )
-    
-    async def handle_obj_invoke(self, req: ObjectInvocationRequest) -> InvocationResponse:
-        meta = self.meta_repo.get_cls_meta(req.cls_id)
-        fn_meta = meta.func_list[req.fn_id]
-        ctx = self.new_session()
-        obj = ctx.create_object(meta, req.object_id)
-        try:
-            logger.debug("calling %s", fn_meta)
-            resp = await fn_meta.caller(obj, req)
-            await ctx.commit()
-            logger.debug("done commit")
-            return resp
-        except Exception as e:
-            logging.error("Exception occurred", exc_info=True)
-            return InvocationResponse(status=ResponseStatus.APP_ERROR, payload=str(e).encode())
-        
-    async def serve_local_function(self, cls_id: str, fn_name: str, obj_id: int, partition_id: int = 0):
-        key = f"oprc/{cls_id}/{partition_id}/objects/{obj_id}/invokes/{fn_name}"
-        logger.info("Serving local function: %s", key)
-        queryable = self.z_session.declare_queryable(key)
-        
-        async def query_handler():
-            while True:
-                # Run the blocking receive operation in a separate thread using the executor
-                def receive_query():
-                    return queryable.recv()
-                
-                query = await asyncio.get_event_loop().run_in_executor(
-                    self.executor, receive_query
-                )
-                
-                logger.debug("Received query %s", query.key_expr)
-                
-                # Process the query in the asyncio event loop
-                payload = query.payload
-                if payload is not None:
-                    payload = payload.to_bytes()
-                    logger.debug("payload %s", payload)
-                    req = ObjectInvocationRequest().parse(payload)
-                    logger.debug("Received request %s", req)
-                    resp = await self.handle_obj_invoke(req)
-                    resp_bytes = bytes(resp)
-                    logger.debug("Sending response %s", resp_bytes)
-                    query.reply(key, resp_bytes)
-                else:
-                    logger.error("Received function request without payload")
-                    query.reply_err(b"Received function request without payload")
-        
-        # Create and return background task
-        task = asyncio.create_task(query_handler())
-        return task
+
+    def start_grpc_server(self, loop, port=8080):
+        self.engine.serve_grpc_server(loop, OprcFunction(self))
+
+    def stop_server(self):
+        self.engine.stop_server()
+
+    # async def handle_obj_invoke(
+    #     self, req: oprc_py.ObjectInvocationRequest
+    # ) -> oprc_py.InvocationResponse:
+    #     meta = self.meta_repo.get_cls_meta(req.cls_id)
+    #     fn_meta = meta.func_list[req.fn_id]
+    #     ctx = self.new_session()
+    #     obj = ctx.create_object(meta, req.object_id)
+    #     try:
+    #         logger.debug("calling %s", fn_meta)
+    #         resp = await fn_meta.caller(obj, req)
+    #         await ctx.commit()
+    #         logger.debug("done commit")
+    #         return resp
+    #     except Exception as e:
+    #         logging.error("Exception occurred", exc_info=True)
+    #         return InvocationResponse(
+    #             status=ResponseStatus.APP_ERROR, payload=str(e).encode()
+    #         )
+
+    # async def serve_local_function(
+    #     self, cls_id: str, fn_name: str, obj_id: int, partition_id: int = 0
+    # ):
+    #     key = f"oprc/{cls_id}/{partition_id}/objects/{obj_id}/invokes/{fn_name}"
+    #     logger.info("Serving local function: %s", key)
+    #     queryable = self.z_session.declare_queryable(key)
+
+    #     async def query_handler():
+    #         while True:
+    #             # Run the blocking receive operation in a separate thread using the executor
+    #             def receive_query():
+    #                 return queryable.recv()
+
+    #             query = await asyncio.get_event_loop().run_in_executor(
+    #                 self.executor, receive_query
+    #             )
+
+    #             logger.debug("Received query %s", query.key_expr)
+
+    #             # Process the query in the asyncio event loop
+    #             payload = query.payload
+    #             if payload is not None:
+    #                 payload = payload.to_bytes()
+    #                 logger.debug("payload %s", payload)
+    #                 req = ObjectInvocationRequest().parse(payload)
+    #                 logger.debug("Received request %s", req)
+    #                 resp = await self.handle_obj_invoke(req)
+    #                 resp_bytes = bytes(resp)
+    #                 logger.debug("Sending response %s", resp_bytes)
+    #                 query.reply(key, resp_bytes)
+    #             else:
+    #                 logger.error("Received function request without payload")
+    #                 query.reply_err(b"Received function request without payload")
+
+    #     # Create and return background task
+    #     task = asyncio.create_task(query_handler())
+    #     return task

@@ -1,16 +1,15 @@
 import json
-import logging
 import random
 import string
 
+from oprc_py.oprc_py import InvocationRequest, InvocationResponse, InvocationResponseCode
 from pydantic import BaseModel
 from tsidpy import TSID
 
-from oaas_sdk2_py import Oparaca, start_grpc_server, InvocationRequest, InvocationResponse
+from oaas_sdk2_py import Oparaca
 from oaas_sdk2_py.config import OprcConfig
 from oaas_sdk2_py.engine import Session, BaseObject
 from oaas_sdk2_py.model import ObjectMeta
-from oaas_sdk2_py.pb.oprc import ResponseStatus
 
 
 class GreetCreator(BaseModel):
@@ -113,7 +112,7 @@ class Record(BaseObject):
             data[generate_text(req.keys)] = generate_text(req.values)
         raw = await self.set_record_data(data)
         return InvocationResponse(
-            status=ResponseStatus.OKAY,
+            status=int(InvocationResponseCode.Okay),
             payload=raw
         )
     
@@ -121,14 +120,6 @@ class Record(BaseObject):
     @record.func(stateless=True)
     async def echo(self, req: InvocationRequest):
         return InvocationResponse(
-            status=ResponseStatus.OKAY,
+            status=int(InvocationResponseCode.Okay),
             payload=req.payload
         )
-
-
-
-async def main(port=8080):
-    server = await start_grpc_server(oaas, port=port)
-    logging.info(f'Serving on {port}')
-    await server.wait_closed()
-

@@ -3,15 +3,10 @@ from collections.abc import Callable
 import inspect
 from typing import Optional, Any
 
+from oprc_py.oprc_py import InvocationRequest, InvocationResponse, InvocationResponseCode, ObjectInvocationRequest
 from pydantic import BaseModel
 import tsidpy
 
-from oaas_sdk2_py.pb.oprc import (
-    InvocationRequest,
-    InvocationResponse,
-    ObjectInvocationRequest,
-    ResponseStatus,
-)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from oaas_sdk2_py.engine import BaseObject
@@ -65,16 +60,16 @@ class StateMeta:
 
 def parse_resp(resp) -> InvocationResponse:
     if resp is None:
-        return InvocationResponse(status=ResponseStatus.OKAY)
+        return InvocationResponse(status=int(InvocationResponseCode.OKAY))
     elif isinstance(resp, InvocationResponse):
         return resp
     elif isinstance(resp, BaseModel):
         b = resp.model_dump_json().encode()
-        return InvocationResponse(status=ResponseStatus.OKAY, payload=b)
+        return InvocationResponse(status=int(InvocationResponseCode.OKAY), payload=b)
     elif isinstance(resp, bytes):
-        return InvocationResponse(status=ResponseStatus.OKAY, payload=resp)
+        return InvocationResponse(status=int(InvocationResponseCode.OKAY), payload=resp)
     elif isinstance(resp, str):
-        return InvocationResponse(status=ResponseStatus.OKAY, payload=resp.encode())
+        return InvocationResponse(status=int(InvocationResponseCode.OKAY), payload=resp.encode())
 
 
 class ClsMeta:

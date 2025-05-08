@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import sys
-from .__init__ import main, oaas
+from .__init__ import oaas
 
 def setup_event_loop():
     import asyncio
@@ -35,4 +35,9 @@ if __name__ == '__main__':
         os.environ.setdefault("HTTP_PORT", "8080")
         port = int(os.environ.get("HTTP_PORT"))
         setup_event_loop()
-        asyncio.run(main(port))
+        loop = asyncio.new_event_loop() 
+        oaas.start_grpc_server(loop, port=port)
+        try:
+            loop.run_forever()
+        finally:
+            oaas.stop_server()

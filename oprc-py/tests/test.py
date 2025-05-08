@@ -8,7 +8,6 @@ class TestHandler:
 
     async def invoke_obj(self, req: oprc_py.ObjectInvocationRequest) -> oprc_py.InvocationResponse:
         payload = f"hello from python ({req.cls_id}, {req.fn_id}, {req.object_id})".encode("utf-8")
-        # return oprc_py.InvocationResponse(payload, 0, {"key": "value"})
         return oprc_py.InvocationResponse(payload)
 
 async def start(engine):
@@ -27,11 +26,11 @@ if __name__ == "__main__":
     oprc_py.init_logger()
     engine = oprc_py.OaasEngine()
     loop = asyncio.new_event_loop() 
-    engine.start_server(loop, TestHandler())
+    engine.serve_grpc_server(loop, TestHandler())
     try:
         loop.run_forever()
     finally:
         engine.stop_server()
-        loop.close()
+        # loop.close()
     
     # asyncio.run(start(engine))

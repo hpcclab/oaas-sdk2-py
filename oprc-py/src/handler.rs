@@ -1,13 +1,16 @@
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 use oprc_pb::{
     oprc_function_server::OprcFunction, InvocationRequest, InvocationResponse,
     ObjectInvocationRequest, ResponseStatus,
 };
+use oprc_zenoh::util::Handler;
+use prost::Message;
 use pyo3::{intern, types::PyTuple, Py, PyAny, PyRef, PyResult, Python};
 use pyo3_async_runtimes::{into_future_with_locals, TaskLocals};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
+use zenoh::query::Query;
 
 pub struct InvocationHandler {
     callback: Py<PyAny>,
@@ -133,3 +136,45 @@ impl OprcFunction for InvocationHandler {
         }
     }
 }
+
+// #[derive(Clone)]
+// struct FnInvocationHandler {
+//     inner: Arc<InvocationHandler>,
+// }
+
+// #[tonic::async_trait]
+// impl Handler<Query> for FnInvocationHandler {
+//     async fn handle(&self, query: Query) {  
+//         let is_object = match query.key_expr().split("/").skip(3).next() {
+//             Some(path) => path == "objects",
+//             None => {
+//                 return;
+//             }
+//         };
+        
+//         if is_object {
+//             self.handle_invoke_obj(query).await;
+//         } else {
+//             self.handle_invoke_fn(query).await;
+//         }
+//     }
+// }
+
+// impl FnInvocationHandler {
+//     fn new(handler: Arc<InvocationHandler>) -> Self {
+//         FnInvocationHandler { inner: handler }
+//     }
+// }
+
+// fn decode<M>(query: &Query) -> Result<M, String>
+// where
+//     M: Message + Default,
+// {
+//     match query.payload() {
+//         Some(payload) => match M::decode(payload.to_bytes().as_ref()) {
+//             Ok(msg) => Ok(msg),
+//             Err(e) => Err(e.to_string()),
+//         },
+//         None => Err("Payload must not be empty".into()),
+//     }
+// }
