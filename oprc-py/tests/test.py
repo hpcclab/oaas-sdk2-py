@@ -23,10 +23,10 @@ if __name__ == "__main__":
     else:
         import winloop
         winloop.install()
-    oprc_py.init_logger()
+    oprc_py.init_logger("info")
     engine = oprc_py.OaasEngine()
     loop = asyncio.new_event_loop() 
-    engine.serve_grpc_server(loop, TestHandler())
+    engine.serve_grpc_server(8080, loop, TestHandler())
     try:
         loop.run_forever()
     finally:

@@ -41,14 +41,12 @@ class Greeter(BaseObject):
     def __init__(self, meta: ObjectMeta = None, ctx: Session = None):
         super().__init__(meta, ctx)
 
-    @greeter.data_getter(index=0)
-    async def get_intro(self, raw: bytes=None) -> str:
+    async def get_intro(self) -> str:
+        raw = self.get_data(0)
         return raw.decode("utf-8") if raw is not None else ""
 
-
-    @greeter.data_setter(index=0)
-    async def set_intro(self, data: str) -> bytes:
-        return data.encode("utf-8")
+    async def set_intro(self, data: str):
+        self.set_data(0, data.encode("utf-8"))
 
 
     @greeter.func(stateless=True)
@@ -123,3 +121,16 @@ class Record(BaseObject):
             status=int(InvocationResponseCode.Okay),
             payload=req.payload
         )
+        
+        
+        
+async def main():
+    # oaas.force_local = True
+    session = oaas.new_session()        
+    o1: Greeter = session.create_object(greeter, 1, local=True)
+    resp = await o1.greet(Greet(name="world")) # local call
+    session.commit() # save the local object to remote
+
+    o2: Greeter = session.load_object(greeter, 1)
+    resp = await o2.greet(Greet(name="world")) # remote call
+    

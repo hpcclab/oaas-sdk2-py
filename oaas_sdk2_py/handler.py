@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from oaas_sdk2_py.engine import Oparaca
 
 
-class OprcFunction:
+class GrpcHandler:
     def __init__(self, oprc: 'Oparaca', **options):
         super().__init__(**options)
         self.oprc = oprc
@@ -35,10 +35,10 @@ class OprcFunction:
                     status=int(InvocationResponseCode.InvalidRequest),
                 )
             fn_meta = meta.func_list[invocation_request.fn_id]
-            ctx = self.oprc.new_session()
-            obj = ctx.create_object(meta)
+            session = self.oprc.new_session()
+            obj = session.create_object(meta)
             resp = await fn_meta.caller(obj, invocation_request)
-            await ctx.commit()
+            await session.commit()
             return resp
         except Exception as e:
             logging.error("Exception occurred", exc_info=True)

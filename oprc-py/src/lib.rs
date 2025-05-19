@@ -5,6 +5,7 @@ mod model;
 mod data;
 mod rpc;
 use engine::OaasEngine;
+use tracing_subscriber::util::SubscriberInitExt;
 
 
 #[pyfunction]
@@ -27,10 +28,25 @@ async fn try_callback(callback: Py<PyAny>) -> PyResult<Py<PyAny>> {
 
 #[pyfunction]
 #[pyo3_stub_gen::derive::gen_stub_pyfunction]
-fn init_logger() {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .try_init();
+fn init_logger(level: &str) -> PyResult<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::new(level.to_string()))
+        // .with_target(false)
+        // .compact()
+        .with_ansi(true)
+        // .with_line_number(true)
+        // .with_file(true)
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_timer(tracing_subscriber::fmt::time::time())
+        // .with_thread_names(true)
+        // .with_thread_ids(true)
+        .with_writer(std::io::stderr)
+        .finish()
+        .try_init()
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to initialize tracing: {}", e)))?;
+    
+    tracing::info!("Initialized tracing with level: {}", level);
+    Ok(())
 }
 
 /// A Python module implemented in Rust.

@@ -44,6 +44,7 @@ class FuncMeta:
         stateless=False,
     ):
         self.func = func
+        self.__call__ = func
         self.caller = caller
         self.signature = signature
         self.stateless = stateless
@@ -157,10 +158,11 @@ class ClsMeta:
                     return await function(obj_self, *args, **kwargs)
 
             caller = self._create_caller(function, sig, strict)
-            self.func_list[fn_name] = FuncMeta(
+            fn_meta = FuncMeta(
                 wrapper, caller=caller, signature=sig, stateless=stateless
             )
-            return wrapper
+            self.func_list[fn_name] = fn_meta
+            return fn_name
 
         return decorator
     
@@ -284,44 +286,44 @@ class ClsMeta:
             return parse_resp(result)
         return caller
 
-    def data_setter(self, index: int, name=None):
-        def decorator(function):
-            @functools.wraps(function)
-            async def wrapper(obj_self, input: Any):
-                raw = await function(obj_self, input)
-                obj_self.set_data(index, raw)
-                return raw
+    # def data_setter(self, index: int, name=None):
+    #     def decorator(function):
+    #         @functools.wraps(function)
+    #         async def wrapper(obj_self, input: Any):
+    #             raw = await function(obj_self, input)
+    #             obj_self.set_data(index, raw)
+    #             return raw
 
-            if index in self.state_list:
-                meta = self.state_list[index]
-            else:
-                meta = StateMeta(index=index, name=name)
-                self.state_list[index] = meta
-            meta.setter = wrapper
-            return wrapper
+    #         if index in self.state_list:
+    #             meta = self.state_list[index]
+    #         else:
+    #             meta = StateMeta(index=index, name=name)
+    #             self.state_list[index] = meta
+    #         meta.setter = wrapper
+    #         return wrapper
 
-        return decorator
+    #     return decorator
 
-    def data_getter(self, index: int, name=None):
-        def decorator(function):
-            @functools.wraps(function)
-            async def wrapper(obj_self):
-                raw = await obj_self.get_data(index)
-                data = await function(obj_self, raw)
-                return data
+    # def data_getter(self, index: int, name=None):
+    #     def decorator(function):
+    #         @functools.wraps(function)
+    #         async def wrapper(obj_self):
+    #             raw = await obj_self.get_data(index)
+    #             data = await function(obj_self, raw)
+    #             return data
 
-            if index in self.state_list:
-                meta = self.state_list[index]
-            else:
-                meta = StateMeta(index=index, name=name)
-                self.state_list[index] = meta
-            meta.getter = wrapper
-            return wrapper
+    #         if index in self.state_list:
+    #             meta = self.state_list[index]
+    #         else:
+    #             meta = StateMeta(index=index, name=name)
+    #             self.state_list[index] = meta
+    #         meta.getter = wrapper
+    #         return wrapper
 
-        return decorator
+    #     return decorator
 
-    def add_data(self, index: int, name=None):
-        self.state_list[index] = StateMeta(index=index, name=name)
+    # def add_data(self, index: int, name=None):
+    #     self.state_list[index] = StateMeta(index=index, name=name)
 
     def __str__(self):
         return "{" + f"name={self.name}, func_list={self.func_list}" + "}"

@@ -9,7 +9,7 @@ from .sample_cls import Msg, SampleObj, oaas
 class TestStuff(unittest.IsolatedAsyncioTestCase):
     async def test_with_engine(self):
         port = 28080
-        grpc_server = await start_grpc_server(oaas, port=port)
+        oaas.start_grpc_server(port=port)
         p_id = 0
         task = await oaas.serve_local_function(
             cls_id="default.test", fn_name="fn-1", partition_id=p_id, obj_id=1
@@ -26,4 +26,4 @@ class TestStuff(unittest.IsolatedAsyncioTestCase):
         finally:
             oaas.z_session.close()
             task.cancel()
-            grpc_server.close()
+            oaas.stop_server()

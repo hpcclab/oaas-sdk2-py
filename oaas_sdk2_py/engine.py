@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from tsidpy import TSID
 import oprc_py
 from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.handler import OprcFunction
+from oaas_sdk2_py.handler import GrpcHandler
 from oaas_sdk2_py.model import ObjectMeta, ClsMeta
 from oaas_sdk2_py.repo import MetadataRepo
 
@@ -28,25 +28,30 @@ class Session:
         self.remote_obj_dict = {}
         self.remote_only = remote_only
 
-    def create_object(
+    async def create_object(
         self,
         cls_meta: ClsMeta,
         obj_id: int = None,
+        local: bool = False,
     ):
-        if obj_id is None:
-            obj_id = TSID.create().number
-        meta = ObjectMeta(
-            cls=cls_meta.cls_id,
-            partition_id=self.partition_id,
-            obj_id=obj_id,
-            remote=False or self.remote_only,
-        )
-        obj = cls_meta.cls(meta=meta, ctx=self)
-        if self.remote_only:
-            self.remote_obj_dict[meta] = obj
+        if local:
+            if obj_id is None:
+                obj_id = TSID.create().number
+            meta = ObjectMeta(
+                cls=cls_meta.cls_id,
+                partition_id=self.partition_id,
+                obj_id=obj_id,
+                remote=False or self.remote_only,
+            )
+            obj = cls_meta.cls(meta=meta, ctx=self)
+            if self.remote_only:
+                self.remote_obj_dict[meta] = obj
+            else:
+                self.local_obj_dict[meta] = obj
+            return obj
         else:
-            self.local_obj_dict[meta] = obj
-        return obj
+            #TODO: create object on remote
+            pass
 
     def load_object(self, cls_meta: ClsMeta, obj_id: int):
         meta = ObjectMeta(
@@ -179,7 +184,7 @@ class Oparaca:
         self.default_pkg = default_pkg
         self.engine = oprc_py.OaasEngine()
         self.default_partition_id = config.oprc_partition_default
-
+        self.default_session = self.new_session()
     # def init(self, enabla_scout: bool = False):
     # zenoh.init_log_from_env_or("error")
     # peers = self.config.get_zenoh_peers()
@@ -225,10 +230,21 @@ class Oparaca:
         )
 
     def start_grpc_server(self, loop, port=8080):
-        self.engine.serve_grpc_server(loop, OprcFunction(self))
+        self.engine.serve_grpc_server(port, loop, GrpcHandler(self))
 
     def stop_server(self):
         self.engine.stop_server()
+    
+    async def create_object(
+        self,
+        cls_meta: ClsMeta,
+        obj_id: int = None,
+        local: bool = False,
+    ):
+        self.default_session.create_object(cls_meta=cls_meta, obj_id=obj_id, local=local)
+
+    def load_object(self, cls_meta: ClsMeta, obj_id: int):
+        self.default_session.load_object(cls_meta, obj_id)
 
     # async def handle_obj_invoke(
     #     self, req: oprc_py.ObjectInvocationRequest

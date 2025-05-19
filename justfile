@@ -32,3 +32,8 @@ bench-echo:
 
 bench-random:
   echo "{}" | bench-g-invoke -g http://localhost:10002 example.record random 1 -c 16 -d 10s --stateful -p -
+
+
+  
+k3d-create:
+  K3D_FIX_DNS=1 k3d cluster create -p "10080:80@loadbalancer"  --servers-memory 8G

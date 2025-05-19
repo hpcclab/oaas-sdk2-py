@@ -49,7 +49,7 @@ impl OaasEngine {
         })
     }
 
-    fn serve_grpc_server(&mut self, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
+    fn serve_grpc_server(&mut self, port: u16, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
         let (shutdown_sender, shutdown_receiver) = oneshot::channel(); // Create a shutdown channel
         self.shutdown_sender = Some(shutdown_sender); // Store the sender for later use
 
@@ -60,7 +60,7 @@ impl OaasEngine {
                 let service = InvocationHandler::new(callback, task_locals);
                 let runtime = pyo3_async_runtimes::tokio::get_runtime();
                 runtime.spawn(async move {
-                    if let Err(e) = start_tonic(service, shutdown_receiver).await {
+                    if let Err(e) = start_tonic(port, service, shutdown_receiver).await {
                         eprintln!("Server error: {}", e);
                     }
                 });
@@ -97,10 +97,11 @@ impl OaasEngine {
 
 // Modify the start function to accept a shutdown receiver
 async fn start_tonic(
+    port: u16,
     service: InvocationHandler,
     mut shutdown_receiver: oneshot::Receiver<()>,
 ) -> PyResult<()> {
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8080);
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port);
     let echo_function: OprcFunctionServer<InvocationHandler> = OprcFunctionServer::new(service);
     Server::builder()
         .add_service(echo_function.max_decoding_message_size(usize::MAX))
