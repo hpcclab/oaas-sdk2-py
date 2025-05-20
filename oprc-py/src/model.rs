@@ -18,6 +18,30 @@ pub struct InvocationRequest {
     pub payload: Vec<u8>,
 }
 
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pyo3::pymethods]
+impl InvocationRequest {
+    #[new]
+    #[pyo3(signature = (cls_id, fn_id, partition_id=0, options=HashMap::new(), payload=vec![]))]
+    pub  fn new(
+        cls_id: String,
+        fn_id: String,
+        partition_id: u32,
+        options: HashMap<String, String>,
+        payload: Vec<u8>,
+    ) -> Self {
+        InvocationRequest {
+            partition_id,
+            cls_id,
+            fn_id,
+            options,
+            payload,
+        }
+    }
+}
+
+
 impl InvocationRequest {
     pub fn into_proto(&self) -> oprc_pb::InvocationRequest {
         oprc_pb::InvocationRequest {
@@ -139,6 +163,31 @@ pub struct ObjectInvocationRequest {
     payload: Vec<u8>,
 }
 
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pyo3::pymethods]
+impl ObjectInvocationRequest  {
+    #[new]
+    #[pyo3(signature = (cls_id, fn_id, object_id, partition_id=0,  options=HashMap::new(), payload=vec![]))]
+    pub fn new(
+        cls_id: String,
+        fn_id: String,
+        object_id: u64,
+        partition_id: u32,
+        options: HashMap<String, String>,
+        payload: Vec<u8>,
+    ) -> Self {
+        ObjectInvocationRequest {
+            partition_id,
+            cls_id,
+            fn_id,
+            object_id,
+            options,
+            payload,
+        }
+    }
+}
+
 impl From<oprc_pb::ObjectInvocationRequest> for ObjectInvocationRequest {
     fn from(value: oprc_pb::ObjectInvocationRequest) -> Self {
         ObjectInvocationRequest {
@@ -231,10 +280,10 @@ pub struct ObjectData {
     pub(crate) meta: ObjectMetadata,
     #[pyo3(get, set)]
     pub(crate) entries: HashMap<u32, Vec<u8>>,
-    #[pyo3(get, set)]
-    pub(crate) dirty: bool,
-    #[pyo3(get, set)]
-    pub(crate) remote: bool,
+    // #[pyo3(get, set)]
+    // pub(crate) dirty: bool,
+    // #[pyo3(get, set)]
+    // pub(crate) remote: bool,
 }
 
 impl From<oprc_pb::ObjData> for ObjectData {
@@ -246,8 +295,8 @@ impl From<oprc_pb::ObjData> for ObjectData {
                 .into_iter()
                 .map(|(k, v)| (k, v.data))
                 .collect(),
-            dirty: false,
-            remote: false,
+            // dirty: false,
+            // remote: false,
         }
     }
 }

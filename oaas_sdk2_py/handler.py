@@ -37,7 +37,7 @@ class GrpcHandler:
             fn_meta = meta.func_list[invocation_request.fn_id]
             session = self.oprc.new_session()
             obj = session.create_object(meta)
-            resp = await fn_meta.caller(obj, invocation_request)
+            resp = await fn_meta.remote_handler(obj, invocation_request)
             await session.commit()
             return resp
         except Exception as e:
@@ -74,7 +74,7 @@ class GrpcHandler:
             fn_meta = meta.func_list[invocation_request.fn_id]
             ctx = self.oprc.new_session(invocation_request.partition_id)
             obj = ctx.create_object(meta, invocation_request.object_id)
-            resp = await fn_meta.caller(obj, invocation_request)
+            resp = await fn_meta.remote_handler(obj, invocation_request)
             await ctx.commit()
         except Exception as e:
             logging.error("Exception occurred", exc_info=True)

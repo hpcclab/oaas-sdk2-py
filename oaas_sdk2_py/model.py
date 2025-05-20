@@ -39,16 +39,16 @@ class FuncMeta:
     def __init__(
         self,
         func,
-        caller: Callable,
+        remote_handler: Callable,
         signature: inspect.Signature,
         stateless=False,
+        serve_with_agent=False,
     ):
         self.func = func
-        self.__call__ = func
-        self.caller = caller
+        self.remote_handler = remote_handler
         self.signature = signature
         self.stateless = stateless
-
+        self.serve_with_agent = serve_with_agent
 
 class StateMeta:
     setter: Callable
@@ -61,16 +61,16 @@ class StateMeta:
 
 def parse_resp(resp) -> InvocationResponse:
     if resp is None:
-        return InvocationResponse(status=int(InvocationResponseCode.OKAY))
+        return InvocationResponse(status=int(InvocationResponseCode.Okay))
     elif isinstance(resp, InvocationResponse):
         return resp
     elif isinstance(resp, BaseModel):
         b = resp.model_dump_json().encode()
-        return InvocationResponse(status=int(InvocationResponseCode.OKAY), payload=b)
+        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=b)
     elif isinstance(resp, bytes):
-        return InvocationResponse(status=int(InvocationResponseCode.OKAY), payload=resp)
+        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=resp)
     elif isinstance(resp, str):
-        return InvocationResponse(status=int(InvocationResponseCode.OKAY), payload=resp.encode())
+        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=resp.encode())
 
 
 class ClsMeta:
@@ -104,7 +104,7 @@ class ClsMeta:
             self.update(self)
         return cls
 
-    def func(self, name="", stateless=False, strict=False):
+    def func(self, name="", stateless=False, strict=False, serve_with_agent=False):
         """
         Decorator for registering class methods as invokable functions in OaaS platform.
         
@@ -131,7 +131,7 @@ class ClsMeta:
             sig = inspect.signature(function)
 
             @functools.wraps(function)
-            async def wrapper(obj_self, *args, **kwargs):
+            async def wrapper(obj_self: 'BaseObject', *args, **kwargs):
                 """
                 Wrapper function that handles remote/local method invocation.
                 
@@ -146,10 +146,10 @@ class ClsMeta:
                 if obj_self.remote:
                     if stateless:
                         req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
-                        resp = await obj_self.ctx.fn_rpc(req)              
+                        resp = await obj_self.session.fn_rpc(req)              
                     else:
                         req = self._extract_request(obj_self, fn_name, args, kwargs, stateless)
-                        resp =  await obj_self.ctx.obj_rpc(req)
+                        resp =  await obj_self.session.obj_rpc(req)
                     if issubclass(sig.return_annotation, BaseModel):
                         return sig.return_annotation.model_validate_json(resp.payload, strict=strict)
                     else:
@@ -159,10 +159,11 @@ class ClsMeta:
 
             caller = self._create_caller(function, sig, strict)
             fn_meta = FuncMeta(
-                wrapper, caller=caller, signature=sig, stateless=stateless
+                wrapper, remote_handler=caller, signature=sig, stateless=stateless, serve_with_agent=serve_with_agent
             )
+            wrapper.mata = fn_meta
             self.func_list[fn_name] = fn_meta
-            return fn_name
+            return wrapper
 
         return decorator
     

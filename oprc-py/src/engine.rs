@@ -1,5 +1,8 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio::sync::oneshot;
+use std::{collections::HashMap, net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc};
+use flume::Receiver;
+use oprc_invoke::handler::InvocationZenohHandler;
+use tokio::sync::{oneshot, Mutex};
+use zenoh::query::{Query, Queryable};
 
 use crate::{data::DataManager, handler::InvocationHandler, rpc::RpcManager};
 pub use envconfig::Envconfig;
@@ -21,6 +24,7 @@ pub struct OaasEngine {
     rpc_manager: Py<RpcManager>,
     session: zenoh::Session,
     shutdown_sender: Option<oneshot::Sender<()>>, // Add a shutdown sender
+    queryable_table: Arc<Mutex<HashMap<String, Queryable<Receiver<Query>>>>>,
 }
 
 #[pyo3_stub_gen::derive::gen_stub_pymethods]
@@ -46,6 +50,7 @@ impl OaasEngine {
             rpc_manager,
             session,
             shutdown_sender: None,
+            queryable_table: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -69,22 +74,61 @@ impl OaasEngine {
         })
     }
 
-    fn serve_zenoh(&mut self, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
-        Python::with_gil(|py| {
+    async fn serve_function(&self, key_expr: String, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
+        
+        let handler = Python::with_gil(|py| {
             let l = event_loop.into_bound(py);
             let task_locals = TaskLocals::new(l);
-            py.allow_threads(|| {
-                let service = InvocationHandler::new(callback, task_locals);
-                let runtime = pyo3_async_runtimes::tokio::get_runtime();
-                let z_session = self.session.clone();
-                runtime.spawn(async move {
-                    if let Err(e) = start_zenoh(service, z_session).await {
-                        eprintln!("Server error: {}", e);
-                    }
-                });
-            });
-            Ok(())
+            let service = InvocationHandler::new(callback, task_locals);
+            service
+        });
+        
+        let z_session = self.session.clone();
+        let ke = key_expr.clone();
+        let z_handler = InvocationZenohHandler::new("".to_string(), Arc::new(handler));
+        let runtime = pyo3_async_runtimes::tokio::get_runtime();
+        let q = runtime.spawn(async move {
+            oprc_zenoh::util::declare_managed_queryable(
+                &z_session,
+                ke,
+                z_handler,
+                1,
+                65536,
+            )
+            .await
         })
+        .await
+        .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("Failed to spawn queryable: {}", e)))?
+        .map_err(|e| PyErr::new::<PyRuntimeError, _>(e.to_string()))?;
+        // let q = oprc_zenoh::util::declare_managed_queryable(
+        //         &z_session,
+        //         key_expr.to_owned(),
+        //         z_handler,
+        //         1,
+        //         65536,
+        //     )
+        //     .await
+        //     .map_err(|e| PyErr::new::<PyRuntimeError, _>(e.to_string()))?;
+        {
+            let mut table = self.queryable_table.lock().await;
+            table.insert(key_expr.clone(), q);
+        }
+        Ok(())
+    }
+
+    async fn stop_function(&self, key_expr: String) -> PyResult<()> {
+        let q = {
+            let mut table = self.queryable_table.lock().await;
+            table.remove(&key_expr)
+        };
+        if let Some(q) = q {
+            q.undeclare()
+            .await
+            .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("Failed to undeclare queryable: {}", e)))?;
+        } else {
+            return Err(PyErr::new::<PyTypeError, _>(format!("No queryable found for key_expr: {}", key_expr)));
+        }
+        Ok(())
     }
 
     fn stop_server(&mut self) -> PyResult<()> {
@@ -116,13 +160,6 @@ async fn start_tonic(
     Ok(())
 }
 
-async fn start_zenoh(
-    _service: InvocationHandler,
-    _z_session: zenoh::Session,
-) -> PyResult<()> {
-    todo!()    
-}
-
 
 
 async fn shutdown_signal() {
@@ -148,52 +185,3 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
 }
-
-// #[pyo3_stub_gen::derive::gen_stub_pyclass]
-// #[pyclass]
-// pub struct OaasSession{
-//     #[pyo3(get)]
-//     data_manager: Py<DataManager>,
-//     local: HashMap<model::ObjectMetadata, Py<ObjectData>>,
-//     remote: HashMap<model::ObjectMetadata, Py<ObjectData>>,
-// }
-
-// impl OaasSession {
-//     pub fn new(data_manager: Py<DataManager>) -> Self {
-//         OaasSession { data_manager, local: HashMap::new(), remote: HashMap::new() }
-//     }
-// }
-
-// #[pyo3_stub_gen::derive::gen_stub_pymethods]
-// #[pymethods]
-// impl OaasSession {
-//     pub async fn get_object(&mut self, meta: model::ObjectMetadata) -> PyResult<Py<PyAny>> {
-//         Python::with_gil(|py| {
-//             if let Some(object) = self.local.get(&meta) {
-//                 return Ok(object.clone_ref(py).into_any());
-//             }
-//             if let Some(object) = self.remote.get(&meta) {
-//                 return Ok(object.clone_ref(py).into_any());
-//             }
-//             // TODO : get from remote
-//             Ok(py.None())
-//         })
-//     }
-
-    
-
-//     pub fn set_obj(&mut self, obj: Bound<ObjectData>) -> PyResult<()> {
-//         let mut obj_ref = obj.borrow_mut();
-//         obj_ref.dirty = true;
-//         if obj_ref.remote {
-//             self.remote.insert(obj_ref.meta.clone(), obj.clone().unbind());
-//         } else {
-//             self.local.insert(obj_ref.meta.clone(), obj.clone().unbind());
-//         }
-//         Ok(())
-//     }
-
-//     pub async fn commit(&self) -> PyResult<()> {
-//         todo!()
-//     }
-// }

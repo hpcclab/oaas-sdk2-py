@@ -25,8 +25,7 @@ def setup_event_loop():
 
 if __name__ == '__main__':
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    level = logging.getLevelName(LOG_LEVEL)
-    logging.basicConfig(level=level)
+    logging.basicConfig(level=LOG_LEVEL)
     logging.getLogger('hpack').setLevel(logging.CRITICAL)
     os.environ.setdefault("OPRC_ODGM_URL", "http://localhost:10000")
     if sys.argv.__len__() > 1 and sys.argv[1] == "gen":

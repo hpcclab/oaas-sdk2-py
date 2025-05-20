@@ -1,11 +1,11 @@
+
+
 from pydantic import BaseModel
 from oaas_sdk2_py import Oparaca, BaseObject, ObjectInvocationRequest
-from oaas_sdk2_py.engine import Session
-from oaas_sdk2_py.model import ObjectMeta
 
 oaas = Oparaca()
 
-test = oaas.new_cls("test")
+sample_cls_meta = oaas.new_cls("test")
 
 
 class Msg(BaseModel):
@@ -17,30 +17,31 @@ class Result(BaseModel):
     msg: str
 
 
-@test
-class SampleObj(BaseObject):
-    def __init__(self, meta: ObjectMeta = None, ctx: Session = None):
-        super().__init__(meta, ctx)
+@sample_cls_meta
+class SampleObj(BaseObject):    
+    async def get_intro(self) -> str:
+        raw = self.get_data(0)
+        return raw.decode("utf-8") if raw is not None else ""
 
-    @test.data_getter(index=0)
-    async def get_intro(self, raw: bytes = None) -> str:
-        return raw.decode("utf-8")
+    async def set_intro(self, data: str):
+        self.set_data(0, data.encode("utf-8"))
 
-    @test.data_setter(index=0)
-    async def set_intro(self, data: str) -> bytes:
-        return data.encode("utf-8")
-
-    @test.func("fn-1")
+    @sample_cls_meta.func("fn-1")
     async def sample_fn(self, msg: Msg) -> Result:
         print(msg)
         return Result(ok=True, msg=msg.msg)
 
-    @test.func()
+    @sample_cls_meta.func()
     async def sample_fn2(self, req: ObjectInvocationRequest) -> Result:
         print(req.payload)
         return Result(ok=True, msg="ok")
 
-    @test.func()
+    @sample_cls_meta.func()
     async def sample_fn3(self, msg: Msg, req: ObjectInvocationRequest) -> Result:
         print(req.payload)
         return Result(ok=True, msg="ok")
+    
+    @sample_cls_meta.func(serve_with_agent=True)
+    async def local_fn(self, msg: Msg) -> Result:
+        print(msg)
+        return Result(ok=True, msg="local fn")

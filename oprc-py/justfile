@@ -8,3 +8,4 @@ publish-manylinux:
 
 gen-stub:
     cargo run --bin stub_gen
+    mv oprc-py.pyi oprc_py/oprc_py.pyi
