@@ -1803,7 +1803,7 @@ checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 [[package]]
 name = "oprc-invoke"
 version = "0.1.0"
-source = "git+https://github.com/pawissanutt/oaas-rs?branch=dev#a9932d307b3b68aa66fb2720407d4d79a14a0700"
+source = "git+https://github.com/pawissanutt/oaas-rs?branch=dev#eca71105682e08c3814e02ddf45e02d4ab219c4c"
 dependencies = [
  "async-trait",
  "flume",
@@ -1825,7 +1825,7 @@ dependencies = [
 [[package]]
 name = "oprc-pb"
 version = "0.1.0"
-source = "git+https://github.com/pawissanutt/oaas-rs?branch=dev#a9932d307b3b68aa66fb2720407d4d79a14a0700"
+source = "git+https://github.com/pawissanutt/oaas-rs?branch=dev#eca71105682e08c3814e02ddf45e02d4ab219c4c"
 dependencies = [
  "automerge",
  "prost",
@@ -1837,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "oprc-py"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "envconfig",
@@ -1860,7 +1860,7 @@ dependencies = [
 [[package]]
 name = "oprc-zenoh"
 version = "0.1.0"
-source = "git+https://github.com/pawissanutt/oaas-rs?branch=dev#a9932d307b3b68aa66fb2720407d4d79a14a0700"
+source = "git+https://github.com/pawissanutt/oaas-rs?branch=dev#eca71105682e08c3814e02ddf45e02d4ab219c4c"
 dependencies = [
  "async-trait",
  "envconfig",

@@ -143,6 +143,13 @@ impl InvocationResponse {
             header,
         }
     }
+
+    fn __str__(&self) -> String {
+        format!(
+            "InvocationResponse {{ payload: {:?}, status: {}, header: {:?} }}",
+            self.payload, self.status, self.header
+        )
+    }
 }
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
@@ -321,6 +328,24 @@ impl ObjectData {
         }
     }
 
+}
+
+
+
+#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[pyo3::pymethods]
+impl ObjectData {
+    #[new]
+    pub fn new(meta: ObjectMetadata, entries: HashMap<u32, Vec<u8>>) -> Self{
+        Self{
+            meta, entries
+        }
+    }
+
+    
+    pub fn copy(&self) -> Self{
+        self.clone()
+    }
 }
 
 impl Into<oprc_pb::ObjData> for &ObjectData {

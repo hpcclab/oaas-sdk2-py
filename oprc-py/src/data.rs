@@ -5,7 +5,7 @@ use pyo3::{
 };
 pub(crate) use zenoh::Session;
 
-use crate::model::{ObjectData, ObjectMetadata};
+use crate::model::{ObjectData};
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass]
@@ -62,15 +62,21 @@ impl DataManager {
         Ok(())
     }
 
-    
 
-    pub async fn del_obj(&self, meta: Py<ObjectMetadata>) -> PyResult<()> {
-        let proto = Python::with_gil(|py| {
-            let meta = meta.borrow(py);
-            meta.into_proto()
-        });
+    pub async fn merge_obj(&self, _obj: Py<ObjectData>) -> PyResult<()> {
+        todo!()
+    }
+
+    pub async fn del_obj(&self, 
+        cls_id: String,
+        partition_id: u32,
+        obj_id: u64,) -> PyResult<()> {
         self.proxy
-            .del_obj(proto)
+            .del_obj(&ObjMeta {
+                cls_id: cls_id.to_string(),
+                partition_id,
+                object_id: obj_id,
+            })
             .await
             .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
         Ok(())

@@ -22,27 +22,27 @@ class GrpcHandler:
             invocation_request.partition_id,
         )
         try:
-            if invocation_request.cls_id not in self.oprc.meta_repo.cls_dict:
-                return InvocationResponse(
-                    payload=f"cls_id '{invocation_request.cls_id}' not found".encode(),
-                    status=int(InvocationResponseCode.InvalidRequest),
-                )
-
-            meta = self.oprc.meta_repo.get_cls_meta(invocation_request.cls_id)
-            if invocation_request.fn_id not in meta.func_list:
-                return InvocationResponse(
-                    payload=f"fn_id '{invocation_request.fn_id}' not found".encode(),
-                    status=int(InvocationResponseCode.InvalidRequest),
-                )
-            fn_meta = meta.func_list[invocation_request.fn_id]
-            session = self.oprc.new_session()
-            obj = session.create_object(meta)
-            resp = await fn_meta.remote_handler(obj, invocation_request)
+            # meta = self.oprc.meta_repo.get_cls_meta(invocation_request.cls_id)
+            # if meta is None:
+            #     return InvocationResponse(
+            #         payload=f"cls_id '{invocation_request.cls_id}' not found".encode(),
+            #         status=int(InvocationResponseCode.InvalidRequest),
+            #     )
+            # fn_meta = meta.func_list.get(invocation_request.fn_id)
+            # if fn_meta is None:
+            #     return InvocationResponse(
+            #         payload=f"fn_id '{invocation_request.fn_id}' not found".encode(),
+            #         status=int(InvocationResponseCode.InvalidRequest),
+            #     )
+            # session = self.oprc.new_session()
+            # obj = session.create_object(meta)
+            # resp = await fn_meta.remote_handler(obj, invocation_request)
+            session = self.oprc.new_session(invocation_request.partition_id)
+            resp = await session.invoke_local(invocation_request)
             await session.commit()
             return resp
         except Exception as e:
             logging.error("Exception occurred", exc_info=True)
-            # raise GRPCError(Status.INTERNAL, str(e))
             return InvocationResponse(
                 payload=str(e).encode(),
                 status=int(InvocationResponseCode.AppError),
@@ -59,23 +59,25 @@ class GrpcHandler:
             invocation_request.object_id,
         )
         try:
-            if invocation_request.cls_id not in self.oprc.meta_repo.cls_dict:
-                return InvocationResponse(
-                    payload=f"cls_id '{invocation_request.cls_id}' not found".encode(),
-                    status=int(InvocationResponseCode.InvalidRequest),
-                )
+            # if invocation_request.cls_id not in self.oprc.meta_repo.cls_dict:
+            #     return InvocationResponse(
+            #         payload=f"cls_id '{invocation_request.cls_id}' not found".encode(),
+            #         status=int(InvocationResponseCode.InvalidRequest),
+            #     )
 
-            meta = self.oprc.meta_repo.get_cls_meta(invocation_request.cls_id)
-            if invocation_request.fn_id not in meta.func_list:
-                return InvocationResponse(
-                    payload=f"fn_id '{invocation_request.fn_id}' not found".encode(),
-                    status=int(InvocationResponseCode.InvalidRequest),
-                )
-            fn_meta = meta.func_list[invocation_request.fn_id]
-            ctx = self.oprc.new_session(invocation_request.partition_id)
-            obj = ctx.create_object(meta, invocation_request.object_id)
-            resp = await fn_meta.remote_handler(obj, invocation_request)
-            await ctx.commit()
+            # meta = self.oprc.meta_repo.get_cls_meta(invocation_request.cls_id)
+            # if invocation_request.fn_id not in meta.func_list:
+            #     return InvocationResponse(
+            #         payload=f"fn_id '{invocation_request.fn_id}' not found".encode(),
+            #         status=int(InvocationResponseCode.InvalidRequest),
+            #     )
+            # fn_meta = meta.func_list[invocation_request.fn_id]
+            # session = self.oprc.new_session(invocation_request.partition_id)
+            # obj = session.create_object(meta, invocation_request.object_id)
+            # resp = await fn_meta.remote_handler(obj, invocation_request)
+            session = self.oprc.new_session(invocation_request.partition_id)
+            resp = await session.invoke_local(invocation_request)
+            await session.commit()
         except Exception as e:
             logging.error("Exception occurred", exc_info=True)
             return InvocationResponse(

@@ -28,8 +28,9 @@ async fn try_callback(callback: Py<PyAny>) -> PyResult<Py<PyAny>> {
 
 #[pyfunction]
 #[pyo3_stub_gen::derive::gen_stub_pyfunction]
-fn init_logger(level: &str) -> PyResult<()> {
-    tracing_subscriber::fmt()
+#[pyo3(signature=(level="info", raise_error=false))]
+fn init_logger(level: &str, raise_error: bool) -> PyResult<()> {
+    let r = tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::new(level.to_string()))
         // .with_target(false)
         // .compact()
@@ -42,10 +43,15 @@ fn init_logger(level: &str) -> PyResult<()> {
         // .with_thread_ids(true)
         .with_writer(std::io::stderr)
         .finish()
-        .try_init()
-        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to initialize tracing: {}", e)))?;
-    
+        .try_init();
     tracing::info!("Initialized tracing with level: {}", level);
+    if raise_error{
+        r.map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to initialize tracing: {}", e)))?;
+    } else {
+        if let Err(e) = r {
+            eprintln!("Failed to initialize tracing: {}", e);
+        }
+    }
     Ok(())
 }
 

@@ -5,47 +5,48 @@ from typing import Optional, Any
 
 from oprc_py.oprc_py import InvocationRequest, InvocationResponse, InvocationResponseCode, ObjectInvocationRequest
 from pydantic import BaseModel
-import tsidpy
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from oaas_sdk2_py.engine import BaseObject
 
 
-def create_obj_meta(
-    cls: str,
-    partition_id: int,
-    obj_id: int = None,
-):
-    oid = obj_id if obj_id is not None else tsidpy.TSID.create().number
-    return ObjectMeta(
-        obj_id=oid,
-        cls=cls,
-        partition_id=partition_id if partition_id is not None else -1,
-    )
+# def create_obj_meta(
+#     cls: str,
+#     partition_id: int,
+#     obj_id: int = None,
+# ):
+#     oid = obj_id if obj_id is not None else tsidpy.TSID.create().number
+#     return ObjectMeta(
+#         obj_id=oid,
+#         cls=cls,
+#         partition_id=partition_id if partition_id is not None else -1,
+#     )
 
 
-class ObjectMeta:
-    def __init__(
-        self, cls: str, partition_id: int, obj_id: Optional[int] = None, remote=False
-    ):
-        self.cls = cls
-        self.obj_id = obj_id
-        self.partition_id = partition_id
-        self.remote = remote
+# class ObjectMeta:
+#     def __init__(
+#         self, cls: str, partition_id: int, obj_id: Optional[int] = None, remote=False
+#     ):
+#         self.cls = cls
+#         self.obj_id = obj_id
+#         self.partition_id = partition_id
+#         self.remote = remote
 
+#     def __hash__(self):
+#         return hash((self.cls, self.partition_id, self.obj_id))
 
 class FuncMeta:
     def __init__(
         self,
         func,
-        remote_handler: Callable,
+        invoke_handler: Callable,
         signature: inspect.Signature,
         stateless=False,
         serve_with_agent=False,
     ):
         self.func = func
-        self.remote_handler = remote_handler
+        self.invoke_handler = invoke_handler
         self.signature = signature
         self.stateless = stateless
         self.serve_with_agent = serve_with_agent
@@ -152,6 +153,10 @@ class ClsMeta:
                         resp =  await obj_self.session.obj_rpc(req)
                     if issubclass(sig.return_annotation, BaseModel):
                         return sig.return_annotation.model_validate_json(resp.payload, strict=strict)
+                    elif sig.return_annotation is bytes:
+                        return resp.payload
+                    elif sig.return_annotation is str:
+                        return resp.payload.decode()
                     else:
                         return resp
                 else:
@@ -159,7 +164,7 @@ class ClsMeta:
 
             caller = self._create_caller(function, sig, strict)
             fn_meta = FuncMeta(
-                wrapper, remote_handler=caller, signature=sig, stateless=stateless, serve_with_agent=serve_with_agent
+                wrapper, invoke_handler=caller, signature=sig, stateless=stateless, serve_with_agent=serve_with_agent
             )
             wrapper.mata = fn_meta
             self.func_list[fn_name] = fn_meta
