@@ -88,7 +88,7 @@ class Oparaca:
     ):
         if parition_id is None:
             parition_id = self.default_partition_id
-        for fn_id, fn_meta in cls_meta.func_list.items():
+        for fn_id, fn_meta in cls_meta.func_dict.items():
             if fn_meta.serve_with_agent:
                 if fn_meta.stateless:
                     key = f"oprc/{cls_meta.pkg}.{cls_meta.name}/{parition_id}/invokes/{fn_id}"
@@ -101,7 +101,7 @@ class Oparaca:
     ):
         if partition_id is None:
             partition_id = self.default_partition_id
-        for fn_id, fn_meta in cls_meta.func_list.items():
+        for fn_id, fn_meta in cls_meta.func_dict.items():
             if fn_meta.serve_with_agent:
                 if fn_meta.stateless:
                     key = f"oprc/{cls_meta.pkg}.{cls_meta.name}/{partition_id}/invokes/{fn_id}"

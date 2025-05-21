@@ -176,7 +176,7 @@ class Session:
                 payload=f"cls_id '{req.cls_id}' not found".encode(),
                 status=int(InvocationResponseCode.InvalidRequest),
             )
-        fn_meta = cls_meta.func_list.get(req.fn_id)
+        fn_meta = cls_meta.func_dict.get(req.fn_id)
         if fn_meta is None:
             return InvocationResponse(
                 payload=f"fn_id '{req.fn_id}' not found".encode(),
