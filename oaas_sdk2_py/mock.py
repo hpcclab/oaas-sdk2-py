@@ -43,7 +43,7 @@ class LocalDataManager:
             raise KeyError(f"Object with metadata {metadata} not found")
 
 
-class MockRpcManager:
+class LocalRpcManager:
     session: "Session"
 
     async def invoke_fn(self, req: InvocationRequest) -> InvocationResponse:

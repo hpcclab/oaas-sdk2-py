@@ -3,9 +3,11 @@ import oprc_py
 
 from oaas_sdk2_py.session import Session
 
+from .model import FuncMeta
 
 class BaseObject:
     _state: dict[int, bytes]
+    _obj: oprc_py.ObjectData
     # TODO implement per entry dirty checking. Now it is all or nothing
     _dirty: bool
 
@@ -37,6 +39,7 @@ class BaseObject:
         )
         if obj is None:
             return None
+        self._obj = obj
         self._state = obj.entries
         self._full_loaded = True
         return self._state.get(index)
@@ -83,6 +86,10 @@ class BaseObject:
         if options is not None:
             o.options = options
         return o
+    
+    def add_on_complete_trigger(self, source_fn: 'FuncMeta', target: 'BaseObject', fn: 'FuncMeta'):
+        self._obj
+        pass
     
     async def commit(self):
         if self._dirty:

@@ -30,6 +30,7 @@ exclude = ["protos"]
 dev = [
     "psutil>=7.0.0",
     "pytest>=8.3.5",
+    "pytest-xdist>=3.6.1",
 ]
 
 [tool.pytest.ini_options]

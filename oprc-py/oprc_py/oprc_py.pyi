@@ -181,6 +181,7 @@ class ObjectMetadata:
         r"""
         Creates a new `ObjectMetadata`.
         """
+    def __str__(self) -> builtins.str: ...
 
 class PyObjectEvent:
     r"""

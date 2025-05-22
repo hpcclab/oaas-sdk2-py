@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 import oprc_py
 
-from oaas_sdk2_py.mock import LocalDataManager, MockRpcManager
+from oaas_sdk2_py.mock import LocalDataManager, LocalRpcManager
 from .config import OprcConfig
 from .handler import GrpcHandler
 from .model import ClsMeta
@@ -59,7 +59,7 @@ class Oparaca:
         if self.mock_mode:
             session = Session(
                 partition_id if partition_id is not None else self.default_partition_id,
-                MockRpcManager(),
+                LocalRpcManager(),
                 LocalDataManager(),
                 self.meta_repo,
             )

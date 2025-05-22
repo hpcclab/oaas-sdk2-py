@@ -8,21 +8,28 @@ oprc_py.init_logger("debug")
 class TestMock(unittest.IsolatedAsyncioTestCase):
     
     async def test_data_fail_without_mock(self):
-        obj: SampleObj = oaas.load_object(sample_cls_meta, 1)
+        obj: SampleObj = oaas.create_object(sample_cls_meta, 1)
         await obj.set_intro("Hi from Testing")
         with self.assertRaises(Exception):
             await obj.commit()  # should fail because it connot connect to the ODGM
     
     async def test_rpc_fail_without_mock(self):
-        obj: SampleObj = oaas.load_object(sample_cls_meta, 1)
+        obj: SampleObj = oaas.create_object(sample_cls_meta, 1)
         with self.assertRaises(Exception):
             await obj.greet() # should fail because it connot connect to Zenoh
         
-            
+    async def test_rpc_with_mock(self):
+        mock_oaas = oaas.mock()
+        obj: SampleObj = mock_oaas.create_object(sample_cls_meta, 1)
+        await obj.set_intro("Object 1")
+        await obj.commit()
+        result = await obj.greet()
+        assert result == "Hello, Object 1"
+    
     async def test_multiple_objects(self):
         mock_oaas = oaas.mock()
-        obj1 = mock_oaas.load_object(sample_cls_meta, 1)
-        obj2 = mock_oaas.load_object(sample_cls_meta, 2)
+        obj1 = mock_oaas.create_object(sample_cls_meta, 1)
+        obj2 = mock_oaas.create_object(sample_cls_meta, 2)
         
         await obj1.set_intro("Object 1")
         await obj2.set_intro("Object 2")
@@ -37,7 +44,7 @@ class TestMock(unittest.IsolatedAsyncioTestCase):
 
     async def test_object_update(self):
         mock_oaas = oaas.mock()
-        obj = mock_oaas.load_object(sample_cls_meta, 1)
+        obj = mock_oaas.create_object(sample_cls_meta, 1)
         
         await obj.set_intro("Initial value")
         await obj.commit()
@@ -50,7 +57,7 @@ class TestMock(unittest.IsolatedAsyncioTestCase):
 
     async def test_object_delete(self):
         mock_oaas = oaas.mock()
-        obj = mock_oaas.load_object(sample_cls_meta, 1)
+        obj = mock_oaas.create_object(sample_cls_meta, 1)
         
         await obj.set_intro("Test value")
         await obj.commit()
@@ -69,12 +76,12 @@ class TestMock(unittest.IsolatedAsyncioTestCase):
         mock_oaas1 = oaas.mock()
         mock_oaas2 = oaas.mock()
         
-        obj1 = mock_oaas1.load_object(sample_cls_meta, 1)
+        obj1 = mock_oaas1.create_object(sample_cls_meta, 1)
         await obj1.set_intro("From mock 1")
         await obj1.commit()
         
         # This should be a fresh object in a different mock environment
-        obj2 = mock_oaas2.load_object(sample_cls_meta, 1)
+        obj2 = mock_oaas2.create_object(sample_cls_meta, 1)
         with self.assertRaises(Exception):
             await obj2.get_intro()  # Should fail as it's a different mock
 
