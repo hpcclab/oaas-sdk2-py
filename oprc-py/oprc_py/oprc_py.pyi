@@ -6,69 +6,319 @@ import typing
 from enum import Enum
 
 class DataManager:
-    def get_obj(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> typing.Any: ...
-    def set_obj(self, obj:ObjectData) -> None: ...
-    def merge_obj(self, _obj:ObjectData) -> None: ...
-    def del_obj(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> None: ...
+    r"""
+    Manages data operations for objects, interacting with an object proxy.
+    """
+    def get_obj(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> typing.Any:
+        r"""
+        Retrieves an object by its class ID, partition ID, and object ID.
+        
+        # Arguments
+        
+        * `cls_id`: The class ID of the object.
+        * `partition_id`: The partition ID where the object resides.
+        * `obj_id`: The unique ID of the object.
+        
+        # Returns
+        
+        A `PyResult` containing the Python representation of the object if found,
+        or `None` if the object does not exist.
+        """
+    def set_obj(self, obj:ObjectData) -> None:
+        r"""
+        Sets (creates or updates) an object.
+        
+        # Arguments
+        
+        * `obj`: A Python `ObjectData` instance representing the object to be set.
+        
+        # Returns
+        
+        A `PyResult` indicating success or failure.
+        """
+    def merge_obj(self, _obj:ObjectData) -> None:
+        r"""
+        Merges data into an existing object.
+        
+        Note: This function is currently a placeholder (`todo!()`).
+        
+        # Arguments
+        
+        * `_obj`: A Python `ObjectData` instance containing the data to merge.
+        
+        # Returns
+        
+        A `PyResult` indicating success or failure.
+        """
+    def del_obj(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> None:
+        r"""
+        Deletes an object by its class ID, partition ID, and object ID.
+        
+        # Arguments
+        
+        * `cls_id`: The class ID of the object.
+        * `partition_id`: The partition ID where the object resides.
+        * `obj_id`: The unique ID of the object.
+        
+        # Returns
+        
+        A `PyResult` indicating success or failure.
+        """
 
 class InvocationRequest:
+    r"""
+    Represents a request to invoke a function.
+    """
     partition_id: builtins.int
     cls_id: builtins.str
     fn_id: builtins.str
     options: builtins.dict[builtins.str, builtins.str]
     payload: builtins.list[builtins.int]
-    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=...) -> InvocationRequest: ...
+    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=...) -> InvocationRequest:
+        r"""
+        Creates a new `InvocationRequest`.
+        """
 
 class InvocationResponse:
+    r"""
+    Represents the response of an invocation.
+    """
     payload: builtins.list[builtins.int]
     status: builtins.int
     header: builtins.dict[builtins.str, builtins.str]
-    def __new__(cls, payload:typing.Sequence[builtins.int]=..., status:builtins.int=0, header:typing.Mapping[builtins.str, builtins.str]={}) -> InvocationResponse: ...
-    def __str__(self) -> builtins.str: ...
+    def __new__(cls, payload:typing.Sequence[builtins.int]=..., status:builtins.int=0, header:typing.Mapping[builtins.str, builtins.str]={}) -> InvocationResponse:
+        r"""
+        Creates a new `InvocationResponse`.
+        """
+    def __str__(self) -> builtins.str:
+        r"""
+        Returns a string representation of the `InvocationResponse`.
+        """
 
 class OaasEngine:
+    r"""
+    Represents the OaasEngine, which manages data, RPC, and Zenoh sessions.
+    """
     data_manager: DataManager
     rpc_manager: RpcManager
-    def __new__(cls) -> OaasEngine: ...
-    def serve_grpc_server(self, port:builtins.int, event_loop:typing.Any, callback:typing.Any) -> None: ...
-    def serve_function(self, key_expr:builtins.str, event_loop:typing.Any, callback:typing.Any) -> None: ...
-    def stop_function(self, key_expr:builtins.str) -> None: ...
-    def stop_server(self) -> None: ...
+    def __new__(cls) -> OaasEngine:
+        r"""
+        Creates a new instance of OaasEngine.
+        Initializes the Tokio runtime, Zenoh session, DataManager, and RpcManager.
+        """
+    def serve_grpc_server(self, port:builtins.int, event_loop:typing.Any, callback:typing.Any) -> None:
+        r"""
+        Starts a gRPC server on the specified port.
+        
+        # Arguments
+        
+        * `port` - The port number to bind the gRPC server to.
+        * `event_loop` - The Python event loop.
+        * `callback` - The Python callback function to handle invocations.
+        """
+    def serve_function(self, key_expr:builtins.str, event_loop:typing.Any, callback:typing.Any) -> None:
+        r"""
+        Serves a function over Zenoh.
+        
+        # Arguments
+        
+        * `key_expr` - The Zenoh key expression to serve the function on.
+        * `event_loop` - The Python event loop.
+        * `callback` - The Python callback function to handle invocations.
+        """
+    def stop_function(self, key_expr:builtins.str) -> None:
+        r"""
+        Stops a function being served over Zenoh.
+        
+        # Arguments
+        
+        * `key_expr` - The Zenoh key expression of the function to stop.
+        """
+    def stop_server(self) -> None:
+        r"""
+        Stops the gRPC server.
+        """
 
 class ObjectData:
+    r"""
+    Represents the data of an object, including its metadata, entries, and event.
+    """
     meta: ObjectMetadata
     entries: builtins.dict[builtins.int, builtins.list[builtins.int]]
-    def __new__(cls, meta:ObjectMetadata, entries:typing.Mapping[builtins.int, typing.Sequence[builtins.int]]) -> ObjectData: ...
-    def copy(self) -> ObjectData: ...
+    event: typing.Optional[PyObjectEvent]
+    def __new__(cls, meta:ObjectMetadata, entries:typing.Mapping[builtins.int, typing.Sequence[builtins.int]]) -> ObjectData:
+        r"""
+        Creates a new `ObjectData`.
+        """
+    def copy(self) -> ObjectData:
+        r"""
+        Creates a clone of this `ObjectData`.
+        """
 
 class ObjectInvocationRequest:
+    r"""
+    Represents a request to invoke a function on an object.
+    """
     partition_id: builtins.int
     cls_id: builtins.str
     fn_id: builtins.str
     object_id: builtins.int
     options: builtins.dict[builtins.str, builtins.str]
     payload: builtins.list[builtins.int]
-    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, object_id:builtins.int, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=...) -> ObjectInvocationRequest: ...
+    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, object_id:builtins.int, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=...) -> ObjectInvocationRequest:
+        r"""
+        Creates a new `ObjectInvocationRequest`.
+        """
 
 class ObjectMetadata:
+    r"""
+    Represents the metadata of an object.
+    """
     object_id: builtins.int
     cls_id: builtins.str
     partition_id: builtins.int
-    def __new__(cls, cls_id:builtins.str, partition_id:builtins.int, object_id:builtins.int) -> ObjectMetadata: ...
+    def __new__(cls, cls_id:builtins.str, partition_id:builtins.int, object_id:builtins.int) -> ObjectMetadata:
+        r"""
+        Creates a new `ObjectMetadata`.
+        """
+
+class PyObjectEvent:
+    r"""
+    Represents an event associated with an object, wrapping the protobuf `ObjectEvent`.
+    """
+    def __new__(cls) -> PyObjectEvent:
+        r"""
+        Creates a new, empty `PyObjectEvent`.
+        """
+    def add_on_complete_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Add a new on_complete function event to the object event.
+        Returns true if the event was added, false if it already existed.
+        """
+    def delete_on_complete_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Deletes an on_complete function event from the object event.
+        Returns true if the event was deleted, false if it was not found.
+        """
+    def add_on_error_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Add a new on_error function event to the object event.
+        Returns true if the event was added, false if it already existed.
+        """
+    def delete_on_error_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Deletes an on_error function event from the object event.
+        Returns true if the event was deleted, false if it was not found.
+        """
+    def add_on_create_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Add a new on_create data event to the object event.
+        Returns true if the event was added, false if it already existed.
+        """
+    def delete_on_create_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Deletes an on_create data event from the object event.
+        Returns true if the event was deleted, false if it was not found.
+        """
+    def add_on_update_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Add a new on_update data event to the object event.
+        Returns true if the event was added, false if it already existed.
+        """
+    def delete_on_update_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Deletes an on_update data event from the object event.
+        Returns true if the event was deleted, false if it was not found.
+        """
+    def add_on_delete_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Add a new on_delete data event to the object event.
+        Returns true if the event was added, false if it already existed.
+        """
+    def delete_on_delete_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
+        r"""
+        Deletes an on_delete data event from the object event.
+        Returns true if the event was deleted, false if it was not found.
+        """
+    def __str__(self) -> builtins.str:
+        r"""
+        Returns a string representation of the `PyObjectEvent`.
+        """
+
+class PyTriggerTarget:
+    r"""
+    Represents a target for a trigger, wrapping the protobuf `TriggerTarget`.
+    """
+    cls_id: builtins.str
+    r"""
+    Gets the class ID of the trigger target.
+    """
+    partition_id: builtins.int
+    r"""
+    Gets the partition ID of the trigger target.
+    """
+    fn_id: builtins.str
+    r"""
+    Gets the function ID of the trigger target.
+    """
+    object_id: typing.Optional[builtins.int]
+    r"""
+    Gets the object ID of the trigger target, if any.
+    """
+    req_options: builtins.dict[builtins.str, builtins.str]
+    r"""
+    Gets the request options for the trigger target.
+    """
+    def __new__(cls, cls_id:builtins.str, partition_id:builtins.int, fn_id:builtins.str, object_id:typing.Optional[builtins.int]=None, req_options:typing.Mapping[builtins.str, builtins.str]={}) -> PyTriggerTarget:
+        r"""
+        Creates a new `PyTriggerTarget`.
+        """
+    def __str__(self) -> builtins.str:
+        r"""
+        Returns a string representation of the `PyTriggerTarget`.
+        """
+    def set_cls_id(self, cls_id:builtins.str) -> None:
+        r"""
+        Sets the class ID of the trigger target.
+        """
+    def set_partition_id(self, partition_id:builtins.int) -> None:
+        r"""
+        Sets the partition ID of the trigger target.
+        """
+    def set_fn_id(self, fn_id:builtins.str) -> None:
+        r"""
+        Sets the function ID of the trigger target.
+        """
+    def set_object_id(self, object_id:typing.Optional[builtins.int]) -> None:
+        r"""
+        Sets the object ID of the trigger target.
+        """
+    def set_req_options(self, req_options:typing.Mapping[builtins.str, builtins.str]) -> None:
+        r"""
+        Sets the request options for the trigger target.
+        """
 
 class RpcManager:
-    def invoke_fn(self, req:InvocationRequest) -> InvocationResponse: ...
-    def invoke_obj(self, req:ObjectInvocationRequest) -> InvocationResponse: ...
+    r"""
+    Manages RPC invocations using an ObjectProxy.
+    """
+    def invoke_fn(self, req:InvocationRequest) -> InvocationResponse:
+        r"""
+        Invokes a function based on the provided InvocationRequest.
+        """
+    def invoke_obj(self, req:ObjectInvocationRequest) -> InvocationResponse:
+        r"""
+        Invokes an object method based on the provided ObjectInvocationRequest.
+        """
 
 class InvocationResponseCode(Enum):
+    r"""
+    Represents the status code of an invocation response.
+    """
     Okay = ...
     InvalidRequest = ...
     AppError = ...
     SystemError = ...
 
 def init_logger(level:builtins.str, raise_error:builtins.bool) -> None: ...
-
-def rust_sleep() -> typing.Any: ...
-
-def try_callback(callback:typing.Any) -> typing.Any: ...
 

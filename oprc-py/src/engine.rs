@@ -17,6 +17,7 @@ use tonic::transport::Server;
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyclass]
+/// Represents the OaasEngine, which manages data, RPC, and Zenoh sessions.
 pub struct OaasEngine {
     #[pyo3(get)]
     data_manager: Py<DataManager>,
@@ -31,6 +32,8 @@ pub struct OaasEngine {
 #[pymethods]
 impl OaasEngine {
     #[new]
+    /// Creates a new instance of OaasEngine.
+    /// Initializes the Tokio runtime, Zenoh session, DataManager, and RpcManager.
     fn new() -> PyResult<Self> {
         let mut builder = Builder::new_multi_thread();
         builder.enable_all();
@@ -54,6 +57,13 @@ impl OaasEngine {
         })
     }
 
+    /// Starts a gRPC server on the specified port.
+    ///
+    /// # Arguments
+    ///
+    /// * `port` - The port number to bind the gRPC server to.
+    /// * `event_loop` - The Python event loop.
+    /// * `callback` - The Python callback function to handle invocations.
     fn serve_grpc_server(&mut self, port: u16, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
         let (shutdown_sender, shutdown_receiver) = oneshot::channel(); // Create a shutdown channel
         self.shutdown_sender = Some(shutdown_sender); // Store the sender for later use
@@ -74,6 +84,13 @@ impl OaasEngine {
         })
     }
 
+    /// Serves a function over Zenoh.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_expr` - The Zenoh key expression to serve the function on.
+    /// * `event_loop` - The Python event loop.
+    /// * `callback` - The Python callback function to handle invocations.
     async fn serve_function(&self, key_expr: String, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
         
         let handler = Python::with_gil(|py| {
@@ -116,6 +133,11 @@ impl OaasEngine {
         Ok(())
     }
 
+    /// Stops a function being served over Zenoh.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_expr` - The Zenoh key expression of the function to stop.
     async fn stop_function(&self, key_expr: String) -> PyResult<()> {
         let q = {
             let mut table = self.queryable_table.lock().await;
@@ -131,6 +153,7 @@ impl OaasEngine {
         Ok(())
     }
 
+    /// Stops the gRPC server.
     fn stop_server(&mut self) -> PyResult<()> {
         if let Some(sender) = self.shutdown_sender.take() {
             let _ = sender.send(());
@@ -140,6 +163,13 @@ impl OaasEngine {
 }
 
 // Modify the start function to accept a shutdown receiver
+/// Starts the Tonic gRPC server.
+///
+/// # Arguments
+///
+/// * `port` - The port number to bind the gRPC server to.
+/// * `service` - The InvocationHandler service.
+/// * `shutdown_receiver` - A oneshot receiver to signal server shutdown.
 async fn start_tonic(
     port: u16,
     service: InvocationHandler,
@@ -162,6 +192,7 @@ async fn start_tonic(
 
 
 
+/// Listens for shutdown signals (Ctrl+C or terminate on Unix).
 async fn shutdown_signal() {
     let ctrl_c = async {
         tokio::signal::ctrl_c()

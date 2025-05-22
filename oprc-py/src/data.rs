@@ -1,4 +1,3 @@
-
 use oprc_pb::ObjMeta;
 use pyo3::{
     exceptions::PyRuntimeError, IntoPyObjectExt, Py, PyAny, PyResult, Python,
@@ -9,11 +8,17 @@ use crate::model::{ObjectData};
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass]
+/// Manages data operations for objects, interacting with an object proxy.
 pub struct DataManager {
     proxy: oprc_invoke::proxy::ObjectProxy,
 }
 
 impl DataManager {
+    /// Creates a new `DataManager` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `z_session`: A Zenoh session used for communication.
     pub fn new(z_session: Session) -> Self {
         let proxy = oprc_invoke::proxy::ObjectProxy::new(z_session);
         DataManager { proxy }
@@ -23,6 +28,18 @@ impl DataManager {
 #[pyo3_stub_gen::derive::gen_stub_pymethods]
 #[pyo3::pymethods]
 impl DataManager {
+    /// Retrieves an object by its class ID, partition ID, and object ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `cls_id`: The class ID of the object.
+    /// * `partition_id`: The partition ID where the object resides.
+    /// * `obj_id`: The unique ID of the object.
+    ///
+    /// # Returns
+    ///
+    /// A `PyResult` containing the Python representation of the object if found,
+    /// or `None` if the object does not exist.
     pub async fn get_obj(
         &self,
         cls_id: String,
@@ -50,6 +67,15 @@ impl DataManager {
         })
     }
 
+    /// Sets (creates or updates) an object.
+    ///
+    /// # Arguments
+    ///
+    /// * `obj`: A Python `ObjectData` instance representing the object to be set.
+    ///
+    /// # Returns
+    ///
+    /// A `PyResult` indicating success or failure.
     pub async fn set_obj(&self, obj: Py<ObjectData>) -> PyResult<()> {
         let proto = Python::with_gil(|py| {
             let obj = obj.borrow(py);
@@ -62,11 +88,32 @@ impl DataManager {
         Ok(())
     }
 
-
+    /// Merges data into an existing object.
+    ///
+    /// Note: This function is currently a placeholder (`todo!()`).
+    ///
+    /// # Arguments
+    ///
+    /// * `_obj`: A Python `ObjectData` instance containing the data to merge.
+    ///
+    /// # Returns
+    ///
+    /// A `PyResult` indicating success or failure.
     pub async fn merge_obj(&self, _obj: Py<ObjectData>) -> PyResult<()> {
         todo!()
     }
 
+    /// Deletes an object by its class ID, partition ID, and object ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `cls_id`: The class ID of the object.
+    /// * `partition_id`: The partition ID where the object resides.
+    /// * `obj_id`: The unique ID of the object.
+    ///
+    /// # Returns
+    ///
+    /// A `PyResult` indicating success or failure.
     pub async fn del_obj(&self, 
         cls_id: String,
         partition_id: u32,
