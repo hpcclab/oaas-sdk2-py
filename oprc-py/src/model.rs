@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use oprc_pb::{ObjMeta, ValType};
+use pyo3::Bound;
 
 #[derive(Clone)]
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
@@ -388,6 +389,35 @@ pub struct PyObjectEvent {
     inner: oprc_pb::ObjectEvent,
 }
 
+#[pyo3_stub_gen::derive::gen_stub_pyclass_enum]
+#[pyo3::pyclass(eq, eq_int)]
+#[derive(PartialEq, Clone, Copy)]
+pub enum FnTriggerType {
+    OnComplete,
+    OnError,
+}
+
+#[pyo3_stub_gen::derive::gen_stub_pyclass_enum]
+#[pyo3::pyclass(eq, eq_int)]
+#[derive(PartialEq, Clone, Copy)]
+pub enum DataTriggerType {
+    OnCreate,
+    OnUpdate,
+    OnDelete,
+}
+
+#[pyo3::pymethods]
+impl DataTriggerType {
+    fn __str__(&self) -> &'static str {
+        match self {
+            DataTriggerType::OnCreate => "OnCreate",
+            DataTriggerType::OnUpdate => "OnUpdate",
+            DataTriggerType::OnDelete => "OnDelete",
+        }
+    }
+}
+
+
 impl From<oprc_pb::ObjectEvent> for PyObjectEvent {
     /// Creates a `PyObjectEvent` from its protobuf representation.
     fn from(value: oprc_pb::ObjectEvent) -> Self {
@@ -413,331 +443,132 @@ impl PyObjectEvent {
         }
     }
 
-    /// Add a new on_complete function event to the object event.
-    /// Returns true if the event was added, false if it already existed.
-    pub fn add_on_complete_fn_event(
-        &mut self,
-        source_fn_id: String,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        if let Some(l) = self.inner.func_trigger.get_mut(&source_fn_id) {
-            if l.on_complete.contains(&trigger) {
-                return false;
-            } else {
-                l.on_complete.push(trigger);
-                return true;
-            }
-        } else {
-            let f_trigger = oprc_pb::FuncTrigger {
-                on_complete: vec![trigger],
-                on_error: vec![],
-            };
-            self.inner.func_trigger.insert(source_fn_id, f_trigger);
-            return true;
-        }
-    }
-
-    /// Deletes an on_complete function event from the object event.
-    /// Returns true if the event was deleted, false if it was not found.
-    pub fn delete_on_complete_fn_event(
-        &mut self,
-        source_fn_id: String,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.func_trigger.get_mut(&source_fn_id) {
-            // Find the index of the matching trigger
-            if let Some(index) = l.on_complete.iter().position(|t| t == &trigger) {
-                // Remove the trigger at the found index
-                l.on_complete.remove(index);
-                return true;
-            }
-        }
-        
-        false
-    }
-
-    /// Add a new on_error function event to the object event.
-    /// Returns true if the event was added, false if it already existed.
-    pub fn add_on_error_fn_event(
-        &mut self,
-        source_fn_id: String,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.func_trigger.get_mut(&source_fn_id) {
-            if l.on_error.contains(&trigger) {
-                return false;
-            } else {
-                l.on_error.push(trigger);
-                return true;
-            }
-        } else {
-            let l = oprc_pb::FuncTrigger {
-                on_complete: vec![],
-                on_error: vec![trigger],
-            };
-            self.inner.func_trigger.insert(source_fn_id, l);
-            return true;
-        }
-    }
-
-    /// Deletes an on_error function event from the object event.
-    /// Returns true if the event was deleted, false if it was not found.
-    pub fn delete_on_error_fn_event(
-        &mut self,
-        source_fn_id: String,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.func_trigger.get_mut(&source_fn_id) {
-            if let Some(index) = l.on_error.iter().position(|t| t == &trigger) {
-                l.on_error.remove(index);
-                return true;
-            }
-        }
-        
-        false
-    }
-
-    /// Add a new on_create data event to the object event.
-    /// Returns true if the event was added, false if it already existed.
-    pub fn add_on_create_data_event(
-        &mut self,
-        source_key: u32,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.data_trigger.get_mut(&source_key) {
-            if l.on_create.contains(&trigger) {
-                return false;
-            } else {
-                l.on_create.push(trigger);
-                return true;
-            }
-        } else {
-            let l = oprc_pb::DataTrigger {
-                on_create: vec![trigger],
-                on_update: vec![],
-                on_delete: vec![],
-            };
-            self.inner.data_trigger.insert(source_key, l);
-            return true;
-        }
-    }
-
-    /// Deletes an on_create data event from the object event.
-    /// Returns true if the event was deleted, false if it was not found.
-    pub fn delete_on_create_data_event(
-        &mut self,
-        source_key: u32,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.data_trigger.get_mut(&source_key) {
-            if let Some(index) = l.on_create.iter().position(|t| t == &trigger) {
-                l.on_create.remove(index);
-                return true;
-            }
-        }
-        
-        false
-    }
-
-    /// Add a new on_update data event to the object event.
-    /// Returns true if the event was added, false if it already existed.
-    pub fn add_on_update_data_event(
-        &mut self,
-        source_key: u32,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.data_trigger.get_mut(&source_key) {
-            if l.on_update.contains(&trigger) {
-                return false;
-            } else {
-                l.on_update.push(trigger);
-                return true;
-            }
-        } else {
-            let l = oprc_pb::DataTrigger {
-                on_create: vec![],
-                on_update: vec![trigger],
-                on_delete: vec![],
-            };
-            self.inner.data_trigger.insert(source_key, l);
-            return true;
-        }
-    }
-
-    /// Deletes an on_update data event from the object event.
-    /// Returns true if the event was deleted, false if it was not found.
-    pub fn delete_on_update_data_event(
-        &mut self,
-        source_key: u32,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.data_trigger.get_mut(&source_key) {
-            if let Some(index) = l.on_update.iter().position(|t| t == &trigger) {
-                l.on_update.remove(index);
-                return true;
-            }
-        }
-        
-        false
-    }
-
-    /// Add a new on_delete data event to the object event.
-    /// Returns true if the event was added, false if it already existed.
-    pub fn add_on_delete_data_event(
-        &mut self,
-        source_key: u32,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.data_trigger.get_mut(&source_key) {
-            if l.on_delete.contains(&trigger) {
-                return false;
-            } else {
-                l.on_delete.push(trigger);
-                return true;
-            }
-        } else {
-            let l = oprc_pb::DataTrigger {
-                on_create: vec![],
-                on_update: vec![],
-                on_delete: vec![trigger],
-            };
-            self.inner.data_trigger.insert(source_key, l);
-            return true;
-        }
-    }
-
-    /// Deletes an on_delete data event from the object event.
-    /// Returns true if the event was deleted, false if it was not found.
-    pub fn delete_on_delete_data_event(
-        &mut self,
-        source_key: u32,
-        target_cls_id: String,
-        target_partition_id: u32,
-        target_fn_id: String,
-        target_object_id: Option<u64>,
-    ) -> bool {
-        let trigger = oprc_pb::TriggerTarget {
-            cls_id: target_cls_id,
-            partition_id: target_partition_id,
-            fn_id: target_fn_id,
-            object_id: target_object_id,
-            ..Default::default()
-        };
-        
-        if let Some(l) = self.inner.data_trigger.get_mut(&source_key) {
-            if let Some(index) = l.on_delete.iter().position(|t| t == &trigger) {
-                l.on_delete.remove(index);
-                return true;
-            }
-        }
-        
-        false
-    }
-
     /// Returns a string representation of the `PyObjectEvent`.
     pub fn __str__(&self) -> String {
-        format!(
-            "ObjectEvent {:?}",
-            self.inner
-        )
+        format!("ObjectEvent {:?}", self.inner)
+    }
+    /// Manages function triggers by adding or removing a trigger target for a specific function and event type.
+    /// 
+    /// # Arguments
+    /// * `source_fn_id` - The function ID that will trigger the event
+    /// * `trigger` - The target to be triggered
+    /// * `event_type` - When to trigger (on completion or on error)
+    /// * `add_action` - Whether to add (true) or remove (false) the trigger
+    /// 
+    /// # Returns
+    /// * `true` if the operation was successful (trigger added or removed)
+    /// * `false` if the operation failed (trigger already exists or not found)
+    fn manage_fn_trigger(
+        &mut self,
+        source_fn_id: String,
+        trigger: PyTriggerTarget,
+        event_type: Bound<'_, FnTriggerType>,
+        add_action: bool, // true for add, false for delete
+    ) -> bool {
+        let func_trigger_map = &mut self.inner.func_trigger;
+        let event_type = *event_type.borrow();
+        let trigger = trigger.inner;
+
+        if add_action {
+            // Get or create the function trigger entry
+            let f_trigger_entry = func_trigger_map
+                .entry(source_fn_id)
+                .or_insert_with(Default::default);
+            // Get the appropriate vector based on event type
+            let target_vec = match event_type {
+                FnTriggerType::OnComplete => &mut f_trigger_entry.on_complete,
+                FnTriggerType::OnError => &mut f_trigger_entry.on_error,
+            };
+
+            if target_vec.contains(&trigger) {
+                return false; // Already exists
+            } else {
+                target_vec.push(trigger);
+                return true; // Added
+            }
+        } else {
+            // Delete action
+            if let Some(f_trigger_entry) = func_trigger_map.get_mut(&source_fn_id) {
+                let target_vec = match event_type {
+                    FnTriggerType::OnComplete => &mut f_trigger_entry.on_complete,
+                    FnTriggerType::OnError => &mut f_trigger_entry.on_error,
+                };
+
+                if let Some(index) = target_vec.iter().position(|t| t == &trigger) {
+                    target_vec.remove(index);
+                    // If the entry becomes empty, we could remove it from the map,
+                    // but we'll keep original behavior unless specified.
+                    // if f_trigger_entry.on_complete.is_empty() && f_trigger_entry.on_error.is_empty() {
+                    //     func_trigger_map.remove(&source_fn_id);
+                    // }
+                    return true; // Deleted
+                }
+            }
+            return false; // Not found for deletion
+        }
+    }
+
+    /// Manages data triggers by adding or removing a trigger target for a specific data key and event type.
+    /// 
+    /// # Arguments
+    /// * `source_key` - The data key ID that will trigger the event
+    /// * `trigger` - The target to be triggered
+    /// * `event_type` - When to trigger (on create, update, or delete)
+    /// * `add_action` - Whether to add (true) or remove (false) the trigger
+    /// 
+    /// # Returns
+    /// * `true` if the operation was successful (trigger added or removed)
+    /// * `false` if the operation failed (trigger already exists or not found)
+    fn manage_data_trigger(
+        &mut self,
+        source_key: u32,
+        trigger: PyTriggerTarget,
+        event_type:  Bound<'_, DataTriggerType>,
+        add_action: bool, // true for add, false for delete
+    ) -> bool {
+        let data_trigger_map = &mut self.inner.data_trigger;
+        let event_type = *event_type.borrow();
+        let trigger = trigger.inner;
+
+        if add_action {
+            // Get or create the data trigger entry
+            let d_trigger_entry = data_trigger_map
+                .entry(source_key)
+                .or_insert_with(Default::default);
+
+            // Get the appropriate vector based on event type
+            let target_vec = match event_type {
+                DataTriggerType::OnCreate => &mut d_trigger_entry.on_create,
+                DataTriggerType::OnUpdate => &mut d_trigger_entry.on_update,
+                DataTriggerType::OnDelete => &mut d_trigger_entry.on_delete,
+            };
+
+            if target_vec.contains(&trigger) {
+                return false; // Already exists
+            } else {
+                target_vec.push(trigger);
+                return true; // Added
+            }
+        } else {
+            // Delete action
+            if let Some(d_trigger_entry) = data_trigger_map.get_mut(&source_key) {
+                let target_vec = match event_type {
+                    DataTriggerType::OnCreate => &mut d_trigger_entry.on_create,
+                    DataTriggerType::OnUpdate => &mut d_trigger_entry.on_update,
+                    DataTriggerType::OnDelete => &mut d_trigger_entry.on_delete,
+                };
+
+                if let Some(index) = target_vec.iter().position(|t| t == &trigger) {
+                    target_vec.remove(index);
+                    // Optional: clean up entry if all vectors are empty
+                    // if d_trigger_entry.on_create.is_empty() && d_trigger_entry.on_update.is_empty() && d_trigger_entry.on_delete.is_empty() {
+                    //     data_trigger_map.remove(&source_key);
+                    // }
+                    return true; // Deleted
+                }
+            }
+            return false; // Not found for deletion
+        }
     }
 }
 
@@ -789,10 +620,7 @@ impl PyTriggerTarget {
 
     /// Returns a string representation of the `PyTriggerTarget`.
     pub fn __str__(&self) -> String {
-        format!(
-            "TriggerTarget {:?}",
-            self.inner
-        )
+        format!("TriggerTarget {:?}", self.inner)
     }
 
     #[getter]

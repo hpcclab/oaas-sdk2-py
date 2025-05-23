@@ -191,59 +191,37 @@ class PyObjectEvent:
         r"""
         Creates a new, empty `PyObjectEvent`.
         """
-    def add_on_complete_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Add a new on_complete function event to the object event.
-        Returns true if the event was added, false if it already existed.
-        """
-    def delete_on_complete_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Deletes an on_complete function event from the object event.
-        Returns true if the event was deleted, false if it was not found.
-        """
-    def add_on_error_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Add a new on_error function event to the object event.
-        Returns true if the event was added, false if it already existed.
-        """
-    def delete_on_error_fn_event(self, source_fn_id:builtins.str, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Deletes an on_error function event from the object event.
-        Returns true if the event was deleted, false if it was not found.
-        """
-    def add_on_create_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Add a new on_create data event to the object event.
-        Returns true if the event was added, false if it already existed.
-        """
-    def delete_on_create_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Deletes an on_create data event from the object event.
-        Returns true if the event was deleted, false if it was not found.
-        """
-    def add_on_update_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Add a new on_update data event to the object event.
-        Returns true if the event was added, false if it already existed.
-        """
-    def delete_on_update_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Deletes an on_update data event from the object event.
-        Returns true if the event was deleted, false if it was not found.
-        """
-    def add_on_delete_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Add a new on_delete data event to the object event.
-        Returns true if the event was added, false if it already existed.
-        """
-    def delete_on_delete_data_event(self, source_key:builtins.int, target_cls_id:builtins.str, target_partition_id:builtins.int, target_fn_id:builtins.str, target_object_id:typing.Optional[builtins.int]) -> builtins.bool:
-        r"""
-        Deletes an on_delete data event from the object event.
-        Returns true if the event was deleted, false if it was not found.
-        """
     def __str__(self) -> builtins.str:
         r"""
         Returns a string representation of the `PyObjectEvent`.
+        """
+    def manage_fn_trigger(self, source_fn_id:builtins.str, trigger:PyTriggerTarget, event_type:FnTriggerType, add_action:builtins.bool) -> builtins.bool:
+        r"""
+        Manages function triggers by adding or removing a trigger target for a specific function and event type.
+        
+        # Arguments
+        * `source_fn_id` - The function ID that will trigger the event
+        * `trigger` - The target to be triggered
+        * `event_type` - When to trigger (on completion or on error)
+        * `add_action` - Whether to add (true) or remove (false) the trigger
+        
+        # Returns
+        * `true` if the operation was successful (trigger added or removed)
+        * `false` if the operation failed (trigger already exists or not found)
+        """
+    def manage_data_trigger(self, source_key:builtins.int, trigger:PyTriggerTarget, event_type:DataTriggerType, add_action:builtins.bool) -> builtins.bool:
+        r"""
+        Manages data triggers by adding or removing a trigger target for a specific data key and event type.
+        
+        # Arguments
+        * `source_key` - The data key ID that will trigger the event
+        * `trigger` - The target to be triggered
+        * `event_type` - When to trigger (on create, update, or delete)
+        * `add_action` - Whether to add (true) or remove (false) the trigger
+        
+        # Returns
+        * `true` if the operation was successful (trigger added or removed)
+        * `false` if the operation failed (trigger already exists or not found)
         """
 
 class PyTriggerTarget:
@@ -311,6 +289,15 @@ class RpcManager:
         r"""
         Invokes an object method based on the provided ObjectInvocationRequest.
         """
+
+class DataTriggerType(Enum):
+    OnCreate = ...
+    OnUpdate = ...
+    OnDelete = ...
+
+class FnTriggerType(Enum):
+    OnComplete = ...
+    OnError = ...
 
 class InvocationResponseCode(Enum):
     r"""

@@ -51,6 +51,8 @@ fn oprc_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<model::ObjectData>()?;  
     m.add_class::<model::PyObjectEvent>()?; 
     m.add_class::<model::PyTriggerTarget>()?; 
+    m.add_class::<model::FnTriggerType>()?; 
+    m.add_class::<model::DataTriggerType>()?; 
     Ok(())
 }
 
