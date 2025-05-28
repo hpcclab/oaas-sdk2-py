@@ -3,7 +3,7 @@ import logging
 import unittest
 
 import oprc_py
-from .sample_cls import Msg, SampleObj, oaas, sample_cls_meta
+from .sample_cls import Msg, AsyncSampleObj, oaas, async_sample_cls_meta
 
 
 class TestServe(unittest.IsolatedAsyncioTestCase):
@@ -21,18 +21,18 @@ class TestServe(unittest.IsolatedAsyncioTestCase):
         loop = asyncio.get_running_loop() 
         await oaas.run_agent(
             loop,
-            cls_meta=sample_cls_meta,
+            cls_meta=async_sample_cls_meta,
             obj_id=1,
         )
         try:
-            obj: SampleObj = oaas.load_object(sample_cls_meta, 1)
+            obj: AsyncSampleObj = oaas.load_object(async_sample_cls_meta, 1)
             result = await obj.local_fn(msg=Msg(msg="test"))
             logging.debug("result: %s", result)
             assert result is not None
             assert result.ok
             assert result.msg == "local fn"
         finally:
-            await oaas.stop_agent(cls_meta=sample_cls_meta, obj_id=1)
+            await oaas.stop_agent(cls_meta=async_sample_cls_meta, obj_id=1)
 
 
 if __name__ == "__main__":

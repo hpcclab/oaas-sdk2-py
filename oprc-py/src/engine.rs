@@ -1,17 +1,25 @@
-use std::{collections::HashMap, net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc};
 use flume::Receiver;
 use oprc_invoke::handler::InvocationZenohHandler;
+use std::{
+    collections::HashMap,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
 use tokio::sync::{oneshot, Mutex};
 use zenoh::query::{Query, Queryable};
 
-use crate::{data::DataManager, handler::InvocationHandler, rpc::RpcManager};
+use crate::{
+    data::DataManager,
+    handler::{AsyncInvocationHandler, SyncInvocationHandler},
+    rpc::RpcManager,
+};
 pub use envconfig::Envconfig;
-use oprc_pb::oprc_function_server::OprcFunctionServer;
+use oprc_pb::oprc_function_server::{OprcFunction, OprcFunctionServer};
 use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
     prelude::*,
 };
-use pyo3_async_runtimes::TaskLocals;
+use pyo3_async_runtimes::{tokio::get_runtime, TaskLocals};
 use tokio::runtime::Builder;
 use tonic::transport::Server;
 
@@ -38,7 +46,7 @@ impl OaasEngine {
         let mut builder = Builder::new_multi_thread();
         builder.enable_all();
         pyo3_async_runtimes::tokio::init(builder);
-        let runtime = pyo3_async_runtimes::tokio::get_runtime();
+        let runtime = get_runtime();
         let conf = oprc_zenoh::OprcZenohConfig::init_from_env()
             .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
         let session = runtime.block_on(async move {
@@ -64,7 +72,12 @@ impl OaasEngine {
     /// * `port` - The port number to bind the gRPC server to.
     /// * `event_loop` - The Python event loop.
     /// * `callback` - The Python callback function to handle invocations.
-    fn serve_grpc_server(&mut self, port: u16, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
+    fn serve_grpc_server_async(
+        &mut self,
+        port: u16,
+        event_loop: Py<PyAny>,
+        callback: Py<PyAny>,
+    ) -> PyResult<()> {
         let (shutdown_sender, shutdown_receiver) = oneshot::channel(); // Create a shutdown channel
         self.shutdown_sender = Some(shutdown_sender); // Store the sender for later use
 
@@ -72,8 +85,32 @@ impl OaasEngine {
             let l = event_loop.into_bound(py);
             let task_locals = TaskLocals::new(l);
             py.allow_threads(|| {
-                let service = InvocationHandler::new(callback, task_locals);
-                let runtime = pyo3_async_runtimes::tokio::get_runtime();
+                let service = AsyncInvocationHandler::new(callback, task_locals);
+                let runtime = get_runtime();
+                runtime.spawn(async move {
+                    if let Err(e) = start_tonic(port, service, shutdown_receiver).await {
+                        eprintln!("Server error: {}", e);
+                    }
+                });
+            });
+            Ok(())
+        })
+    }
+
+    /// Starts a gRPC server on the specified port.
+    ///
+    /// # Arguments
+    ///
+    /// * `port` - The port number to bind the gRPC server to.
+    /// * `callback` - The Python callback function to handle invocations.
+    fn serve_grpc_server(&mut self, port: u16, callback: Py<PyAny>) -> PyResult<()> {
+        let (shutdown_sender, shutdown_receiver) = oneshot::channel(); // Create a shutdown channel
+        self.shutdown_sender = Some(shutdown_sender); // Store the sender for later use
+
+        Python::with_gil(|py| {
+            py.allow_threads(|| {
+                let service = SyncInvocationHandler::new(callback);
+                let runtime = get_runtime();
                 runtime.spawn(async move {
                     if let Err(e) = start_tonic(port, service, shutdown_receiver).await {
                         eprintln!("Server error: {}", e);
@@ -91,32 +128,33 @@ impl OaasEngine {
     /// * `key_expr` - The Zenoh key expression to serve the function on.
     /// * `event_loop` - The Python event loop.
     /// * `callback` - The Python callback function to handle invocations.
-    async fn serve_function(&self, key_expr: String, event_loop: Py<PyAny>, callback: Py<PyAny>) -> PyResult<()> {
-        
+    async fn serve_function(
+        &self,
+        key_expr: String,
+        event_loop: Py<PyAny>,
+        callback: Py<PyAny>,
+    ) -> PyResult<()> {
         let handler = Python::with_gil(|py| {
             let l = event_loop.into_bound(py);
             let task_locals = TaskLocals::new(l);
-            let service = InvocationHandler::new(callback, task_locals);
+            let service = AsyncInvocationHandler::new(callback, task_locals);
             service
         });
-        
+
         let z_session = self.session.clone();
         let ke = key_expr.clone();
         let z_handler = InvocationZenohHandler::new("".to_string(), Arc::new(handler));
-        let runtime = pyo3_async_runtimes::tokio::get_runtime();
-        let q = runtime.spawn(async move {
-            oprc_zenoh::util::declare_managed_queryable(
-                &z_session,
-                ke,
-                z_handler,
-                1,
-                65536,
-            )
+        let runtime = get_runtime();
+        let q = runtime
+            .spawn(async move {
+                oprc_zenoh::util::declare_managed_queryable(&z_session, ke, z_handler, 1, 65536)
+                    .await
+            })
             .await
-        })
-        .await
-        .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("Failed to spawn queryable: {}", e)))?
-        .map_err(|e| PyErr::new::<PyRuntimeError, _>(e.to_string()))?;
+            .map_err(|e| {
+                PyErr::new::<PyRuntimeError, _>(format!("Failed to spawn queryable: {}", e))
+            })?
+            .map_err(|e| PyErr::new::<PyRuntimeError, _>(e.to_string()))?;
         // let q = oprc_zenoh::util::declare_managed_queryable(
         //         &z_session,
         //         key_expr.to_owned(),
@@ -144,11 +182,14 @@ impl OaasEngine {
             table.remove(&key_expr)
         };
         if let Some(q) = q {
-            q.undeclare()
-            .await
-            .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("Failed to undeclare queryable: {}", e)))?;
+            q.undeclare().await.map_err(|e| {
+                PyErr::new::<PyRuntimeError, _>(format!("Failed to undeclare queryable: {}", e))
+            })?;
         } else {
-            return Err(PyErr::new::<PyTypeError, _>(format!("No queryable found for key_expr: {}", key_expr)));
+            return Err(PyErr::new::<PyTypeError, _>(format!(
+                "No queryable found for key_expr: {}",
+                key_expr
+            )));
         }
         Ok(())
     }
@@ -170,15 +211,18 @@ impl OaasEngine {
 /// * `port` - The port number to bind the gRPC server to.
 /// * `service` - The InvocationHandler service.
 /// * `shutdown_receiver` - A oneshot receiver to signal server shutdown.
-async fn start_tonic(
+async fn start_tonic<T>(
     port: u16,
-    service: InvocationHandler,
+    service: T,
     mut shutdown_receiver: oneshot::Receiver<()>,
-) -> PyResult<()> {
+) -> PyResult<()>
+where
+    T: OprcFunction,
+{
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port);
-    let echo_function: OprcFunctionServer<InvocationHandler> = OprcFunctionServer::new(service);
+    let server = OprcFunctionServer::new(service);
     Server::builder()
-        .add_service(echo_function.max_decoding_message_size(usize::MAX))
+        .add_service(server.max_decoding_message_size(usize::MAX))
         .serve_with_shutdown(socket, async {
             tokio::select! {
                 _ = shutdown_signal() => {},
@@ -189,8 +233,6 @@ async fn start_tonic(
         .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
     Ok(())
 }
-
-
 
 /// Listens for shutdown signals (Ctrl+C or terminate on Unix).
 async fn shutdown_signal() {

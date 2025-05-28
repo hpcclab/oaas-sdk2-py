@@ -11,7 +11,22 @@ class DataManager:
     """
     def get_obj(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> typing.Any:
         r"""
-        Retrieves an object by its class ID, partition ID, and object ID.
+        Retrieves an object by its class ID, partition ID, and object ID. (Synchronous)
+        
+        # Arguments
+        
+        * `cls_id`: The class ID of the object.
+        * `partition_id`: The partition ID where the object resides.
+        * `obj_id`: The unique ID of the object.
+        
+        # Returns
+        
+        A `PyResult` containing the Python representation of the object if found,
+        or `None` if the object does not exist.
+        """
+    def get_obj_async(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> typing.Any:
+        r"""
+        Retrieves an object by its class ID, partition ID, and object ID. (Asynchronous)
         
         # Arguments
         
@@ -26,7 +41,7 @@ class DataManager:
         """
     def set_obj(self, obj:ObjectData) -> None:
         r"""
-        Sets (creates or updates) an object.
+        Sets (creates or updates) an object. (Synchronous)
         
         # Arguments
         
@@ -36,15 +51,13 @@ class DataManager:
         
         A `PyResult` indicating success or failure.
         """
-    def merge_obj(self, _obj:ObjectData) -> None:
+    def set_obj_async(self, obj:ObjectData) -> None:
         r"""
-        Merges data into an existing object.
-        
-        Note: This function is currently a placeholder (`todo!()`).
+        Sets (creates or updates) an object. (Asynchronous)
         
         # Arguments
         
-        * `_obj`: A Python `ObjectData` instance containing the data to merge.
+        * `obj`: A Python `ObjectData` instance representing the object to be set.
         
         # Returns
         
@@ -52,7 +65,21 @@ class DataManager:
         """
     def del_obj(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> None:
         r"""
-        Deletes an object by its class ID, partition ID, and object ID.
+        Deletes an object by its class ID, partition ID, and object ID. (Synchronous)
+        
+        # Arguments
+        
+        * `cls_id`: The class ID of the object.
+        * `partition_id`: The partition ID where the object resides.
+        * `obj_id`: The unique ID of the object.
+        
+        # Returns
+        
+        A `PyResult` indicating success or failure.
+        """
+    def del_obj_async(self, cls_id:builtins.str, partition_id:builtins.int, obj_id:builtins.int) -> None:
+        r"""
+        Deletes an object by its class ID, partition ID, and object ID. (Asynchronous)
         
         # Arguments
         
@@ -106,7 +133,7 @@ class OaasEngine:
         Creates a new instance of OaasEngine.
         Initializes the Tokio runtime, Zenoh session, DataManager, and RpcManager.
         """
-    def serve_grpc_server(self, port:builtins.int, event_loop:typing.Any, callback:typing.Any) -> None:
+    def serve_grpc_server_async(self, port:builtins.int, event_loop:typing.Any, callback:typing.Any) -> None:
         r"""
         Starts a gRPC server on the specified port.
         
@@ -114,6 +141,15 @@ class OaasEngine:
         
         * `port` - The port number to bind the gRPC server to.
         * `event_loop` - The Python event loop.
+        * `callback` - The Python callback function to handle invocations.
+        """
+    def serve_grpc_server(self, port:builtins.int, callback:typing.Any) -> None:
+        r"""
+        Starts a gRPC server on the specified port.
+        
+        # Arguments
+        
+        * `port` - The port number to bind the gRPC server to.
         * `callback` - The Python callback function to handle invocations.
         """
     def serve_function(self, key_expr:builtins.str, event_loop:typing.Any, callback:typing.Any) -> None:
@@ -146,7 +182,7 @@ class ObjectData:
     meta: ObjectMetadata
     entries: builtins.dict[builtins.int, builtins.list[builtins.int]]
     event: typing.Optional[PyObjectEvent]
-    def __new__(cls, meta:ObjectMetadata, entries:typing.Mapping[builtins.int, typing.Sequence[builtins.int]]) -> ObjectData:
+    def __new__(cls, meta:ObjectMetadata, entries:typing.Mapping[builtins.int, typing.Sequence[builtins.int]]={}, event:typing.Optional[PyObjectEvent]=None) -> ObjectData:
         r"""
         Creates a new `ObjectData`.
         """
@@ -283,11 +319,53 @@ class RpcManager:
     """
     def invoke_fn(self, req:InvocationRequest) -> InvocationResponse:
         r"""
-        Invokes a function based on the provided InvocationRequest.
+        Invokes a function based on the provided InvocationRequest. (Synchronous)
+        
+        # Arguments
+        
+        * `py`: The Python GIL token.
+        * `req`: A Python `InvocationRequest` instance.
+        
+        # Returns
+        
+        A `PyResult` containing an `InvocationResponse`.
+        """
+    def invoke_fn_async(self, req:InvocationRequest) -> InvocationResponse:
+        r"""
+        Invokes a function based on the provided InvocationRequest. (Asynchronous)
+        
+        # Arguments
+        
+        * `req`: A Python `InvocationRequest` instance.
+        
+        # Returns
+        
+        A `PyResult` containing an `InvocationResponse`.
         """
     def invoke_obj(self, req:ObjectInvocationRequest) -> InvocationResponse:
         r"""
-        Invokes an object method based on the provided ObjectInvocationRequest.
+        Invokes an object method based on the provided ObjectInvocationRequest. (Synchronous)
+        
+        # Arguments
+        
+        * `py`: The Python GIL token.
+        * `req`: A Python `ObjectInvocationRequest` instance.
+        
+        # Returns
+        
+        A `PyResult` containing an `InvocationResponse`.
+        """
+    def invoke_obj_async(self, req:ObjectInvocationRequest) -> InvocationResponse:
+        r"""
+        Invokes an object method based on the provided ObjectInvocationRequest. (Asynchronous)
+        
+        # Arguments
+        
+        * `req`: A Python `ObjectInvocationRequest` instance.
+        
+        # Returns
+        
+        A `PyResult` containing an `InvocationResponse`.
         """
 
 class DataTriggerType(Enum):

@@ -1,32 +1,27 @@
 use std::ops::Deref;
 
 use oprc_invoke::handler::InvocationExecutor;
-use oprc_pb::{
-    oprc_function_server::OprcFunction, InvocationRequest, InvocationResponse,
-    ObjectInvocationRequest, ResponseStatus,
-};
+use oprc_pb::{oprc_function_server::OprcFunction, InvocationRequest, InvocationResponse, ObjectInvocationRequest, ResponseStatus};
 use pyo3::{intern, types::PyTuple, Py, PyAny, PyRef, PyResult, Python};
-use pyo3_async_runtimes::{into_future_with_locals, TaskLocals};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
 
-pub struct InvocationHandler {
+
+
+pub struct SyncInvocationHandler {
     callback: Py<PyAny>,
-    task_locals: TaskLocals,
 }
 
-impl InvocationHandler {
-    pub fn new(callback: Py<PyAny>, locals: TaskLocals) -> Self {
-        InvocationHandler {
-            callback,
-            task_locals: locals,
+impl SyncInvocationHandler {
+    pub fn new(callback: Py<PyAny>) -> Self {
+        SyncInvocationHandler {
+            callback
         }
     }
 }
 
-
 #[tonic::async_trait]
-impl OprcFunction for InvocationHandler {
+impl OprcFunction for SyncInvocationHandler {
     async fn invoke_fn(
         &self,
         request: Request<InvocationRequest>,
@@ -40,7 +35,7 @@ impl OprcFunction for InvocationHandler {
                 invocation_request.cls_id, invocation_request.fn_id
             );
         }
-        match invoke_fn(&self.task_locals, &self.callback, invocation_request).await {
+        match invoke_fn(&self.callback, invocation_request).await {
             Ok(output) => Ok(Response::new(output)),
             Err(err) => {
                 let resp = InvocationResponse {
@@ -71,7 +66,7 @@ impl OprcFunction for InvocationHandler {
             );
         }
 
-        match invoke_obj(&self.task_locals, &self.callback, invocation_request).await {
+        match invoke_obj(&self.callback, invocation_request).await {
             Ok(output) => Ok(Response::new(output)),
             Err(err) => {
                 let resp = InvocationResponse {
@@ -86,9 +81,8 @@ impl OprcFunction for InvocationHandler {
     }
 }
 
-
 #[async_trait::async_trait]
-impl InvocationExecutor for InvocationHandler {
+impl InvocationExecutor for SyncInvocationHandler {
     async fn invoke_fn(
         &self,
         invocation_request: oprc_pb::InvocationRequest,
@@ -101,7 +95,7 @@ impl InvocationExecutor for InvocationHandler {
                 invocation_request.cls_id, invocation_request.fn_id
             );
         }
-        match invoke_fn(&self.task_locals, &self.callback, invocation_request).await {
+        match invoke_fn(&self.callback, invocation_request).await {
             Ok(output) => Ok(output),
             Err(err) => {
                 let resp = InvocationResponse {
@@ -130,7 +124,7 @@ impl InvocationExecutor for InvocationHandler {
             );
         }
 
-        match invoke_obj(&self.task_locals, &self.callback, invocation_request).await {
+        match invoke_obj(&self.callback, invocation_request).await {
             Ok(output) => Ok(output),
             Err(err) => {
                 let resp = InvocationResponse {
@@ -143,56 +137,40 @@ impl InvocationExecutor for InvocationHandler {
             }
         }
     }
+}
+
+
+
+
+async fn invoke_obj(
+    callback: &Py<PyAny>,
+    req: oprc_pb::ObjectInvocationRequest,
+) -> PyResult<oprc_pb::InvocationResponse> {
     
+    let res = Python::with_gil(|py| {
+        let req = crate::model::ObjectInvocationRequest::from(req);
+        let args = PyTuple::new(py, [req])?;
+        let any = callback.call_method1(py, intern!(py, "invoke_obj"), args)?;
+        any.extract::<PyRef<crate::model::InvocationResponse>>(py)
+            .map(|r| r.deref().into())
+    
+    });
+
+    res
 }
 
 
 async fn invoke_fn(
-    locals: &TaskLocals,
     callback: &Py<PyAny>,
     req: oprc_pb::InvocationRequest,
 ) -> PyResult<oprc_pb::InvocationResponse> {
     let res = Python::with_gil(|py| {
         let req = crate::model::InvocationRequest::from(req);
         let args = PyTuple::new(py, [req])?;
-        let any = into_future_with_locals(
-            locals,
-            callback
-                .call_method1(py, intern!(py, "invoke_fn"), args)?
-                .into_bound(py),
-        );
-        any
+        let any = callback.call_method1(py, intern!(py, "invoke_fn"), args)?;
+        any.extract::<PyRef<crate::model::InvocationResponse>>(py)
+            .map(|r| r.deref().into())
+    
     });
-    let res = res?.await.map(|any| {
-        Python::with_gil(|py| {
-            any.extract::<PyRef<crate::model::InvocationResponse>>(py)
-                .map(|r| r.deref().into())
-        })
-    })?;
-    res
-}
-
-async fn invoke_obj(
-    locals: &TaskLocals,
-    callback: &Py<PyAny>,
-    req: oprc_pb::ObjectInvocationRequest,
-) -> PyResult<oprc_pb::InvocationResponse> {
-    let res = Python::with_gil(|py| {
-        let req = crate::model::ObjectInvocationRequest::from(req);
-        let args = PyTuple::new(py, [req])?;
-        let any = into_future_with_locals(
-            locals,
-            callback
-                .call_method1(py, intern!(py, "invoke_obj"), args)?
-                .into_bound(py),
-        );
-        any
-    });
-    let res = res?.await.map(|any| {
-        Python::with_gil(|py| {
-            any.extract::<PyRef<crate::model::InvocationResponse>>(py)
-                .map(|r| r.deref().into())
-        })
-    })?;
     res
 }

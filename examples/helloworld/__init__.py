@@ -129,7 +129,7 @@ async def main():
     session = oaas.new_session()        
     o1: Greeter = session.create_object(greeter, 1, local=True)
     resp = await o1.greet(Greet(name="world")) # local call
-    session.commit() # save the local object to remote
+    session.commit_async() # save the local object to remote
 
     o2: Greeter = session.load_object(greeter, 1)
     resp = await o2.greet(Greet(name="world")) # remote call

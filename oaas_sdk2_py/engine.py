@@ -4,7 +4,7 @@ import oprc_py
 
 from oaas_sdk2_py.mock import LocalDataManager, LocalRpcManager
 from .config import OprcConfig
-from .handler import GrpcHandler
+from .handler import AsyncInvocationHandler, SyncInvocationHandler
 from .model import ClsMeta
 from .repo import MetadataRepo
 from .session import Session
@@ -25,6 +25,7 @@ class Oparaca:
         mock_mode: bool = False,
         meta_repo: MetadataRepo = None,
         engine: oprc_py.OaasEngine = None,
+        async_mode: bool = False,
     ):
         if config is None:
             config = OprcConfig()
@@ -36,6 +37,8 @@ class Oparaca:
         self.default_pkg = default_pkg
         self.mock_mode = mock_mode
         self.default_session = self.new_session()
+        self.async_mode = async_mode
+        
         
     def mock(self):
         return Oparaca(
@@ -73,9 +76,13 @@ class Oparaca:
                 self.meta_repo,
             )
 
-    def start_grpc_server(self, loop, port=8080):
-        self.engine.serve_grpc_server(port, loop, GrpcHandler(self))
-
+    def start_grpc_server(self, loop=None, port=8080):
+        if self.async_mode:
+            self.engine.serve_grpc_server_async(port, loop, AsyncInvocationHandler(self))
+        else:
+            self.engine.serve_grpc_server(port, SyncInvocationHandler(self))
+            
+            
     def stop_server(self):
         self.engine.stop_server()
 
@@ -94,7 +101,7 @@ class Oparaca:
                     key = f"oprc/{cls_meta.pkg}.{cls_meta.name}/{parition_id}/invokes/{fn_id}"
                 else:
                     key = f"oprc/{cls_meta.pkg}.{cls_meta.name}/{parition_id}/objects/{obj_id}/invokes/{fn_id}"
-                await self.engine.serve_function(key, loop, GrpcHandler(self))
+                await self.engine.serve_function(key, loop, AsyncInvocationHandler(self))
 
     async def stop_agent(
         self, cls_meta: ClsMeta, obj_id: int, partition_id: Optional[int] = None
@@ -124,6 +131,9 @@ class Oparaca:
 
     def delete_object(self, cls_meta: ClsMeta, obj_id: int, partition_id: Optional[int] = None):
         return self.default_session.delete_object(cls_meta, obj_id, partition_id)
+    
+    async def commit_async(self):
+        return await self.default_session.commit_async()
     
     def commit(self):
         return self.default_session.commit()

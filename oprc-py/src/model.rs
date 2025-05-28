@@ -359,12 +359,13 @@ impl ObjectData {
 #[pyo3::pymethods]
 impl ObjectData {
     #[new]
+    #[pyo3(signature = (meta, entries=HashMap::new(), event=None))]
     /// Creates a new `ObjectData`.
-    pub fn new(meta: ObjectMetadata, entries: HashMap<u32, Vec<u8>>) -> Self {
+    pub fn new(meta: ObjectMetadata, entries: HashMap<u32, Vec<u8>>, event: Option<PyObjectEvent>) -> Self {
         Self {
             meta,
             entries,
-            event: None,
+            event,
         }
     }
 

@@ -20,19 +20,19 @@ class BaseObject:
         self._remote = True
         self._auto_commit = False
 
-    async def set_data(self, index: int, data: bytes):
+    async def set_data_async(self, index: int, data: bytes):
         self._state[index] = data
         self._dirty = True
         if self._auto_commit:
-            await self.commit()
+            await self.commit_async()
             
 
-    async def get_data(self, index: int) -> bytes:
+    async def get_data_async(self, index: int) -> bytes:
         if index in self._state:
             return self._state[index]
         if self._full_loaded:
             return None
-        obj: oprc_py.ObjectData | None = await self.session.data_manager.get_obj(
+        obj: oprc_py.ObjectData | None = await self.session.data_manager.get_obj_async(
             self.meta.cls_id,
             self.meta.partition_id,
             self.meta.object_id,
@@ -43,6 +43,31 @@ class BaseObject:
         self._state = obj.entries
         self._full_loaded = True
         return self._state.get(index)
+    
+    
+    def get_data(self, index: int) -> bytes:
+        if index in self._state:
+            return self._state[index]
+        if self._full_loaded:
+            return None
+        obj: oprc_py.ObjectData | None = self.session.data_manager.get_obj(
+            self.meta.cls_id,
+            self.meta.partition_id,
+            self.meta.object_id,
+        )
+        if obj is None:
+            return None
+        self._obj = obj
+        self._state = obj.entries
+        self._full_loaded = True
+        return self._state.get(index)
+
+    
+    def set_data(self, index: int, data: bytes):
+        self._state[index] = data
+        self._dirty = True
+        if self._auto_commit:
+            self.commit()
 
     @property
     def dirty(self):
@@ -91,11 +116,31 @@ class BaseObject:
         self._obj
         pass
     
-    async def commit(self):
+    def delete(self):
+        self.session.delete_object(
+            self.meta.cls_id,
+            self.meta.partition_id,
+            self.meta.object_id,
+        )
+        if self._auto_commit:
+            self.commit()
+        
+    
+    async def commit_async(self):
         if self._dirty:
             obj_data = oprc_py.ObjectData(
                 meta=self.meta,
                 entries=self._state,
             )
-            await self.session.data_manager.set_obj(obj_data)
+            await self.session.data_manager.set_obj_async(obj_data)
             self._dirty = False
+    
+    def commit(self):
+        if self._dirty:
+            obj_data = oprc_py.ObjectData(
+                meta=self.meta,
+                entries=self._state,
+            )
+            self.session.data_manager.set_obj(obj_data)
+            self._dirty = False
+    

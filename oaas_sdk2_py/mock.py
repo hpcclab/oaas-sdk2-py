@@ -20,7 +20,7 @@ class LocalDataManager:
     def __init__(self):
         self.repo = {}
 
-    async def get_obj(
+    async def get_obj_async(
         self, cls_id: str, partition_id: builtins.int, obj_id: builtins.int
     ) -> ObjectData:
         metadata = ObjectMetadata(cls_id, partition_id, obj_id)
@@ -28,11 +28,37 @@ class LocalDataManager:
             return self.repo[metadata].copy()
         raise KeyError(f"Object with metadata {metadata} not found")
 
-    async def set_obj(self, obj: ObjectData) -> None:
+
+    def get_obj(
+        self, cls_id: str, partition_id: builtins.int, obj_id: builtins.int
+    ) -> ObjectData:
+        metadata = ObjectMetadata(cls_id, partition_id, obj_id)
+        if metadata in self.repo:
+            return self.repo[metadata].copy()
+        raise KeyError(f"Object with metadata {metadata} not found")
+
+
+    async def set_obj_async(self, obj: ObjectData) -> None:
         self.repo[obj.meta] = obj.copy()
         logging.info(f"Set object {obj.meta}")
+        
+    
+    def set_obj(self, obj: ObjectData) -> None:
+        self.repo[obj.meta] = obj.copy()
+        logging.info(f"Set object {obj.meta}")
+        
+        
+    def del_obj(
+        self, cls_id: str, partition_id: builtins.int, obj_id: builtins.int
+    ) -> None:
+        metadata = ObjectMetadata(cls_id, partition_id, obj_id)
+        if metadata in self.repo:
+            self.repo.pop(metadata)
+            logging.info(f"Deleted object {metadata}")
+        else:
+            raise KeyError(f"Object with metadata {metadata} not found")
 
-    async def del_obj(
+    async def del_obj_async(
         self, cls_id: str, partition_id: builtins.int, obj_id: builtins.int
     ) -> None:
         metadata = ObjectMetadata(cls_id, partition_id, obj_id)
@@ -46,8 +72,16 @@ class LocalDataManager:
 class LocalRpcManager:
     session: "Session"
 
-    async def invoke_fn(self, req: InvocationRequest) -> InvocationResponse:
-        return await self.session.invoke_local(req)
+    async def invoke_fn_async(self, req: InvocationRequest) -> InvocationResponse:
+        return await self.session.invoke_local_async(req)
+    
+    
+    def invoke_fn(self, req: InvocationRequest) -> InvocationResponse:
+        return self.session.invoke_local(req)
 
-    async def invoke_obj(self, req: ObjectInvocationRequest) -> InvocationResponse:
-        return await self.session.invoke_local(req)
+    async def invoke_obj_async(self, req: ObjectInvocationRequest) -> InvocationResponse:
+        return await self.session.invoke_local_async(req)
+    
+    
+    def invoke_obj(self, req: ObjectInvocationRequest) -> InvocationResponse:
+        return self.session.invoke_local(req)

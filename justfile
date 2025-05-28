@@ -36,9 +36,9 @@ bench-random:
 k3d-create:
   K3D_FIX_DNS=1 k3d cluster create -p "10080:80@loadbalancer"  --servers-memory 8G
 
-maturin-dev:
-  cd oprc-py; maturin develop
+maturin-dev options="":
+  cd oprc-py; maturin develop {{options}}
 
-oprc-dev:
-  @just maturin-dev
+oprc-dev options="":
+  @just maturin-dev {{options}}
   @just oprc-py/gen-stub

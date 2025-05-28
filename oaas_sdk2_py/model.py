@@ -52,6 +52,7 @@ class FuncMeta:
         name,
         stateless=False,
         serve_with_agent=False,
+        is_async=False,
     ):
         self.func = func
         self.invoke_handler = invoke_handler
@@ -59,6 +60,7 @@ class FuncMeta:
         self.stateless = stateless
         self.name = name
         self.serve_with_agent = serve_with_agent
+        self.is_async = is_async
         self.__name__ = func.__name__
         self.__qualname__ = func.__qualname__
         self.__doc__ = func.__doc__
@@ -78,10 +80,14 @@ class FuncMeta:
             # Class access - return the descriptor itself
             return self
 
+        if inspect.iscoroutinefunction(self.func):
         # Instance access - return a bound method
-        async def bound_method(*args, **kwargs):
-            return await self.func(obj, *args, **kwargs)
-
+            async def bound_method(*args, **kwargs):
+                return await self.func(obj, *args, **kwargs)
+        else:
+            def bound_method(*args, **kwargs):
+                return self.func(obj, *args, **kwargs)
+            
         # Copy over metadata from the original function to make the bound method look authentic
         bound_method.__name__ = self.__name__
         bound_method.__qualname__ = self.__qualname__
@@ -89,7 +95,7 @@ class FuncMeta:
 
         return bound_method
 
-    async def __call__(self, obj_self, *args, **kwargs):
+    def __call__(self, obj_self, *args, **kwargs):
         """
         Make FuncMeta callable, allowing direct invocation when accessed through a class.
 
@@ -101,8 +107,10 @@ class FuncMeta:
         Returns:
             The result of the function call
         """
-        return await self.func(obj_self, *args, **kwargs)
+        return self.func(obj_self, *args, **kwargs)
 
+    def __str__(self):
+        return f"{{name={self.name}, stateless={self.stateless}, serve_with_agent={self.serve_with_agent}}}"
 
 class StateMeta:
     setter: Callable
@@ -187,56 +195,109 @@ class ClsMeta:
             """
             fn_name = name if len(name) != 0 else function.__name__
             sig = inspect.signature(function)
+            
+            if inspect.iscoroutinefunction(function):
+                
+                @functools.wraps(function)
+                async def async_wrapper(obj_self: "BaseObject", *args, **kwargs):
+                    """
+                    Wrapper function that handles remote/local method invocation.
 
-            @functools.wraps(function)
-            async def wrapper(obj_self: "BaseObject", *args, **kwargs):
-                """
-                Wrapper function that handles remote/local method invocation.
+                    Args:
+                        obj_self: The object instance
+                        *args: Positional arguments
+                        **kwargs: Keyword arguments
 
-                Args:
-                    obj_self: The object instance
-                    *args: Positional arguments
-                    **kwargs: Keyword arguments
-
-                Returns:
-                    The result of the function call or a response object
-                """
-                if obj_self.remote:
-                    if stateless:
-                        req = self._extract_request(
-                            obj_self, fn_name, args, kwargs, stateless
-                        )
-                        resp = await obj_self.session.fn_rpc(req)
+                    Returns:
+                        The result of the function call or a response object
+                    """
+                    if obj_self.remote:
+                        if stateless:
+                            req = self._extract_request(
+                                obj_self, fn_name, args, kwargs, stateless
+                            )
+                            resp = await obj_self.session.fn_rpc_async(req)
+                        else:
+                            req = self._extract_request(
+                                obj_self, fn_name, args, kwargs, stateless
+                            )
+                            resp = await obj_self.session.obj_rpc_async(req)
+                        if issubclass(sig.return_annotation, BaseModel):
+                            return sig.return_annotation.model_validate_json(
+                                resp.payload, strict=strict
+                            )
+                        elif sig.return_annotation is bytes:
+                            return resp.payload
+                        elif sig.return_annotation is str:
+                            return resp.payload.decode()
+                        else:
+                            return resp
                     else:
-                        req = self._extract_request(
-                            obj_self, fn_name, args, kwargs, stateless
-                        )
-                        resp = await obj_self.session.obj_rpc(req)
-                    if issubclass(sig.return_annotation, BaseModel):
-                        return sig.return_annotation.model_validate_json(
-                            resp.payload, strict=strict
-                        )
-                    elif sig.return_annotation is bytes:
-                        return resp.payload
-                    elif sig.return_annotation is str:
-                        return resp.payload.decode()
+                        return await function(obj_self, *args, **kwargs)
+
+                caller = self._create_caller(function, sig, strict)
+                fn_meta = FuncMeta(
+                    async_wrapper,
+                    invoke_handler=caller,
+                    signature=sig,
+                    stateless=stateless,
+                    name=fn_name,
+                    serve_with_agent=serve_with_agent,
+                    is_async=True,
+                )
+                self.func_dict[fn_name] = fn_meta
+                return fn_meta  # Return FuncMeta instance instead of wrapper
+
+            else:
+                @functools.wraps(function)
+                def sync_wrapper(obj_self: "BaseObject", *args, **kwargs):
+                    """
+                    Wrapper function that handles remote/local method invocation.
+
+                    Args:
+                        obj_self: The object instance
+                        *args: Positional arguments
+                        **kwargs: Keyword arguments
+
+                    Returns:
+                        The result of the function call or a response object
+                    """
+                    if obj_self.remote:
+                        if stateless:
+                            req = self._extract_request(
+                                obj_self, fn_name, args, kwargs, stateless
+                            )
+                            resp = obj_self.session.fn_rpc(req)
+                        else:
+                            req = self._extract_request(
+                                obj_self, fn_name, args, kwargs, stateless
+                            )
+                            resp = obj_self.session.obj_rpc(req)
+                        if issubclass(sig.return_annotation, BaseModel):
+                            return sig.return_annotation.model_validate_json(
+                                resp.payload, strict=strict
+                            )
+                        elif sig.return_annotation is bytes:
+                            return resp.payload
+                        elif sig.return_annotation is str:
+                            return resp.payload.decode()
+                        else:
+                            return resp
                     else:
-                        return resp
-                else:
-                    return await function(obj_self, *args, **kwargs)
+                        return function(obj_self, *args, **kwargs)
 
-            caller = self._create_caller(function, sig, strict)
-            fn_meta = FuncMeta(
-                wrapper,
-                invoke_handler=caller,
-                signature=sig,
-                stateless=stateless,
-                name=fn_name,
-                serve_with_agent=serve_with_agent,
-            )
-            self.func_dict[fn_name] = fn_meta
-            return fn_meta  # Return FuncMeta instance instead of wrapper
-
+                caller = self._create_caller(function, sig, strict)
+                fn_meta = FuncMeta(
+                    sync_wrapper,
+                    invoke_handler=caller,
+                    signature=sig,
+                    stateless=stateless,
+                    name=fn_name,
+                    serve_with_agent=serve_with_agent,
+                )
+                self.func_dict[fn_name] = fn_meta
+                return fn_meta  # Return FuncMeta instance instead of wrapper
+                
         return decorator
 
     def _extract_request(
@@ -312,13 +373,18 @@ class ClsMeta:
 
     def _create_no_param_caller(self, function):
         """Create caller for functions with no parameters."""
-
-        @functools.wraps(function)
-        async def caller(obj_self, req):
-            result = await function(obj_self)
-            return parse_resp(result)
-
-        return caller
+        if inspect.iscoroutinefunction(function):
+            @functools.wraps(function)
+            async def caller(obj_self, req):
+                result = await function(obj_self)
+                return parse_resp(result)
+            return caller
+        else:
+            @functools.wraps(function)
+            def caller(obj_self, req):
+                result = function(obj_self)
+                return parse_resp(result)
+            return caller
 
     def _create_single_param_caller(self, function, sig, strict):
         """Create caller for functions with a single parameter."""
@@ -326,40 +392,63 @@ class ClsMeta:
 
         if issubclass(second_param.annotation, BaseModel):
             model_cls = second_param.annotation
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    model = model_cls.model_validate_json(req.payload, strict=strict)
+                    result = await function(obj_self, model)
+                    return parse_resp(result)
+                return caller
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    model = model_cls.model_validate_json(req.payload, strict=strict)
+                    result = function(obj_self, model)
+                    return parse_resp(result)
 
-            @functools.wraps(function)
-            async def caller(obj_self, req):
-                model = model_cls.model_validate_json(req.payload, strict=strict)
-                result = await function(obj_self, model)
-                return parse_resp(result)
-
-            return caller
+                return caller
         elif (
             second_param.annotation == InvocationRequest
             or second_param.annotation == ObjectInvocationRequest
         ):
+            
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    resp = await function(obj_self, req)
+                    return parse_resp(resp)
 
-            @functools.wraps(function)
-            async def caller(obj_self, req):
-                resp = await function(obj_self, req)
-                return parse_resp(resp)
+                return caller
+            else:
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    resp = await function(obj_self, req)
+                    return parse_resp(resp)
 
-            return caller
+                return caller
         elif issubclass(second_param.annotation, bytes):
-
-            @functools.wraps(function)
-            async def caller(obj_self, req):
-                resp = await function(obj_self, req.payload)
-                return parse_resp(resp)
-
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    resp = await function(obj_self, req.payload)
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    resp = function(obj_self, req.payload)
+                    return parse_resp(resp)
             return caller
         elif issubclass(second_param.annotation, str):
-
-            @functools.wraps(function)
-            async def caller(obj_self, req):
-                resp = await function(obj_self, req.payload.decode())
-                return parse_resp(resp)
-
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    resp = await function(obj_self, req.payload.decode())
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    resp = function(obj_self, req.payload.decode())
+                    return parse_resp(resp)
             return caller
         else:
             raise ValueError(f"Unsupported parameter type: {second_param.annotation}")
@@ -369,52 +458,20 @@ class ClsMeta:
         second_param = list(sig.parameters.values())[1]
         model_cls = second_param.annotation
 
-        @functools.wraps(function)
-        async def caller(obj_self, req):
-            model = model_cls.model_validate_json(req.payload, strict=strict)
-            result = await function(obj_self, model, req)
-            return parse_resp(result)
-
+        if inspect.iscoroutinefunction(function):
+            @functools.wraps(function)
+            async def caller(obj_self, req):
+                model = model_cls.model_validate_json(req.payload, strict=strict)
+                result = await function(obj_self, model, req)
+                return parse_resp(result)
+        else:
+            @functools.wraps(function)
+            def caller(obj_self, req):
+                model = model_cls.model_validate_json(req.payload, strict=strict)
+                result = function(obj_self, model, req)
+                return parse_resp(result)
         return caller
 
-    # def data_setter(self, index: int, name=None):
-    #     def decorator(function):
-    #         @functools.wraps(function)
-    #         async def wrapper(obj_self, input: Any):
-    #             raw = await function(obj_self, input)
-    #             obj_self.set_data(index, raw)
-    #             return raw
-
-    #         if index in self.state_list:
-    #             meta = self.state_list[index]
-    #         else:
-    #             meta = StateMeta(index=index, name=name)
-    #             self.state_list[index] = meta
-    #         meta.setter = wrapper
-    #         return wrapper
-
-    #     return decorator
-
-    # def data_getter(self, index: int, name=None):
-    #     def decorator(function):
-    #         @functools.wraps(function)
-    #         async def wrapper(obj_self):
-    #             raw = await obj_self.get_data(index)
-    #             data = await function(obj_self, raw)
-    #             return data
-
-    #         if index in self.state_list:
-    #             meta = self.state_list[index]
-    #         else:
-    #             meta = StateMeta(index=index, name=name)
-    #             self.state_list[index] = meta
-    #         meta.getter = wrapper
-    #         return wrapper
-
-    #     return decorator
-
-    # def add_data(self, index: int, name=None):
-    #     self.state_list[index] = StateMeta(index=index, name=name)
 
     def __str__(self):
         return "{" + f"name={self.name}, func_list={self.func_dict}" + "}"
