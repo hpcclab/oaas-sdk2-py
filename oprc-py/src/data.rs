@@ -2,7 +2,7 @@ use oprc_pb::ObjMeta;
 use pyo3::{exceptions::PyRuntimeError, IntoPyObjectExt, Py, PyAny, PyResult, Python};
 pub(crate) use zenoh::Session;
 
-use crate::model::ObjectData;
+use crate::obj::ObjectData;
 
 #[pyo3_stub_gen::derive::gen_stub_pyclass]
 #[pyo3::pyclass]

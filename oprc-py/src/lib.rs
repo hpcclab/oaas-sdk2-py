@@ -4,6 +4,7 @@ mod handler;
 mod model;
 mod data;
 mod rpc;
+mod obj;
 use engine::OaasEngine;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -47,12 +48,12 @@ fn oprc_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<model::InvocationResponseCode>()?;
     m.add_class::<model::InvocationResponse>()?;
     m.add_class::<model::ObjectInvocationRequest>()?;
-    m.add_class::<model::ObjectMetadata>()?; 
-    m.add_class::<model::ObjectData>()?;  
-    m.add_class::<model::PyObjectEvent>()?; 
-    m.add_class::<model::PyTriggerTarget>()?; 
-    m.add_class::<model::FnTriggerType>()?; 
-    m.add_class::<model::DataTriggerType>()?; 
+    m.add_class::<obj::ObjectMetadata>()?; 
+    m.add_class::<obj::ObjectData>()?;  
+    m.add_class::<obj::PyObjectEvent>()?; 
+    m.add_class::<obj::PyTriggerTarget>()?; 
+    m.add_class::<obj::FnTriggerType>()?; 
+    m.add_class::<obj::DataTriggerType>()?; 
     Ok(())
 }
 

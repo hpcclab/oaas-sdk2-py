@@ -92,6 +92,8 @@ class FuncMeta:
         bound_method.__name__ = self.__name__
         bound_method.__qualname__ = self.__qualname__
         bound_method.__doc__ = self.__doc__
+        bound_method._meta = self
+        bound_method._owner = obj
 
         return bound_method
 

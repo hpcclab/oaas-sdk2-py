@@ -82,6 +82,9 @@ class Session:
             object_id=obj_id,
         )
         obj: BaseObject = cls_meta.cls(meta=meta, session=self)
+        obj._full_loaded = True
+        obj._dirty = False
+        obj._obj = oprc_py.ObjectData(meta=meta)
         obj._remote = remote
         if remote:
             self.remote_obj_dict[meta] = obj

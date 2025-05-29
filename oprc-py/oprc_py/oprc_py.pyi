@@ -219,6 +219,44 @@ class ObjectMetadata:
         """
     def __str__(self) -> builtins.str: ...
 
+class PyDataTriggerEntry:
+    r"""
+    Represents the trigger entries for a specific data event, wrapping `oprc_pb::DataTriggerEntry`.
+    """
+    on_create: builtins.list[PyTriggerTarget]
+    r"""
+    List of targets to trigger on data creation.
+    """
+    on_update: builtins.list[PyTriggerTarget]
+    r"""
+    List of targets to trigger on data update.
+    """
+    on_delete: builtins.list[PyTriggerTarget]
+    r"""
+    List of targets to trigger on data deletion.
+    """
+    def __str__(self) -> builtins.str:
+        r"""
+        Returns a string representation of the `PyDataTriggerEntry`.
+        """
+
+class PyFuncTriggerEntry:
+    r"""
+    Represents the trigger entries for a specific function event, wrapping `oprc_pb::FuncTriggerEntry`.
+    """
+    on_complete: builtins.list[PyTriggerTarget]
+    r"""
+    List of targets to trigger on function completion.
+    """
+    on_error: builtins.list[PyTriggerTarget]
+    r"""
+    List of targets to trigger on function error.
+    """
+    def __str__(self) -> builtins.str:
+        r"""
+        Returns a string representation of the `PyFuncTriggerEntry`.
+        """
+
 class PyObjectEvent:
     r"""
     Represents an event associated with an object, wrapping the protobuf `ObjectEvent`.
@@ -231,7 +269,7 @@ class PyObjectEvent:
         r"""
         Returns a string representation of the `PyObjectEvent`.
         """
-    def manage_fn_trigger(self, source_fn_id:builtins.str, trigger:PyTriggerTarget, event_type:FnTriggerType, add_action:builtins.bool) -> builtins.bool:
+    def manage_fn_trigger(self, self_:PyObjectEvent, source_fn_id:builtins.str, trigger:PyTriggerTarget, event_type:FnTriggerType, add_action:builtins.bool) -> builtins.bool:
         r"""
         Manages function triggers by adding or removing a trigger target for a specific function and event type.
         
@@ -258,6 +296,18 @@ class PyObjectEvent:
         # Returns
         * `true` if the operation was successful (trigger added or removed)
         * `false` if the operation failed (trigger already exists or not found)
+        """
+    def get_func_triggers(self) -> builtins.dict[builtins.str, PyFuncTriggerEntry]:
+        r"""
+        Gets the function triggers associated with this event.
+        
+        Returns a map where keys are source function IDs and values are `PyFuncTriggerEntry` objects.
+        """
+    def get_data_triggers(self) -> builtins.dict[builtins.int, PyDataTriggerEntry]:
+        r"""
+        Gets the data triggers associated with this event.
+        
+        Returns a map where keys are source data key IDs and values are `PyDataTriggerEntry` objects.
         """
 
 class PyTriggerTarget:
