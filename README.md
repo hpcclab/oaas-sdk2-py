@@ -100,15 +100,11 @@ class SampleObj(BaseObject):
 ### Interacting with Objects
 
 ```python
-# import asyncio # Not needed for synchronous example
 from oaas_sdk2_py import Oparaca
 # Assuming your_module defines oaas, sample_cls_meta, SampleObj, Msg
 from your_module import oaas, sample_cls_meta, SampleObj, Msg 
 
-def main(): # Changed from async def
-    # Configuration for connecting to OaaS (update with your actual config)
-    # oaas.config_path = "path/to/your/oaas_config.json" 
-    # oaas.connect() # Connect to the OaaS system (synchronous)
+def main(): 
 
     # For local testing, you can use the mock
     mock_oaas = oaas.mock()
