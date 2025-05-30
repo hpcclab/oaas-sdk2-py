@@ -5,8 +5,8 @@ This library helps you develop a runtime that can be run in a  Object as a Servi
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
+- [Installation](#installation)
 - [Features](#features)
-- [Run Example with Docker Compose](#run-example-with-docker-compose)
 - [Examples](#examples)
   - [Basic Usage](#basic-usage)
   - [Interacting with Objects](#interacting-with-objects)
@@ -26,6 +26,19 @@ uv sync
 ./.venv/Scripts/activate
 # or
 source ./.venv/bin/activate # for Mac or Linux 
+```
+
+## Installation
+
+To install `oaas-sdk2-py`, you can use pip:
+
+```bash
+pip install oaas-sdk2-py
+```
+Or, if you are using `uv`:
+```bash
+# For adding/installing packages with uv, the command is 'uv pip install'
+uv add oaas-sdk2-py
 ```
 
 ## Features

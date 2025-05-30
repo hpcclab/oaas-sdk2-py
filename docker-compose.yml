@@ -1,18 +1,5 @@
 services:
 
-#  gateway:
-#    image: ghcr.io/pawissanutt/oaas/gateway
-#    # network_mode: host
-#    depends_on:
-#      - dev-pm
-#    ports:
-#      - "10000:10000"
-#    environment:
-#      HTTP_PORT: 10000
-#      RUST_LOG: INFO
-#      OPRC_PM_URI: http://dev-pm:10002
-#      OPRC_MAX_POOL_SIZE: 256
-
 
   odgm:
     # network_mode: host
@@ -59,15 +46,6 @@ services:
     environment:
       OPRC_LOG: "INFO"
       OPRC_ZENOH_PORT: "7447"
-#  dev-pm:
-#    # network_mode: host
-#    image: ghcr.io/pawissanutt/oaas/dev-pm
-#    ports:
-#      - "10002:10002"
-#    environment:
-#      HTTP_PORT: 10002
-#      RUST_LOG: INFO
-#      PM_CLS_LIST: example.hello!new=http://hello-fn:8080|greet=http://hello-fn:8080|talk=http://hello-fn:8080|change_intro=http://hello-fn:8080
 
   
   hello-fn:
