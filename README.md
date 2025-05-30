@@ -38,13 +38,6 @@ source ./.venv/bin/activate # for Mac or Linux
 - **Typed Interactions**: Leverages Pydantic for data validation and serialization.
 - **Rust-Powered Core**: High-performance core components written in Rust for speed and efficiency.
 
-## Run Example with Docker Compose
-
-```bash
-docker compose up -d --build
-# invoke new function of 'example.hello' class
-echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
-```
 
 ## Examples
 
@@ -134,10 +127,8 @@ def main():
     intro = loaded_object.get_intro()
     print(f"Loaded object intro: {intro}")
 
-    # oaas.close() # Close connection when done (for real oaas, synchronous)
-
 if __name__ == "__main__":
-    main() # Changed from asyncio.run(main())
+    main()
 ```
 
 ### Using the Mock Framework for Tests
@@ -176,8 +167,6 @@ class TestMySampleClass(unittest.TestCase): # Changed from IsolatedAsyncioTestCa
         intro = obj.get_intro()
         self.assertEqual(intro, "Processed: Test Message")
 
-# To run tests:
-# python -m unittest discover tests
 ```
 
 Refer to `tests/test_mock.py` and `tests/sample_cls.py` for more detailed examples of synchronous and asynchronous object definitions and mock usage.
@@ -185,3 +174,11 @@ Refer to `tests/test_mock.py` and `tests/sample_cls.py` for more detailed exampl
 ## Run on OaaS
 
 TODO
+
+<!-- ## Run Example with Docker Compose
+
+```bash
+docker compose up -d --build
+# invoke new function of 'example.hello' class
+echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
+``` -->
