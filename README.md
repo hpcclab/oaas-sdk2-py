@@ -3,7 +3,6 @@
 This library helps you develop a runtime that can be run in a  Object as a Service (OaaS) serverless. For more information on the OaaS model, visit [https://github.com/hpcclab/OaaS](https://github.com/hpcclab/OaaS).
 
 ## Table of Contents
-- [Prerequisites](#prerequisites)
 - [Setup](#setup)
 - [Installation](#installation)
 - [Features](#features)
@@ -11,23 +10,18 @@ This library helps you develop a runtime that can be run in a  Object as a Servi
   - [Basic Usage](#basic-usage)
   - [Interacting with Objects](#interacting-with-objects)
   - [Using the Mock Framework for Tests](#using-the-mock-framework-for-tests)
-- [Run on OaaS](#run-on-oaas)
 - [Reference](#reference)
+  - [`Oparaca`](#oparaca)
+  - [`ClsMetadata`](#clsmetadata)
+  - [`BaseObject`](#baseobject)
+  - [`MockOaas`](#mockoaas)
+- [Run on OaaS](#run-on-oaas)
+  - [Prerequisites](#prerequisites)
+- [Build the project](#build-the-project)
+  - [Prerequisites](#prerequisites-1)
+  - [Build](#build)
 
-## Prerequisites
-- cargo (install via [rust](https://rustup.rs/))
-- oprc-cli `cargo install --git https://github.com/pawissanutt/oaas-rs.git oprc-cli`
-- [uv](https://github.com/astral-sh/uv) (python package manager)
-- docker or podman
 
-## Setup
-
-```bash
-uv sync
-./.venv/Scripts/activate
-# or
-source ./.venv/bin/activate # for Mac or Linux 
-```
 
 ## Installation
 
@@ -187,17 +181,6 @@ class TestMySampleClass(unittest.TestCase): # Changed from IsolatedAsyncioTestCa
 
 Refer to `tests/test_mock.py` and `tests/sample_cls.py` for more detailed examples of synchronous and asynchronous object definitions and mock usage.
 
-## Run on OaaS
-
-TODO
-
-<!-- ## Run Example with Docker Compose
-
-```bash
-docker compose up -d --build
-# invoke new function of 'example.hello' class
-echo "{}" | oprc-cli i -g http://localhost:10002 example.hello 0 new -p -
-``` -->
 
 ## Reference
 
@@ -310,4 +293,35 @@ Provides a mock implementation of the OaaS environment for local testing. Obtain
     *   Asynchronously creates an instance of an object in the mock environment.
 *   `async load_object_async(cls_meta: ClsMetadata, obj_id: int) -> T`
     *   Asynchronously loads an existing object instance from the mock environment.
+
+
+## Run on OaaS
+
+
+### Prerequisites
+- cargo (install via [rust](https://rustup.rs/))
+- oprc-cli `cargo install --git https://github.com/pawissanutt/oaas-rs.git oprc-cli`
+- OaaS Platform (Oparaca)
+    - Kubernetes Cluster (e.g., k3d with Docker runtime)
+
+
+TODO
+
+
+## Build the project
+
+You don't need to follow this guide unless you want to build the Python package on your own.
+
+### Prerequisites
+- Python
+- cargo (install via [rust](https://rustup.rs/))
+- [uv](https://github.com/astral-sh/uv) (python package manager)
+
+### Build
+
+```bash
+uv sync
+uv build
+```
+
 
