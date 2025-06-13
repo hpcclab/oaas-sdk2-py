@@ -9,7 +9,7 @@ use engine::OaasEngine;
 use tracing_subscriber::util::SubscriberInitExt;
 
 #[pyfunction]
-#[pyo3_stub_gen::derive::gen_stub_pyfunction]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyfunction)]
 #[pyo3(signature=(level="info", raise_error=false))]
 fn init_logger(level: &str, raise_error: bool) -> PyResult<()> {
     let r = tracing_subscriber::fmt()
@@ -58,4 +58,5 @@ fn oprc_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 
+#[cfg(feature = "stub-gen")]
 pyo3_stub_gen::define_stub_info_gatherer!(stub_info);

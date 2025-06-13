@@ -4,7 +4,7 @@ use oprc_pb::{ObjMeta, ValType};
 use pyo3::Bound;
 
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass(hash, eq, frozen, get_all)]
 #[derive(Clone, PartialEq, Eq, Hash, Default)]
 /// Represents the metadata of an object.
@@ -47,7 +47,7 @@ impl ObjectMetadata {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl ObjectMetadata {
     #[new]
@@ -68,7 +68,7 @@ impl ObjectMetadata {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass(get_all, set_all)]
 
 /// Represents the data of an object, including its metadata, entries, and event.
@@ -119,7 +119,7 @@ impl ObjectData {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl ObjectData {
     #[new]
@@ -147,7 +147,7 @@ impl Into<oprc_pb::ObjData> for &ObjectData {
 }
 
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass_enum]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass_enum)]
 #[pyo3::pyclass(eq, eq_int)]
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum FnTriggerType {
@@ -155,7 +155,7 @@ pub enum FnTriggerType {
     OnError,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass_enum]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass_enum)]
 #[pyo3::pyclass(eq, eq_int)]
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum DataTriggerType {
@@ -164,7 +164,7 @@ pub enum DataTriggerType {
     OnDelete,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass]
 #[derive(Clone)]
 /// Represents an event associated with an object, wrapping the protobuf `ObjectEvent`.
@@ -199,7 +199,7 @@ impl PyObjectEvent {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl PyObjectEvent {
     #[new]
@@ -362,7 +362,7 @@ impl PyObjectEvent {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass(get_all)]
 #[derive(Clone)]
 /// Represents the trigger entries for a specific function event, wrapping `oprc_pb::FuncTriggerEntry`.
@@ -373,7 +373,7 @@ pub struct PyFuncTriggerEntry {
     pub on_error: Vec<PyTriggerTarget>,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl PyFuncTriggerEntry {
     /// Returns a string representation of the `PyFuncTriggerEntry`.
@@ -409,7 +409,7 @@ impl From<oprc_pb::FuncTrigger> for PyFuncTriggerEntry {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass(get_all)]
 #[derive(Clone)]
 /// Represents the trigger entries for a specific data event, wrapping `oprc_pb::DataTriggerEntry`.
@@ -422,7 +422,7 @@ pub struct PyDataTriggerEntry {
     pub on_delete: Vec<PyTriggerTarget>,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl PyDataTriggerEntry {
     /// Returns a string representation of the `PyDataTriggerEntry`.
@@ -467,7 +467,7 @@ impl From<oprc_pb::DataTrigger> for PyDataTriggerEntry {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass]
 #[derive(Clone)]
 /// Represents a target for a trigger, wrapping the protobuf `TriggerTarget`.
@@ -489,7 +489,7 @@ impl PyTriggerTarget {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl PyTriggerTarget {
     #[new]

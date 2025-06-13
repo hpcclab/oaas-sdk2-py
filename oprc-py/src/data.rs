@@ -4,7 +4,7 @@ pub(crate) use zenoh::Session;
 
 use crate::obj::ObjectData;
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass]
 /// Manages data operations for objects, interacting with an object proxy.
 pub struct DataManager {
@@ -23,7 +23,7 @@ impl DataManager {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl DataManager {
     /// Retrieves an object by its class ID, partition ID, and object ID. (Synchronous)

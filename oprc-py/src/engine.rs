@@ -23,7 +23,7 @@ use pyo3_async_runtimes::{tokio::get_runtime, TaskLocals};
 use tokio::runtime::Builder;
 use tonic::transport::Server;
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyclass]
 /// Represents the OaasEngine, which manages data, RPC, and Zenoh sessions.
 pub struct OaasEngine {
@@ -36,7 +36,7 @@ pub struct OaasEngine {
     queryable_table: Arc<Mutex<HashMap<String, Queryable<Receiver<Query>>>>>,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pymethods]
 impl OaasEngine {
     #[new]

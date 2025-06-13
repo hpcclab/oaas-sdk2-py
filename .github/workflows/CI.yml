@@ -58,10 +58,7 @@ jobs:
         uses: egor-tensin/setup-gcc@v1.3
       - uses: actions/setup-python@v5
         with:
-          python-version: |
-            3.11
-            3.12
-            3.13
+          python-version: 3.x
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:

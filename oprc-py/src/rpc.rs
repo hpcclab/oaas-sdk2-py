@@ -4,7 +4,7 @@ use pyo3::{exceptions::PyRuntimeError, Py, PyResult, Python};
 use crate::model::{InvocationRequest, InvocationResponse, ObjectInvocationRequest};
 
 /// Manages RPC invocations using an ObjectProxy.
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass]
 pub struct RpcManager {
     proxy: ObjectProxy,
@@ -19,7 +19,7 @@ impl RpcManager {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl RpcManager {
     /// Invokes a function based on the provided InvocationRequest. (Synchronous)

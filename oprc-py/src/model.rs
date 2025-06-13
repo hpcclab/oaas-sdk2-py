@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 
 #[derive(Clone)]
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[pyo3::pyclass(get_all, set_all)]
 /// Represents a request to invoke a function.
 pub struct InvocationRequest {
@@ -13,7 +13,7 @@ pub struct InvocationRequest {
     pub payload: Vec<u8>,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl InvocationRequest {
     #[new]
@@ -75,7 +75,7 @@ impl From<oprc_pb::InvocationRequest> for InvocationRequest {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass_enum]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass_enum)]
 #[pyo3::pyclass(eq, eq_int)]
 #[derive(PartialEq)]
 /// Represents the status code of an invocation response.
@@ -86,7 +86,7 @@ pub enum InvocationResponseCode {
     SystemError = 3,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[derive(Clone)]
 #[pyo3::pyclass(get_all, set_all)]
 /// Represents the response of an invocation.
@@ -129,7 +129,7 @@ impl From<&InvocationResponse> for oprc_pb::InvocationResponse {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl InvocationResponse {
     #[new]
@@ -152,7 +152,7 @@ impl InvocationResponse {
     }
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pyclass]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
 #[derive(Clone)]
 #[pyo3::pyclass(get_all, set_all)]
 /// Represents a request to invoke a function on an object.
@@ -165,7 +165,7 @@ pub struct ObjectInvocationRequest {
     payload: Vec<u8>,
 }
 
-#[pyo3_stub_gen::derive::gen_stub_pymethods]
+#[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
 #[pyo3::pymethods]
 impl ObjectInvocationRequest {
     #[new]
