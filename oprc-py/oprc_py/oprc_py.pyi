@@ -101,7 +101,7 @@ class InvocationRequest:
     fn_id: builtins.str
     options: builtins.dict[builtins.str, builtins.str]
     payload: builtins.list[builtins.int]
-    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=...) -> InvocationRequest:
+    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=b'') -> InvocationRequest:
         r"""
         Creates a new `InvocationRequest`.
         """
@@ -113,7 +113,7 @@ class InvocationResponse:
     payload: builtins.list[builtins.int]
     status: builtins.int
     header: builtins.dict[builtins.str, builtins.str]
-    def __new__(cls, payload:typing.Sequence[builtins.int]=..., status:builtins.int=0, header:typing.Mapping[builtins.str, builtins.str]={}) -> InvocationResponse:
+    def __new__(cls, payload:typing.Sequence[builtins.int]=b'', status:builtins.int=0, header:typing.Mapping[builtins.str, builtins.str]={}) -> InvocationResponse:
         r"""
         Creates a new `InvocationResponse`.
         """
@@ -201,7 +201,7 @@ class ObjectInvocationRequest:
     object_id: builtins.int
     options: builtins.dict[builtins.str, builtins.str]
     payload: builtins.list[builtins.int]
-    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, object_id:builtins.int, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=...) -> ObjectInvocationRequest:
+    def __new__(cls, cls_id:builtins.str, fn_id:builtins.str, object_id:builtins.int, partition_id:builtins.int=0, options:typing.Mapping[builtins.str, builtins.str]={}, payload:typing.Sequence[builtins.int]=b'') -> ObjectInvocationRequest:
         r"""
         Creates a new `ObjectInvocationRequest`.
         """
@@ -269,7 +269,7 @@ class PyObjectEvent:
         r"""
         Returns a string representation of the `PyObjectEvent`.
         """
-    def manage_fn_trigger(self, self_:PyObjectEvent, source_fn_id:builtins.str, trigger:PyTriggerTarget, event_type:FnTriggerType, add_action:builtins.bool) -> builtins.bool:
+    def manage_fn_trigger(self, source_fn_id:builtins.str, trigger:PyTriggerTarget, event_type:FnTriggerType, add_action:builtins.bool) -> builtins.bool:
         r"""
         Manages function triggers by adding or removing a trigger target for a specific function and event type.
         
