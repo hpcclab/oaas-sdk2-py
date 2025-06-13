@@ -2,7 +2,7 @@
 name = "oaas-sdk2-py"
 version = "0.2.2"
 description = ""
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 readme = "README.md"
 # authors = ["Pawissanutt <pawissanutt@gmail.com>"]
 dependencies = [
