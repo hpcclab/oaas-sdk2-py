@@ -1,6 +1,6 @@
 [project]
 name = "oaas-sdk2-py"
-version = "0.2.2"
+version = "0.2.3"
 description = ""
 requires-python = ">=3.11"
 readme = "README.md"
@@ -10,7 +10,7 @@ dependencies = [
     "uvloop>=0.21.0; sys_platform != 'win32'",  # uvloop only for non-Windows platforms
     "winloop>=0.1.8; sys_platform == 'win32'",  # winloop only for Windows platforms
     "pydantic>=2.11.6",
-    "pydantic-settings>=2.9.1",
+    "pydantic-settings>=2.10.1",
     "pyyaml>=6.0.2",
     "tsidpy>=1.1.5",
     "oprc-py>=0.2.1"
@@ -29,7 +29,7 @@ exclude = ["protos"]
 [dependency-groups]
 dev = [
     "psutil>=7.0.0",
-    "pytest>=8.4.0",
+    "pytest>=8.4.1",
     "pytest-xdist>=3.7.0",
 ]
 

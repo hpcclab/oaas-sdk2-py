@@ -1,3 +1,4 @@
+import logging
 import unittest
 
 import oprc_py
@@ -81,7 +82,8 @@ class TestAsyncMock(unittest.IsolatedAsyncioTestCase):
         await obj1.commit_async()
         
         # This should be a fresh object in a different mock environment
-        obj2 = mock_oaas2.create_object(async_sample_cls_meta, 1)
+        obj2 = mock_oaas2.load_object(async_sample_cls_meta, 1)
+        assert not obj2._full_loaded
         with self.assertRaises(Exception):
             await obj2.get_intro()  # Should fail as it's a different mock
 
@@ -165,7 +167,7 @@ class TestMock(unittest.TestCase):
         obj1.commit()
         
         # This should be a fresh object in a different mock environment
-        obj2 = mock_oaas2.create_object(sample_cls_meta, 1)
+        obj2 = mock_oaas2.load_object(sample_cls_meta, 1)
         with self.assertRaises(Exception):
-            obj2.get_intro()  # Should fail as it's a different mock
-
+            out = obj2.get_intro()  # Should fail as it's a different mock
+            logging.debug(f"output is {out}")

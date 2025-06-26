@@ -1,6 +1,7 @@
 import functools
 from collections.abc import Callable
 import inspect
+import json
 from typing import Optional, Any
 
 from oprc_py.oprc_py import (
@@ -360,7 +361,7 @@ class ClsMeta:
         else:
             return obj_self.create_obj_request(fn_name, payload=payload)
 
-    def _create_caller(self, function, sig, strict):
+    def _create_caller(self, function, sig: inspect.Signature, strict):
         """Create the appropriate caller function based on the signature."""
         param_count = len(sig.parameters)
 
@@ -388,7 +389,7 @@ class ClsMeta:
                 return parse_resp(result)
             return caller
 
-    def _create_single_param_caller(self, function, sig, strict):
+    def _create_single_param_caller(self, function, sig: inspect.Signature, strict):
         """Create caller for functions with a single parameter."""
         second_param = list(sig.parameters.values())[1]
 
@@ -428,7 +429,7 @@ class ClsMeta:
                     return parse_resp(resp)
 
                 return caller
-        elif issubclass(second_param.annotation, bytes):
+        elif isinstance(second_param.annotation, bytes):
             if inspect.iscoroutinefunction(function):
                 @functools.wraps(function)
                 async def caller(obj_self, req):
@@ -440,7 +441,7 @@ class ClsMeta:
                     resp = function(obj_self, req.payload)
                     return parse_resp(resp)
             return caller
-        elif issubclass(second_param.annotation, str):
+        elif isinstance(second_param.annotation, str):
             if inspect.iscoroutinefunction(function):
                 @functools.wraps(function)
                 async def caller(obj_self, req):
@@ -450,6 +451,32 @@ class ClsMeta:
                 @functools.wraps(function)
                 def caller(obj_self, req):
                     resp = function(obj_self, req.payload.decode())
+                    return parse_resp(resp)
+            return caller
+        elif isinstance(second_param.annotation, bytes):
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    resp = await function(obj_self, req.payload)
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    resp = function(obj_self, req.payload)
+                    return parse_resp(resp)
+            return caller
+        elif second_param.annotation is dict or second_param.annotation is inspect.Parameter.empty:
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    req_dict = json.loads(req.payload.decode())
+                    resp = await function(obj_self, req_dict)
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    req_dict = json.loads(req.payload.decode())
+                    resp = function(obj_self, req_dict)
                     return parse_resp(resp)
             return caller
         else:

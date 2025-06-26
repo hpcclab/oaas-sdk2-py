@@ -1,5 +1,3 @@
-
-
 from pydantic import BaseModel
 from oaas_sdk2_py import Oparaca, BaseObject, ObjectInvocationRequest
 
@@ -46,6 +44,23 @@ class AsyncSampleObj(BaseObject):
         print(req.payload)
         return Result(ok=True, msg="ok")
     
+    @async_sample_cls_meta.func()
+    async def dict_fn(self, data: dict) -> Result:
+        """Test function that explicitly expects a dictionary input"""
+        print(f"Received dict: {data}")
+        message = data.get("message", "No message provided")
+        return Result(ok=True, msg=f"Processed dict: {message}")
+
+    @async_sample_cls_meta.func()
+    async def untyped_fn(self, data) -> Result:
+        """Test function without type annotation (should be treated as dict)"""
+        print(f"Received untyped data: {data}")
+        if isinstance(data, dict):
+            message = data.get("message", "No message in dict")
+        else:
+            message = str(data)
+        return Result(ok=True, msg=f"Processed untyped: {message}")
+    
     @async_sample_cls_meta.func(serve_with_agent=True)
     async def local_fn(self, msg: Msg) -> Result:
         print(msg)
@@ -83,6 +98,23 @@ class SampleObj(BaseObject):
     def sample_fn3(self, msg: Msg, req: ObjectInvocationRequest) -> Result:
         print(req.payload)
         return Result(ok=True, msg="ok")
+    
+    @sample_cls_meta.func()
+    def dict_fn(self, data: dict) -> Result:
+        """Test function that explicitly expects a dictionary input"""
+        print(f"Received dict: {data}")
+        message = data.get("message", "No message provided")
+        return Result(ok=True, msg=f"Processed dict: {message}")
+
+    @sample_cls_meta.func()
+    def untyped_fn(self, data) -> Result:
+        """Test function without type annotation (should be treated as dict)"""
+        print(f"Received untyped data: {data}")
+        if isinstance(data, dict):
+            message = data.get("message", "No message in dict")
+        else:
+            message = str(data)
+        return Result(ok=True, msg=f"Processed untyped: {message}")
     
     @sample_cls_meta.func(serve_with_agent=True)
     def local_fn(self, msg: Msg) -> Result:

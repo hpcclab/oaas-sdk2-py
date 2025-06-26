@@ -33,9 +33,15 @@ class Oparaca:
         # self.odgm_url = config.oprc_odgm_url
         self.default_partition_id = config.oprc_partition_default
         self.meta_repo = meta_repo if meta_repo else MetadataRepo()
-        self.engine = engine if engine else oprc_py.OaasEngine()
         self.default_pkg = default_pkg
         self.mock_mode = mock_mode
+        self.engine = engine if engine else oprc_py.OaasEngine()
+        if mock_mode:
+            self.rpc_manager = LocalRpcManager()
+            self.data_manager = LocalDataManager()
+        else:
+            self.rpc_manager = self.engine.rpc_manager
+            self.data_manager = self.engine.data_manager    
         self.default_session = self.new_session()
         self.async_mode = async_mode
         
@@ -62,8 +68,8 @@ class Oparaca:
         if self.mock_mode:
             session = Session(
                 partition_id if partition_id is not None else self.default_partition_id,
-                LocalRpcManager(),
-                LocalDataManager(),
+                self.rpc_manager,
+                self.data_manager,
                 self.meta_repo,
             )
             session.rpc_manager.session = session
@@ -71,8 +77,8 @@ class Oparaca:
         else:
             return Session(
                 partition_id if partition_id is not None else self.default_partition_id,
-                self.engine.rpc_manager,
-                self.engine.data_manager,
+                self.rpc_manager,
+                self.data_manager,
                 self.meta_repo,
             )
 

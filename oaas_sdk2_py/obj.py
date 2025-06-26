@@ -1,8 +1,9 @@
 import oprc_py
-from typing import Union
+from typing import Optional, Union
 
 from oprc_py import ObjectData, ObjectMetadata
 from oprc_py.oprc_py import FnTriggerType, DataTriggerType
+from oaas_sdk2_py.model import ClsMeta
 from oaas_sdk2_py.session import Session
 
 
@@ -23,6 +24,10 @@ class BaseObject:
         self._full_loaded = False
         self._remote = True
         self._auto_commit = False
+
+    @property
+    def object_id(self) -> int:
+        return self.meta.object_id
 
     async def set_data_async(self, index: int, data: bytes):
         self._state[index] = data
@@ -266,3 +271,19 @@ class BaseObject:
             )
             self.session.data_manager.set_obj(obj_data)
             self._dirty = False
+
+    def create_object(
+        self,
+        cls_meta: ClsMeta,
+        obj_id: int = None,
+        local: bool = False,
+    ):
+        return self.session.create_object(
+            cls_meta=cls_meta, obj_id=obj_id, local=local
+        )
+
+    def load_object(self, cls_meta: ClsMeta, obj_id: int):
+        return self.session.load_object(cls_meta, obj_id)
+
+    def delete_object(self, cls_meta: ClsMeta, obj_id: int, partition_id: Optional[int] = None):
+        return self.session.delete_object(cls_meta, obj_id, partition_id)
