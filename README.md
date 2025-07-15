@@ -3,23 +3,19 @@
 This library helps you develop a runtime that can be run in a  Object as a Service (OaaS) serverless. For more information on the OaaS model, visit [https://github.com/hpcclab/OaaS](https://github.com/hpcclab/OaaS).
 
 ## Table of Contents
+- [Documentation](#documentation)
 - [Setup](#setup)
 - [Installation](#installation)
 - [Features](#features)
 - [Examples](#examples)
-  - [Basic Usage](#basic-usage)
-  - [Interacting with Objects](#interacting-with-objects)
-  - [Using the Mock Framework for Tests](#using-the-mock-framework-for-tests)
-- [Reference](#reference)
-  - [`Oparaca`](#oparaca)
-  - [`ClsMetadata`](#clsmetadata)
-  - [`BaseObject`](#baseobject)
-  - [`MockOaas`](#mockoaas)
-- [Run on OaaS](#run-on-oaas)
-  - [Prerequisites](#prerequisites)
 - [Build the project](#build-the-project)
-  - [Prerequisites](#prerequisites-1)
-  - [Build](#build)
+
+## Documentation
+
+For a comprehensive guide and API reference, please see the `docs` directory:
+
+- **[Tutorial](docs/tutorial.md)**: A step-by-step guide to getting started with the OaaS SDK.
+- **[API Reference](docs/reference.md)**: A detailed reference of all classes, methods, and functions.
 
 
 
@@ -180,119 +176,6 @@ class TestMySampleClass(unittest.TestCase): # Changed from IsolatedAsyncioTestCa
 ```
 
 Refer to `tests/test_mock.py` and `tests/sample_cls.py` for more detailed examples of synchronous and asynchronous object definitions and mock usage.
-
-
-## Reference
-
-### `Oparaca`
-
-The main entry point for interacting with the OaaS SDK.
-
-**Initialization:**
-
-*   `Oparaca(async_mode: bool = False)`
-    *   Initializes the Oparaca client.
-    *   `async_mode`: If `True`, enables asynchronous operations for `BaseObject` methods (e.g., `get_data_async`, `commit_async`) and `MockOaas` methods (e.g., `create_object_async`). Defaults to `False` (synchronous mode).
-
-**Methods:**
-
-*   `new_cls(name: str) -> ClsMetadata`
-    *   Creates metadata for a new class that will be registered with OaaS.
-    *   `name`: The name of the class.
-    *   Returns a `ClsMetadata` object, which is used as a decorator for your class and its methods.
-*   `mock() -> MockOaas`
-    *   Returns a `MockOaas` instance for local testing and development without a live OaaS environment.
-
----
-
-### `ClsMetadata`
-
-Returned by `Oparaca.new_cls()`. Used as a decorator to define OaaS-compatible classes and their remotely callable methods.
-
-**Usage as Class Decorator:**
-
-```python
-oaas = Oparaca()
-my_class_meta = oaas.new_cls("MyClassName")
-
-@my_class_meta
-class MyObject(BaseObject):
-    # ... object implementation ...
-```
-
-**Methods (used as decorators for methods within a `BaseObject` subclass):**
-
-*   `func(name: Optional[str] = None)`
-    *   Decorator to mark a method within a `BaseObject` subclass as a remotely callable function (RPC).
-    *   `name`: Optional. If provided, this name will be used to register the function in OaaS. If `None`, the method's original name is used.
-    *   **RPC Behavior**: When a method decorated with `func` is called on an instance of `BaseObject` that is not local (i.e., `obj.remote` is `True`, which is the default unless `local=True` is specified during object creation with `oaas.mock().create_object()` or if the object is managed by a live OaaS environment), the SDK will automatically handle the serialization of inputs, perform an RPC to the OaaS platform, and deserialize the response. For local objects (`obj.remote` is `False`), the method is executed directly within the current process.
-
-    ```python
-    @my_class_meta
-    class MyObject(BaseObject):
-        @my_class_meta.func()
-        def my_method(self, arg: str) -> str:
-            return f"Processed: {arg}"
-
-        @my_class_meta.func("customFunctionName")
-        def another_method(self):
-            pass
-    ```
-
----
-
-### `BaseObject`
-
-The base class for all objects managed by OaaS. Your custom classes should inherit from `BaseObject`.
-Instances of `BaseObject` can be either "local" or "remote". Remote objects (where `obj.remote` is `True`) will have their methods decorated with `@your_cls_meta.func()` executed via RPC to the OaaS platform. Local objects execute these methods directly.
-
-#### Synchronous API (when `Oparaca` is initialized with `async_mode=False`)
-
-*   `get_data(key: int) -> Optional[bytes]`
-    *   Retrieves data associated with the given key for the current object instance.
-    *   `key`: An integer key to identify the data.
-    *   Returns the data as `bytes` if found, otherwise `None`.
-*   `set_data(key: int, value: bytes)`
-    *   Sets data for the given key for the current object instance. This change is local until `commit()` is called.
-    *   `key`: An integer key.
-    *   `value`: The data to store, as `bytes`.
-*   `commit()`
-    *   Persists all local changes (made via `set_data`) to the OaaS storage. In the mock environment, this updates the in-memory store.
-
-#### Asynchronous API (when `Oparaca` is initialized with `async_mode=True`)
-
-*   `async get_data_async(key: int) -> Optional[bytes]`
-    *   Asynchronously retrieves data associated with the given key.
-*   `async set_data_async(key: int, value: bytes)`
-    *   Asynchronously sets data for the given key. This change is local until `commit_async()` is called.
-*   `async commit_async()`
-    *   Asynchronously persists all local changes to the OaaS storage.
-
----
-
-### `MockOaas`
-
-Provides a mock implementation of the OaaS environment for local testing. Obtained by calling `oaas.mock()`.
-
-#### Synchronous API (when `Oparaca` is initialized with `async_mode=False`)
-
-*   `create_object(cls_meta: ClsMetadata, obj_id: int) -> T`
-    *   Creates an instance of an object in the mock environment.
-    *   `cls_meta`: The `ClsMetadata` of the class to instantiate.
-    *   `obj_id`: A unique integer ID for the new object.
-    *   Returns an instance of the object (type `T`, where `T` is a subclass of `BaseObject`).
-*   `load_object(cls_meta: ClsMetadata, obj_id: int) -> T`
-    *   Loads an existing object instance from the mock environment.
-    *   `cls_meta`: The `ClsMetadata` of the class.
-    *   `obj_id`: The ID of the object to load.
-    *   Returns an instance of the object. Raises an error if the object does not exist.
-
-#### Asynchronous API (when `Oparaca` is initialized with `async_mode=True`)
-
-*   `async create_object_async(cls_meta: ClsMetadata, obj_id: int) -> T`
-    *   Asynchronously creates an instance of an object in the mock environment.
-*   `async load_object_async(cls_meta: ClsMetadata, obj_id: int) -> T`
-    *   Asynchronously loads an existing object instance from the mock environment.
 
 
 ## Run on OaaS
