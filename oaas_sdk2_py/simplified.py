@@ -1176,6 +1176,364 @@ class OaasConfig(BaseSettings):
         return self.peers.split(",")
 
 
+class EnhancedFunctionDecorator:
+    """
+    Enhanced function decorator for stateless functions that don't require object instances.
+    
+    This decorator provides stateless function capabilities with full error handling
+    and integration with the auto-session management system.
+    """
+    
+    def __init__(self, name: str = "", serve_with_agent: bool = False,
+                 timeout: Optional[float] = None, retry_count: int = 0,
+                 retry_delay: float = 1.0):
+        self.name = name
+        self.serve_with_agent = serve_with_agent
+        self.timeout = timeout
+        self.retry_count = retry_count
+        self.retry_delay = retry_delay
+        self.metrics = PerformanceMetrics()
+        
+    def __call__(self, func):
+        """Apply the enhanced function decorator"""
+        debug_ctx = get_debug_context()
+        
+        # Store original function info
+        original_func = func
+        func_name = self.name if self.name else func.__name__
+        
+        # Create enhanced wrapper with full error handling
+        if asyncio.iscoroutinefunction(func):
+            enhanced_func = self._create_async_enhanced_wrapper(func, func_name)
+        else:
+            enhanced_func = self._create_sync_enhanced_wrapper(func, func_name)
+        
+        # Mark for OaaS processing
+        enhanced_func._oaas_function = True
+        enhanced_func._oaas_function_config = {
+            'name': func_name,
+            'stateless': True,  # Functions are always stateless
+            'serve_with_agent': self.serve_with_agent,
+            'timeout': self.timeout,
+            'retry_count': self.retry_count,
+            'retry_delay': self.retry_delay
+        }
+        
+        debug_ctx.log(DebugLevel.DEBUG, f"Enhanced function decorator applied to {func_name}")
+        return enhanced_func
+    
+    def _create_async_enhanced_wrapper(self, func, func_name):
+        """Create enhanced async wrapper for stateless functions"""
+        @wraps(func)
+        async def enhanced_async_wrapper(*args, **kwargs):
+            debug_ctx = get_debug_context()
+            start_time = time.time()
+            
+            try:
+                # Performance monitoring
+                if debug_ctx.performance_monitoring:
+                    debug_ctx.log(DebugLevel.DEBUG, f"Starting async function {func_name}")
+                
+                # Get session for stateless function execution
+                auto_session_manager = OaasService._get_auto_session_manager()
+                session = auto_session_manager.get_session()
+                
+                # Apply retry logic
+                last_exception = None
+                for attempt in range(self.retry_count + 1):
+                    try:
+                        # Apply timeout if specified
+                        if self.timeout:
+                            result = await asyncio.wait_for(func(*args, **kwargs), timeout=self.timeout)
+                        else:
+                            result = await func(*args, **kwargs)
+                        
+                        # Record successful call
+                        if debug_ctx.performance_monitoring:
+                            duration = time.time() - start_time
+                            self.metrics.record_call(duration, success=True)
+                            debug_ctx.log(DebugLevel.DEBUG, f"Async function {func_name} completed in {duration:.4f}s")
+                        
+                        return result
+                        
+                    except asyncio.TimeoutError as e:
+                        last_exception = e
+                        debug_ctx.log(DebugLevel.WARNING, f"Timeout in async function {func_name}, attempt {attempt + 1}")
+                        
+                        if attempt < self.retry_count:
+                            await asyncio.sleep(self.retry_delay)
+                            continue
+                        break
+                        
+                    except Exception as e:
+                        last_exception = e
+                        debug_ctx.log(DebugLevel.WARNING, f"Error in async function {func_name}, attempt {attempt + 1}: {e}")
+                        
+                        if attempt < self.retry_count:
+                            await asyncio.sleep(self.retry_delay)
+                            continue
+                        break
+                
+                # Record failed call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=False)
+                
+                # If no retries were configured, re-raise the original exception
+                if self.retry_count == 0:
+                    raise last_exception
+                
+                # All retries failed
+                raise DecoratorError(
+                    f"Function {func_name} failed after {self.retry_count + 1} attempts",
+                    error_code="FUNCTION_EXECUTION_ERROR",
+                    details={
+                        'function_name': func_name,
+                        'attempts': self.retry_count + 1,
+                        'last_error': str(last_exception)
+                    }
+                ) from last_exception
+                
+            except Exception as e:
+                # Record failed call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=False)
+                
+                debug_ctx.log(DebugLevel.ERROR, f"Unhandled error in async function {func_name}: {e}")
+                raise
+        
+        return enhanced_async_wrapper
+    
+    def _create_sync_enhanced_wrapper(self, func, func_name):
+        """Create enhanced sync wrapper for stateless functions"""
+        @wraps(func)
+        def enhanced_sync_wrapper(*args, **kwargs):
+            debug_ctx = get_debug_context()
+            start_time = time.time()
+            
+            try:
+                # Performance monitoring
+                if debug_ctx.performance_monitoring:
+                    debug_ctx.log(DebugLevel.DEBUG, f"Starting sync function {func_name}")
+                
+                # Get session for stateless function execution
+                auto_session_manager = OaasService._get_auto_session_manager()
+                session = auto_session_manager.get_session()
+                
+                # Apply retry logic
+                last_exception = None
+                for attempt in range(self.retry_count + 1):
+                    try:
+                        result = func(*args, **kwargs)
+                        
+                        # Record successful call
+                        if debug_ctx.performance_monitoring:
+                            duration = time.time() - start_time
+                            self.metrics.record_call(duration, success=True)
+                            debug_ctx.log(DebugLevel.DEBUG, f"Sync function {func_name} completed in {duration:.4f}s")
+                        
+                        return result
+                        
+                    except Exception as e:
+                        last_exception = e
+                        debug_ctx.log(DebugLevel.WARNING, f"Error in sync function {func_name}, attempt {attempt + 1}: {e}")
+                        
+                        if attempt < self.retry_count:
+                            time.sleep(self.retry_delay)
+                            continue
+                        break
+                
+                # Record failed call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=False)
+                
+                # If no retries were configured, re-raise the original exception
+                if self.retry_count == 0:
+                    raise last_exception
+                
+                # All retries failed
+                raise DecoratorError(
+                    f"Function {func_name} failed after {self.retry_count + 1} attempts",
+                    error_code="FUNCTION_EXECUTION_ERROR",
+                    details={
+                        'function_name': func_name,
+                        'attempts': self.retry_count + 1,
+                        'last_error': str(last_exception)
+                    }
+                ) from last_exception
+                
+            except Exception as e:
+                # Record failed call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=False)
+                
+                debug_ctx.log(DebugLevel.ERROR, f"Unhandled error in sync function {func_name}: {e}")
+                raise
+        
+        return enhanced_sync_wrapper
+    
+    def get_performance_metrics(self) -> PerformanceMetrics:
+        """Get performance metrics for this function decorator."""
+        return self.metrics
+    
+    def reset_performance_metrics(self):
+        """Reset performance metrics for this function decorator."""
+        self.metrics = PerformanceMetrics()
+
+
+class ConstructorDecorator:
+    """
+    Constructor decorator for custom object initialization logic.
+    
+    This decorator provides custom initialization capabilities that integrate
+    seamlessly with the create() pattern and auto-session management.
+    """
+    
+    def __init__(self, validate: bool = True, timeout: Optional[float] = None,
+                 error_handling: str = "strict"):
+        self.validate = validate
+        self.timeout = timeout
+        self.error_handling = error_handling
+        self.metrics = PerformanceMetrics()
+        
+    def __call__(self, func):
+        """Apply the constructor decorator"""
+        debug_ctx = get_debug_context()
+        
+        # Store original function info
+        original_func = func
+        func_name = func.__name__
+        
+        # Create enhanced wrapper with full error handling
+        if asyncio.iscoroutinefunction(func):
+            enhanced_func = self._create_async_enhanced_wrapper(func, func_name)
+        else:
+            enhanced_func = self._create_sync_enhanced_wrapper(func, func_name)
+        
+        # Mark for OaaS processing
+        enhanced_func._oaas_constructor = True
+        enhanced_func._oaas_constructor_config = {
+            'name': func_name,
+            'validate': self.validate,
+            'timeout': self.timeout,
+            'error_handling': self.error_handling
+        }
+        
+        debug_ctx.log(DebugLevel.DEBUG, f"Constructor decorator applied to {func_name}")
+        return enhanced_func
+    
+    def _create_async_enhanced_wrapper(self, func, func_name):
+        """Create enhanced async wrapper for constructor"""
+        @wraps(func)
+        async def enhanced_async_wrapper(obj_self, *args, **kwargs):
+            debug_ctx = get_debug_context()
+            start_time = time.time()
+            
+            try:
+                # Performance monitoring
+                if debug_ctx.performance_monitoring:
+                    debug_ctx.log(DebugLevel.DEBUG, f"Starting async constructor {func_name}")
+                
+                # Apply timeout if specified
+                if self.timeout:
+                    result = await asyncio.wait_for(func(obj_self, *args, **kwargs), timeout=self.timeout)
+                else:
+                    result = await func(obj_self, *args, **kwargs)
+                
+                # Record successful call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=True)
+                    debug_ctx.log(DebugLevel.DEBUG, f"Async constructor {func_name} completed in {duration:.4f}s")
+                
+                return result
+                
+            except Exception as e:
+                # Record failed call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=False)
+                
+                debug_ctx.log(DebugLevel.ERROR, f"Error in async constructor {func_name}: {e}")
+                
+                # Handle constructor errors based on error_handling setting
+                if self.error_handling == "strict":
+                    raise DecoratorError(
+                        f"Constructor {func_name} failed during object initialization",
+                        error_code="CONSTRUCTOR_ERROR",
+                        details={
+                            'constructor_name': func_name,
+                            'error': str(e),
+                            'object_id': getattr(obj_self, 'object_id', 'unknown')
+                        }
+                    ) from e
+                else:
+                    # Log error but allow object creation to continue
+                    debug_ctx.log(DebugLevel.WARNING, f"Constructor {func_name} failed but continuing: {e}")
+                    return None
+        
+        return enhanced_async_wrapper
+    
+    def _create_sync_enhanced_wrapper(self, func, func_name):
+        """Create enhanced sync wrapper for constructor"""
+        @wraps(func)
+        def enhanced_sync_wrapper(obj_self, *args, **kwargs):
+            debug_ctx = get_debug_context()
+            start_time = time.time()
+            
+            try:
+                # Performance monitoring
+                if debug_ctx.performance_monitoring:
+                    debug_ctx.log(DebugLevel.DEBUG, f"Starting sync constructor {func_name}")
+                
+                result = func(obj_self, *args, **kwargs)
+                
+                # Record successful call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=True)
+                    debug_ctx.log(DebugLevel.DEBUG, f"Sync constructor {func_name} completed in {duration:.4f}s")
+                
+                return result
+                
+            except Exception as e:
+                # Record failed call
+                if debug_ctx.performance_monitoring:
+                    duration = time.time() - start_time
+                    self.metrics.record_call(duration, success=False)
+                
+                debug_ctx.log(DebugLevel.ERROR, f"Error in sync constructor {func_name}: {e}")
+                
+                # Handle constructor errors based on error_handling setting
+                if self.error_handling == "strict":
+                    raise DecoratorError(
+                        f"Constructor {func_name} failed during object initialization",
+                        error_code="CONSTRUCTOR_ERROR",
+                        details={
+                            'constructor_name': func_name,
+                            'error': str(e),
+                            'object_id': getattr(obj_self, 'object_id', 'unknown')
+                        }
+                    ) from e
+                else:
+                    # Log error but allow object creation to continue
+                    debug_ctx.log(DebugLevel.WARNING, f"Constructor {func_name} failed but continuing: {e}")
+                    return None
+        
+        return enhanced_sync_wrapper
+    
+    def get_performance_metrics(self) -> PerformanceMetrics:
+        """Get performance metrics for this constructor decorator."""
+        return self.metrics
+    
+    def reset_performance_metrics(self):
+        """Reset performance metrics for this constructor decorator."""
+        self.metrics = PerformanceMetrics()
+
+
 class EnhancedMethodDecorator:
     """
     Enhanced method decorator with full feature parity to FuncMeta.
@@ -1472,41 +1830,108 @@ class OaasService:
                         details={'service_name': name, 'package': package}
                     ) from e
                 
-                # Process methods marked with @oaas.method with enhanced configuration
+                # Process methods, functions, and constructors marked with @oaas decorators
                 enhanced_methods = {}
+                enhanced_functions = {}
+                enhanced_constructors = {}
+                
                 for attr_name in dir(cls):
                     if not attr_name.startswith('_'):
                         attr = getattr(cls, attr_name)
-                        if callable(attr) and hasattr(attr, '_oaas_method'):
-                            try:
-                                # Get enhanced method configuration
-                                method_config = getattr(attr, '_oaas_method_config', {})
-                                
-                                # Apply the legacy func decorator with enhanced configuration
-                                decorated_method = cls_meta.func(
-                                    name=method_config.get('name', attr_name),
-                                    stateless=method_config.get('stateless', False),
-                                    strict=method_config.get('strict', False),
-                                    serve_with_agent=method_config.get('serve_with_agent', False)
-                                )(attr)
-                                
-                                # Replace the method on the class
-                                setattr(cls, attr_name, decorated_method)
-                                enhanced_methods[attr_name] = method_config
-                                
-                                debug_ctx.log(DebugLevel.DEBUG, f"Enhanced method {attr_name} registered")
-                                
-                            except Exception as e:
-                                debug_ctx.log(DebugLevel.ERROR, f"Failed to process method {attr_name}: {e}")
-                                raise DecoratorError(
-                                    f"Failed to process method {attr_name} in service {name}",
-                                    error_code="METHOD_PROCESSING_ERROR",
-                                    details={
-                                        'service_name': name,
-                                        'method_name': attr_name,
-                                        'error': str(e)
-                                    }
-                                ) from e
+                        if callable(attr):
+                            # Process methods marked with @oaas.method
+                            if hasattr(attr, '_oaas_method'):
+                                try:
+                                    # Get enhanced method configuration
+                                    method_config = getattr(attr, '_oaas_method_config', {})
+                                    
+                                    # Apply the legacy func decorator with enhanced configuration
+                                    decorated_method = cls_meta.func(
+                                        name=method_config.get('name', attr_name),
+                                        stateless=method_config.get('stateless', False),
+                                        strict=method_config.get('strict', False),
+                                        serve_with_agent=method_config.get('serve_with_agent', False)
+                                    )(attr)
+                                    
+                                    # Replace the method on the class
+                                    setattr(cls, attr_name, decorated_method)
+                                    enhanced_methods[attr_name] = method_config
+                                    
+                                    debug_ctx.log(DebugLevel.DEBUG, f"Enhanced method {attr_name} registered")
+                                    
+                                except Exception as e:
+                                    debug_ctx.log(DebugLevel.ERROR, f"Failed to process method {attr_name}: {e}")
+                                    raise DecoratorError(
+                                        f"Failed to process method {attr_name} in service {name}",
+                                        error_code="METHOD_PROCESSING_ERROR",
+                                        details={
+                                            'service_name': name,
+                                            'method_name': attr_name,
+                                            'error': str(e)
+                                        }
+                                    ) from e
+                            
+                            # Process functions marked with @oaas.function
+                            elif hasattr(attr, '_oaas_function'):
+                                try:
+                                    # Get enhanced function configuration
+                                    function_config = getattr(attr, '_oaas_function_config', {})
+                                    
+                                    # Apply the legacy func decorator with stateless configuration
+                                    decorated_function = cls_meta.func(
+                                        name=function_config.get('name', attr_name),
+                                        stateless=True,  # Functions are always stateless
+                                        serve_with_agent=function_config.get('serve_with_agent', False)
+                                    )(attr)
+                                    
+                                    # Replace the function on the class
+                                    setattr(cls, attr_name, decorated_function)
+                                    enhanced_functions[attr_name] = function_config
+                                    
+                                    debug_ctx.log(DebugLevel.DEBUG, f"Enhanced function {attr_name} registered")
+                                    
+                                except Exception as e:
+                                    debug_ctx.log(DebugLevel.ERROR, f"Failed to process function {attr_name}: {e}")
+                                    raise DecoratorError(
+                                        f"Failed to process function {attr_name} in service {name}",
+                                        error_code="FUNCTION_PROCESSING_ERROR",
+                                        details={
+                                            'service_name': name,
+                                            'function_name': attr_name,
+                                            'error': str(e)
+                                        }
+                                    ) from e
+                            
+                            # Process constructors marked with @oaas.constructor
+                            elif hasattr(attr, '_oaas_constructor'):
+                                try:
+                                    # Get enhanced constructor configuration
+                                    constructor_config = getattr(attr, '_oaas_constructor_config', {})
+                                    
+                                    # Apply the legacy func decorator for constructor
+                                    decorated_constructor = cls_meta.func(
+                                        name=constructor_config.get('name', attr_name),
+                                        stateless=False,  # Constructors work with object state
+                                        serve_with_agent=False  # Constructors don't serve with agent
+                                    )(attr)
+                                    
+                                    # Replace the constructor on the class
+                                    setattr(cls, attr_name, decorated_constructor)
+                                    enhanced_constructors[attr_name] = constructor_config
+                                    
+                                    debug_ctx.log(DebugLevel.DEBUG, f"Enhanced constructor {attr_name} registered")
+                                    
+                                except Exception as e:
+                                    debug_ctx.log(DebugLevel.ERROR, f"Failed to process constructor {attr_name}: {e}")
+                                    raise DecoratorError(
+                                        f"Failed to process constructor {attr_name} in service {name}",
+                                        error_code="CONSTRUCTOR_PROCESSING_ERROR",
+                                        details={
+                                            'service_name': name,
+                                            'constructor_name': attr_name,
+                                            'error': str(e)
+                                        }
+                                    ) from e
                 
                 # Apply the legacy decorator to maintain compatibility
                 decorated_cls = cls_meta(cls)
@@ -1514,6 +1939,8 @@ class OaasService:
                 # Store the class metadata for later use
                 decorated_cls._oaas_cls_meta = cls_meta
                 decorated_cls._oaas_enhanced_methods = enhanced_methods
+                decorated_cls._oaas_enhanced_functions = enhanced_functions
+                decorated_cls._oaas_enhanced_constructors = enhanced_constructors
                 
                 # Register the service with performance metrics
                 service_key = f"{package}.{name}"
@@ -1541,6 +1968,8 @@ class OaasService:
                 raise
         
         return decorator
+    
+    
     
     @staticmethod
     def method(func_or_name=None, *, name: str = "", stateless: bool = False, strict: bool = False,
@@ -1594,6 +2023,77 @@ class OaasService:
             # Called as @oaas.method("name") - treat first arg as name
             name = func_or_name
             return decorator
+    
+    @staticmethod
+    def function(name: str = "", serve_with_agent: bool = False,
+                 timeout: Optional[float] = None, retry_count: int = 0,
+                 retry_delay: float = 1.0):
+        """
+        Enhanced decorator for stateless functions that don't require object instances.
+        
+        This decorator provides stateless function capabilities with full error handling
+        and integration with the auto-session management system.
+        
+        Args:
+            name: Optional function name override
+            serve_with_agent: Whether to serve with agent support
+            timeout: Optional timeout in seconds for function execution
+            retry_count: Number of retry attempts on failure
+            retry_delay: Delay between retries in seconds
+            
+        Returns:
+            Decorated function with enhanced OaaS capabilities
+        """
+        def decorator(func):
+            debug_ctx = get_debug_context()
+            debug_ctx.log(DebugLevel.DEBUG, f"Applying enhanced function decorator to {func.__name__}")
+            
+            # Create enhanced function decorator
+            enhanced_decorator = EnhancedFunctionDecorator(
+                name=name,
+                serve_with_agent=serve_with_agent,
+                timeout=timeout,
+                retry_count=retry_count,
+                retry_delay=retry_delay
+            )
+            
+            # Apply the enhanced decorator
+            return enhanced_decorator(func)
+        
+        return decorator
+    
+    @staticmethod
+    def constructor(validate: bool = True, timeout: Optional[float] = None,
+                    error_handling: str = "strict"):
+        """
+        Enhanced decorator for custom object initialization logic.
+        
+        This decorator provides custom initialization capabilities that integrate
+        seamlessly with the create() pattern and auto-session management.
+        
+        Args:
+            validate: Whether to validate initialization parameters
+            timeout: Optional timeout in seconds for constructor execution
+            error_handling: Error handling strategy ("strict" or "lenient")
+            
+        Returns:
+            Decorated constructor with enhanced OaaS capabilities
+        """
+        def decorator(func):
+            debug_ctx = get_debug_context()
+            debug_ctx.log(DebugLevel.DEBUG, f"Applying constructor decorator to {func.__name__}")
+            
+            # Create constructor decorator
+            constructor_decorator = ConstructorDecorator(
+                validate=validate,
+                timeout=timeout,
+                error_handling=error_handling
+            )
+            
+            # Apply the constructor decorator
+            return constructor_decorator(func)
+        
+        return decorator
     
     @staticmethod
     def get_service(name: str, package: str = "default") -> Optional[Type[OaasObject]]:
@@ -1677,6 +2177,8 @@ class OaasService:
             'service_key': service_key,
             'state_fields': list(getattr(service_cls, '_state_fields', {}).keys()),
             'enhanced_methods': getattr(service_cls, '_oaas_enhanced_methods', {}),
+            'enhanced_functions': getattr(service_cls, '_oaas_enhanced_functions', {}),
+            'enhanced_constructors': getattr(service_cls, '_oaas_enhanced_constructors', {}),
             'metrics': OaasService._service_metrics.get(service_key, PerformanceMetrics()).__dict__
         }
         
@@ -1724,6 +2226,16 @@ class OaasService:
             enhanced_methods = getattr(service_cls, '_oaas_enhanced_methods', {})
             if enhanced_methods:
                 validation_results['info'].append(f"Service has {len(enhanced_methods)} enhanced methods")
+            
+            # Check enhanced functions
+            enhanced_functions = getattr(service_cls, '_oaas_enhanced_functions', {})
+            if enhanced_functions:
+                validation_results['info'].append(f"Service has {len(enhanced_functions)} enhanced functions")
+            
+            # Check enhanced constructors
+            enhanced_constructors = getattr(service_cls, '_oaas_enhanced_constructors', {})
+            if enhanced_constructors:
+                validation_results['info'].append(f"Service has {len(enhanced_constructors)} enhanced constructors")
             
             # Check performance metrics
             metrics = OaasService._service_metrics.get(service_key)
