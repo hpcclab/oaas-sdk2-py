@@ -266,9 +266,9 @@ class TestOaasConfig:
         assert str(config.server_url) == "http://localhost:9000/"
         assert config.peers == "peer1:7447,peer2:7447"
         assert config.default_partition == 1
-        assert config.mock_mode == True
-        assert config.async_mode == False
-        assert config.auto_commit == False
+        assert config.mock_mode
+        assert not config.async_mode
+        assert not config.auto_commit
         assert config.batch_size == 50
         print("✅ OaasConfig custom values test passed")
     
