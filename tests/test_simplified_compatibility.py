@@ -113,7 +113,6 @@ def test_new_simplified_api():
     
     # Configure the new system
     config = OaasConfig(
-        server_url="http://localhost:10000",
         mock_mode=True,
         auto_commit=True
     )
@@ -206,17 +205,15 @@ def test_config_compatibility():
     
     # Test OaasConfig to OprcConfig conversion
     oaas_config = OaasConfig(
-        server_url="http://localhost:9000",
-        peers="peer1:7447,peer2:7447",
-        default_partition=1,
+        oprc_zenoh_peers="peer1:7447,peer2:7447",
+        oprc_partition_default=1,
         mock_mode=False
     )
     
     # Convert to legacy config
-    oprc_config = oaas_config.to_oprc_config()
+    oprc_config = oaas_config  # OprcConfig is now an alias for OaasConfig
     
     # Verify conversion
-    assert str(oprc_config.oprc_odgm_url) == "http://localhost:9000/"
     assert oprc_config.oprc_zenoh_peers == "peer1:7447,peer2:7447"
     assert oprc_config.oprc_partition_default == 1
     

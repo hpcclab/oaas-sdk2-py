@@ -55,7 +55,7 @@ These examples have been updated to use the new simplified OaaS SDK interface:
 from oaas_sdk2_py import Oparaca
 from oaas_sdk2_py.engine import BaseObject
 
-oaas = Oparaca(config=OprcConfig())
+oaas = Oparaca(config=OaasConfig())
 my_cls = oaas.new_cls(pkg="example", name="MyClass")
 
 @my_cls

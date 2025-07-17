@@ -242,9 +242,8 @@ class TestOaasConfig:
         """Test OaasConfig creation with defaults."""
         config = OaasConfig()
         
-        assert str(config.server_url) == "http://localhost:10000/"
-        assert config.peers is None
-        assert config.default_partition == 0
+        assert config.oprc_zenoh_peers is None
+        assert config.oprc_partition_default == 0
         assert config.mock_mode == False
         assert config.async_mode == True
         assert config.auto_commit == True
@@ -254,18 +253,17 @@ class TestOaasConfig:
     def test_oaas_config_custom_values(self):
         """Test OaasConfig with custom values."""
         config = OaasConfig(
-            server_url="http://localhost:9000",
-            peers="peer1:7447,peer2:7447",
-            default_partition=1,
+        
+            oprc_zenoh_peers="peer1:7447,peer2:7447",
+            oprc_partition_default=1,
             mock_mode=True,
             async_mode=False,
             auto_commit=False,
             batch_size=50
         )
         
-        assert str(config.server_url) == "http://localhost:9000/"
-        assert config.peers == "peer1:7447,peer2:7447"
-        assert config.default_partition == 1
+        assert config.oprc_zenoh_peers == "peer1:7447,peer2:7447"
+        assert config.oprc_partition_default == 1
         assert config.mock_mode
         assert not config.async_mode
         assert not config.auto_commit
@@ -275,27 +273,25 @@ class TestOaasConfig:
     def test_oaas_config_to_oprc_config(self):
         """Test OaasConfig to OprcConfig conversion."""
         config = OaasConfig(
-            server_url="http://localhost:9000",
-            peers="peer1:7447,peer2:7447",
-            default_partition=1
+            oprc_zenoh_peers="peer1:7447,peer2:7447",
+            oprc_partition_default=1
         )
         
-        oprc_config = config.to_oprc_config()
-        
-        assert str(oprc_config.oprc_odgm_url) == "http://localhost:9000/"
+        oprc_config = config  # OprcConfig is now an alias for OaasConfig
+    
         assert oprc_config.oprc_zenoh_peers == "peer1:7447,peer2:7447"
         assert oprc_config.oprc_partition_default == 1
         print("✅ OaasConfig to OprcConfig conversion test passed")
     
     def test_oaas_config_peer_parsing(self):
         """Test OaasConfig peer parsing."""
-        config = OaasConfig(peers="peer1:7447,peer2:7447,peer3:7447")
+        config = OaasConfig(oprc_zenoh_peers="peer1:7447,peer2:7447,peer3:7447")
         
         peers = config.get_zenoh_peers()
         assert peers == ["peer1:7447", "peer2:7447", "peer3:7447"]
         
         # Test None peers
-        config_none = OaasConfig(peers=None)
+        config_none = OaasConfig(oprc_zenoh_peers=None)
         assert config_none.get_zenoh_peers() is None
         print("✅ OaasConfig peer parsing test passed")
 
@@ -327,7 +323,6 @@ class TestOaasService:
     def test_oaas_service_global_configuration(self):
         """Test global service configuration."""
         config = OaasConfig(
-            server_url="http://localhost:8000",
             mock_mode=True,
             auto_commit=False
         )

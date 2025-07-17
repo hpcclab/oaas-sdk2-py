@@ -3,7 +3,7 @@ from typing import Optional
 import oprc_py
 
 from oaas_sdk2_py.mock import LocalDataManager, LocalRpcManager
-from .config import OprcConfig
+from .config import OaasConfig
 from .handler import AsyncInvocationHandler, SyncInvocationHandler
 from .model import ClsMeta
 from .repo import MetadataRepo
@@ -21,14 +21,14 @@ class Oparaca:
     def __init__(
         self,
         default_pkg: str = "default",
-        config: OprcConfig = None,
+        config: OaasConfig = None,
         mock_mode: bool = False,
         meta_repo: MetadataRepo = None,
         engine: oprc_py.OaasEngine = None,
         async_mode: bool = False,
     ):
         if config is None:
-            config = OprcConfig()
+            config = OaasConfig()
         self.config = config
         # self.odgm_url = config.oprc_odgm_url
         self.default_partition_id = config.oprc_partition_default

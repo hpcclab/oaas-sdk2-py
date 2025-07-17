@@ -54,12 +54,11 @@ class OaasService:
                 config = OaasConfig()
                 OaasService._global_config = config
             
-            # Create Oparaca instance with converted config
+            # Create Oparaca instance with config
             from ..engine import Oparaca
-            oprc_config = config.to_oprc_config()
             OaasService._global_oaas = Oparaca(
                 default_pkg="default",
-                config=oprc_config,
+                config=config,  # OaasConfig can be used directly now
                 mock_mode=config.mock_mode,
                 async_mode=config.async_mode
             )

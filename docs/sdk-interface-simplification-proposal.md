@@ -192,7 +192,7 @@ class Counter(OaasObject):
 
 **Current:**
 ```python
-config = OprcConfig(
+config = OaasConfig(
     oprc_odgm_url="http://localhost:10000",
     oprc_zenoh_peers="peer1:7447,peer2:7447",
     oprc_partition_default=0
@@ -558,12 +558,12 @@ For the complete implementation roadmap, timeline, and migration strategy, see t
 **BEFORE (Current Interface)**
 ```python
 from oaas_sdk2_py import Oparaca, BaseObject
-from oaas_sdk2_py.config import OprcConfig
+from oaas_sdk2_py.config import OaasConfig
 from pydantic import BaseModel
 import json
 
 # Configuration
-config = OprcConfig(
+config = OaasConfig(
     oprc_odgm_url="http://localhost:10000",
     oprc_partition_default=0
 )

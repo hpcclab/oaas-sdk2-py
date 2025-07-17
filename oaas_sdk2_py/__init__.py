@@ -3,7 +3,7 @@ from .engine import Oparaca  # noqa: F401
 from .session import Session # noqa: F401
 from .obj import BaseObject # noqa: F401
 from .model import ClsMeta, FuncMeta  # noqa: F401
-from .config import OprcConfig  # noqa: F401
+from .config import OaasConfig, OprcConfig  # noqa: F401
 from oprc_py import ObjectInvocationRequest, InvocationRequest, InvocationResponse  # noqa: F401
 
 # New Simplified API - Phase 1 Week 1 Foundation
@@ -35,7 +35,8 @@ __all__ = [
     "BaseObject",
     "ClsMeta",
     "FuncMeta",
-    "OprcConfig",
+    "OaasConfig",
+    "OprcConfig",  # Backward compatibility alias
     "ObjectInvocationRequest",
     "InvocationRequest",
     "InvocationResponse",

@@ -484,9 +484,9 @@ await oparaca.run_agent(loop, cls_meta, obj_id)
 ### Before (Current API)
 ```python
 from oaas_sdk2_py.engine import Oparaca
-from oaas_sdk2_py.config import OprcConfig
+from oaas_sdk2_py.config import OaasConfig
 
-config = OprcConfig()
+config = OaasConfig()
 oparaca = Oparaca(config=config, async_mode=True)
 
 # Start server (hosts all service definitions)

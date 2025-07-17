@@ -1,4 +1,5 @@
 import oprc_py
+import warnings
 from typing import Optional, Union
 
 from oprc_py import ObjectData, ObjectMetadata
@@ -16,6 +17,11 @@ class BaseObject:
     _dirty: bool
 
     def __init__(self, meta: ObjectMetadata = None, session: Session = None):
+        warnings.warn(
+            "BaseObject is deprecated. Use OaasObject from oaas_sdk2_py.simplified.objects instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.meta = meta
         self.session = session
         self._state = {}
@@ -287,3 +293,14 @@ class BaseObject:
 
     def delete_object(self, cls_meta: ClsMeta, obj_id: int, partition_id: Optional[int] = None):
         return self.session.delete_object(cls_meta, obj_id, partition_id)
+
+
+# Import the unified OaasObject to replace BaseObject
+# This provides backward compatibility while encouraging migration
+try:
+    from .simplified.objects import OaasObject
+    # Replace BaseObject with OaasObject for new usage
+    BaseObject = OaasObject
+except ImportError:
+    # Fallback if simplified module is not available
+    pass

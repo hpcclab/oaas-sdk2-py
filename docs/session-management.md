@@ -141,7 +141,7 @@ from oaas_sdk2_py import (
 )
 
 # Traditional usage still works
-config = OprcConfig()
+config = OaasConfig()
 oparaca = Oparaca(config=config, mock_mode=True)
 cls_meta = oparaca.new_cls("LegacyService")
 
