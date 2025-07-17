@@ -5,13 +5,15 @@ This module provides the main service registry and decorator system
 for the OaaS SDK simplified interface.
 """
 
+import asyncio
 import time
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Any, Callable, Dict, Optional, Type, Union, TYPE_CHECKING
 
 from .config import OaasConfig
 from .decorators import EnhancedFunctionDecorator, ConstructorDecorator, EnhancedMethodDecorator
-from .errors import DecoratorError, get_debug_context, DebugLevel
+from .errors import DecoratorError, ServerError, AgentError, get_debug_context, DebugLevel
 from .performance import PerformanceMetrics, get_performance_metrics, reset_performance_metrics
 from .session_manager import AutoSessionManager, LegacySessionAdapter
 
@@ -34,6 +36,14 @@ class OaasService:
     _auto_session_manager: Optional[AutoSessionManager] = None
     _registered_services: Dict[str, Type['OaasObject']] = {}
     _service_metrics: Dict[str, PerformanceMetrics] = {}
+    
+    # Server state tracking
+    _server_running: bool = False
+    _server_port: Optional[int] = None
+    _server_loop: Optional[Any] = None
+    
+    # Agent state tracking
+    _running_agents: Dict[str, Dict[str, Any]] = {}
     
     @staticmethod
     def _get_global_oaas() -> 'Oparaca':
@@ -746,6 +756,242 @@ class OaasService:
         
         return health_status
 
+    # =============================================================================
+    # SERVER MANAGEMENT
+    # =============================================================================
+
+    @staticmethod
+    def start_server(port: int = 8080, loop: Any = None, async_mode: bool = None) -> None:
+        """
+        Start gRPC server with simplified configuration.
+        
+        Args:
+            port: Port to bind server to (default: 8080)
+            loop: Event loop for async mode (auto-detected if None)
+            async_mode: Override global async mode setting
+            
+        Raises:
+            ServerError: If server already running or start fails
+        """
+        if OaasService._server_running:
+            raise ServerError("gRPC server is already running")
+        
+        debug_ctx = get_debug_context()
+        debug_ctx.log(DebugLevel.INFO, f"Starting gRPC server on port {port}")
+        
+        try:
+            global_oaas = OaasService._get_global_oaas()
+            if async_mode is not None:
+                global_oaas.async_mode = async_mode
+            
+            global_oaas.start_grpc_server(loop=loop, port=port)
+            
+            OaasService._server_port = port
+            OaasService._server_loop = loop
+            OaasService._server_running = True
+            
+            debug_ctx.log(DebugLevel.INFO, f"gRPC server started on port {port}")
+            
+        except Exception as e:
+            raise ServerError(f"Failed to start gRPC server: {e}") from e
+
+    @staticmethod
+    def stop_server() -> None:
+        """
+        Stop gRPC server and clean up resources.
+        
+        Raises:
+            ServerError: If server not running or stop fails
+        """
+        if not OaasService._server_running:
+            raise ServerError("gRPC server is not running")
+        
+        debug_ctx = get_debug_context()
+        debug_ctx.log(DebugLevel.INFO, "Stopping gRPC server")
+        
+        try:
+            global_oaas = OaasService._get_global_oaas()
+            global_oaas.stop_server()
+            
+            OaasService._server_port = None
+            OaasService._server_loop = None
+            OaasService._server_running = False
+            
+            debug_ctx.log(DebugLevel.INFO, "gRPC server stopped")
+            
+        except Exception as e:
+            raise ServerError(f"Failed to stop gRPC server: {e}") from e
+
+    @staticmethod
+    def is_server_running() -> bool:
+        """Check if gRPC server is currently running."""
+        return OaasService._server_running
+
+    @staticmethod
+    def get_server_info() -> Dict[str, Any]:
+        """Get comprehensive server status and configuration."""
+        return {
+            'running': OaasService._server_running,
+            'port': OaasService._server_port,
+            'async_mode': OaasService._global_oaas.async_mode if OaasService._global_oaas else None,
+            'mock_mode': OaasService._global_config.mock_mode if OaasService._global_config else None,
+            'registered_services': len(OaasService._registered_services)
+        }
+
+    @staticmethod
+    def restart_server(port: int = None, loop: Any = None, async_mode: bool = None) -> None:
+        """Restart server with new configuration."""
+        if OaasService._server_running:
+            OaasService.stop_server()
+        
+        final_port = port or OaasService._server_port or 8080
+        OaasService.start_server(port=final_port, loop=loop, async_mode=async_mode)
+
+    # =============================================================================
+    # AGENT MANAGEMENT
+    # =============================================================================
+
+    @staticmethod
+    async def start_agent(service_class: Type['OaasObject'], obj_id: int = None, 
+                         partition_id: int = None, loop: Any = None) -> str:
+        """
+        Start agent for service class or specific object instance.
+        
+        Args:
+            service_class: Service class decorated with @oaas.service
+            obj_id: Specific object ID (if None, serves all instances)
+            partition_id: Partition ID (uses default if None)
+            loop: Event loop (auto-detected if None)
+            
+        Returns:
+            Agent ID for tracking/stopping
+            
+        Raises:
+            AgentError: If agent start fails or service invalid
+        """
+        if not hasattr(service_class, '_oaas_cls_meta'):
+            raise AgentError(f"Service class {service_class.__name__} not registered with @oaas.service")
+        
+        # Generate unique agent ID
+        agent_id = f"{service_class._oaas_package}.{service_class._oaas_service_name}"
+        if obj_id is not None:
+            agent_id += f":{obj_id}"
+        
+        if agent_id in OaasService._running_agents:
+            raise AgentError(f"Agent {agent_id} is already running")
+        
+        debug_ctx = get_debug_context()
+        debug_ctx.log(DebugLevel.INFO, f"Starting agent {agent_id}")
+        
+        try:
+            global_oaas = OaasService._get_global_oaas()
+            cls_meta = service_class._oaas_cls_meta
+            
+            # Use default partition if not specified
+            if partition_id is None:
+                partition_id = global_oaas.default_partition_id
+            
+            # Use default object ID if not specified
+            if obj_id is None:
+                obj_id = 1  # Default object ID for class-level agents
+            
+            # Start the agent
+            await global_oaas.run_agent(
+                loop=loop or asyncio.get_event_loop(),
+                cls_meta=cls_meta,
+                obj_id=obj_id,
+                parition_id=partition_id  # Note: keeping original typo for compatibility
+            )
+            
+            # Track agent state
+            OaasService._running_agents[agent_id] = {
+                'service_class': service_class,
+                'obj_id': obj_id,
+                'partition_id': partition_id,
+                'loop': loop,
+                'started_at': datetime.now()
+            }
+            
+            debug_ctx.log(DebugLevel.INFO, f"Agent {agent_id} started successfully")
+            return agent_id
+            
+        except Exception as e:
+            raise AgentError(f"Failed to start agent {agent_id}: {e}") from e
+
+    @staticmethod
+    async def stop_agent(agent_id: str = None, service_class: Type['OaasObject'] = None, 
+                        obj_id: int = None) -> None:
+        """
+        Stop agent by ID or service class/object.
+        
+        Args:
+            agent_id: Specific agent ID to stop
+            service_class: Service class (alternative to agent_id)
+            obj_id: Object ID (used with service_class)
+            
+        Raises:
+            AgentError: If agent not found or stop fails
+        """
+        # Resolve agent ID if not provided
+        if agent_id is None:
+            if service_class is None:
+                raise AgentError("Either agent_id or service_class must be provided")
+            
+            agent_id = f"{service_class._oaas_package}.{service_class._oaas_service_name}"
+            if obj_id is not None:
+                agent_id += f":{obj_id}"
+        
+        if agent_id not in OaasService._running_agents:
+            raise AgentError(f"Agent {agent_id} is not running")
+        
+        debug_ctx = get_debug_context()
+        debug_ctx.log(DebugLevel.INFO, f"Stopping agent {agent_id}")
+        
+        try:
+            agent_info = OaasService._running_agents[agent_id]
+            global_oaas = OaasService._get_global_oaas()
+            
+            # Stop the agent
+            await global_oaas.stop_agent(
+                cls_meta=agent_info['service_class']._oaas_cls_meta,
+                obj_id=agent_info['obj_id'],
+                partition_id=agent_info['partition_id']
+            )
+            
+            # Remove from tracking
+            del OaasService._running_agents[agent_id]
+            
+            debug_ctx.log(DebugLevel.INFO, f"Agent {agent_id} stopped successfully")
+            
+        except Exception as e:
+            raise AgentError(f"Failed to stop agent {agent_id}: {e}") from e
+
+    @staticmethod
+    def list_agents() -> Dict[str, Dict[str, Any]]:
+        """List all running agents with their information."""
+        return {
+            agent_id: {
+                'service_name': info['service_class']._oaas_service_name,
+                'package': info['service_class']._oaas_package,
+                'obj_id': info['obj_id'],
+                'partition_id': info['partition_id'],
+                'started_at': info['started_at'].isoformat(),
+                'running_duration': str(datetime.now() - info['started_at'])
+            }
+            for agent_id, info in OaasService._running_agents.items()
+        }
+
+    @staticmethod
+    async def stop_all_agents() -> None:
+        """Stop all running agents."""
+        agent_ids = list(OaasService._running_agents.keys())
+        for agent_id in agent_ids:
+            try:
+                await OaasService.stop_agent(agent_id)
+            except Exception as e:
+                debug_ctx = get_debug_context()
+                debug_ctx.log(DebugLevel.ERROR, f"Error stopping agent {agent_id}: {e}")
+    
 
 # Enhanced backward compatibility functions
 def new_session(partition_id: Optional[int] = None) -> LegacySessionAdapter:

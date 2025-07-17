@@ -5,7 +5,7 @@ This module provides simplified base class with automatic state management
 for the OaaS SDK simplified interface.
 """
 
-from typing import Dict, Optional, get_type_hints, TYPE_CHECKING
+from typing import Any, Dict, Optional, get_type_hints, TYPE_CHECKING
 
 from ..obj import BaseObject
 from .state_descriptor import StateDescriptor
@@ -140,3 +140,45 @@ class OaasObject(BaseObject):
         obj = auto_session_manager.load_object(cls_meta, obj_id)
         
         return obj
+
+    # =============================================================================
+    # AGENT MANAGEMENT METHODS
+    # =============================================================================
+
+    @classmethod
+    async def start_agent(cls, obj_id: int = None, partition_id: int = None, 
+                         loop: Any = None) -> str:
+        """
+        Start agent for this service class.
+        
+        Convenience method that delegates to OaasService.start_agent.
+        """
+        from .service import OaasService
+        return await OaasService.start_agent(cls, obj_id, partition_id, loop)
+
+    @classmethod
+    async def stop_agent(cls, obj_id: int = None) -> None:
+        """
+        Stop agent for this service class.
+        
+        Convenience method that delegates to OaasService.stop_agent.
+        """
+        from .service import OaasService
+        await OaasService.stop_agent(service_class=cls, obj_id=obj_id)
+
+    async def start_instance_agent(self, loop: Any = None) -> str:
+        """Start agent for this specific object instance."""
+        from .service import OaasService
+        return await OaasService.start_agent(
+            service_class=self.__class__,
+            obj_id=self.object_id,
+            loop=loop
+        )
+
+    async def stop_instance_agent(self) -> None:
+        """Stop agent for this specific object instance."""
+        from .service import OaasService
+        await OaasService.stop_agent(
+            service_class=self.__class__,
+            obj_id=self.object_id
+        )

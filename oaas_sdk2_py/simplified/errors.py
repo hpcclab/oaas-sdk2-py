@@ -65,6 +65,16 @@ class DecoratorError(OaasError):
     pass
 
 
+class ServerError(OaasError):
+    """Raised when server operations fail."""
+    pass
+
+
+class AgentError(OaasError):
+    """Raised when agent operations fail."""
+    pass
+
+
 class DebugLevel(Enum):
     """Debug levels for OaaS SDK"""
     NONE = 0

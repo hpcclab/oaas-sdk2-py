@@ -35,6 +35,7 @@ Usage:
 from .errors import (
     OaasError, SerializationError, ValidationError, SessionError,
     DecoratorError, PerformanceError, ConfigurationError,
+    ServerError, AgentError,
     DebugLevel, DebugContext, get_debug_context, set_debug_level
 )
 
@@ -77,6 +78,7 @@ __all__ = [
     # Error handling
     'OaasError', 'SerializationError', 'ValidationError', 'SessionError',
     'DecoratorError', 'PerformanceError', 'ConfigurationError',
+    'ServerError', 'AgentError',
     'DebugLevel', 'DebugContext', 'get_debug_context', 'set_debug_level',
     
     # Performance monitoring
