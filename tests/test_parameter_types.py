@@ -2,12 +2,16 @@
 """
 Test script to verify type support after fixing isinstance bug.
 """
-import asyncio
+import pytest
 from oaas_sdk2_py.simplified import oaas, OaasObject, OaasConfig
 
-# Configure OaaS
-config = OaasConfig(async_mode=True, mock_mode=True)
-oaas.configure(config)
+
+@pytest.fixture
+def setup_oaas():
+    """Setup OaaS for testing."""
+    config = OaasConfig(async_mode=True, mock_mode=True)
+    oaas.configure(config)
+
 
 @oaas.service("TypeTestService", package="test")
 class TypeTestService(OaasObject):
@@ -32,7 +36,8 @@ class TypeTestService(OaasObject):
         """Test no parameter support"""
         return "No parameters needed"
 
-async def test_all_types():
+@pytest.mark.asyncio
+async def test_all_types(setup_oaas):
     """Test all supported parameter types"""
     print("🧪 Testing Parameter Type Support")
     print("=" * 40)
@@ -42,20 +47,25 @@ async def test_all_types():
     # Test str
     result = await service.test_str_param("hello world")
     print(f"✓ str parameter: {result}")
+    assert result == "Got string: hello world"
+    assert isinstance(result, str)
     
     # Test bytes
     result = await service.test_bytes_param(b"binary data")
     print(f"✓ bytes parameter: {result}")
+    assert result == b"Got bytes: binary data"
+    assert isinstance(result, bytes)
     
     # Test dict
     result = await service.test_dict_param({"key1": "value1", "key2": "value2"})
     print(f"✓ dict parameter: {result}")
+    assert result == {"got_dict": True, "keys": ["key1", "key2"]}
+    assert isinstance(result, dict)
     
     # Test no param
     result = await service.test_no_param()
     print(f"✓ no parameter: {result}")
+    assert result == "No parameters needed"
+    assert isinstance(result, str)
     
     print("\n✅ All parameter types work correctly!")
-
-if __name__ == "__main__":
-    asyncio.run(test_all_types())

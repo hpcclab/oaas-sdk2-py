@@ -31,9 +31,18 @@ dev = [
     "psutil>=7.0.0",
     "pytest>=8.4.1",
     "pytest-xdist>=3.7.0",
+    "pytest-asyncio>=0.24.0",
 ]
 
-# [tool.pytest.ini_options]
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Uncomment for debug logging
 # log_cli = true
 # log_cli_level = "DEBUG"
 # log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
