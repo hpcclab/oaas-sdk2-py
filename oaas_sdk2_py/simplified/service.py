@@ -72,6 +72,8 @@ class OaasService:
         if OaasService._auto_session_manager is None:
             global_oaas = OaasService._get_global_oaas()
             OaasService._auto_session_manager = AutoSessionManager(global_oaas)
+            # Set the auto session manager on the Oparaca instance for handler integration
+            global_oaas._auto_session_manager = OaasService._auto_session_manager
         
         return OaasService._auto_session_manager
     

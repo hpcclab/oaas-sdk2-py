@@ -55,5 +55,5 @@ __all__ = [
     "configure_oaas",
     "enable_auto_commit",
     "disable_auto_commit",
-    "set_auto_commit_interval",
+    "set_auto_commit_interval"
 ]

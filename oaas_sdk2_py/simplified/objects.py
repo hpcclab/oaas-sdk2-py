@@ -5,7 +5,7 @@ This module provides simplified base class with automatic state management
 for the OaaS SDK simplified interface.
 """
 
-from typing import Any, Dict, Optional, get_type_hints, TYPE_CHECKING
+from typing import Any, Dict, Optional, get_type_hints, TYPE_CHECKING, Union
 
 from ..obj import BaseObject
 from .state_descriptor import StateDescriptor
@@ -101,9 +101,17 @@ class OaasObject(BaseObject):
             cls_meta = global_oaas.new_cls(service_name, package)
             cls._oaas_cls_meta = cls_meta
         
-        # Use AutoSessionManager for automatic session management
-        auto_session_manager = OaasService._get_auto_session_manager()
-        obj = auto_session_manager.create_object(cls_meta, obj_id=obj_id, local=local)
+        # Try to use AutoSessionManager for automatic session management
+        try:
+            auto_session_manager = OaasService._get_auto_session_manager()
+            obj = auto_session_manager.create_object(cls_meta, obj_id=obj_id, local=local)
+        except Exception:
+            # Fallback to traditional session creation if auto session manager fails
+            session = global_oaas.new_session()
+            obj = session.create_object(cls_meta, obj_id=obj_id, local=local)
+            # Manually set auto-commit if possible
+            if hasattr(obj, '_auto_commit'):
+                obj._auto_commit = False  # Disable since no auto session manager
         
         return obj
     
@@ -135,9 +143,17 @@ class OaasObject(BaseObject):
             cls_meta = global_oaas.new_cls(service_name, package)
             cls._oaas_cls_meta = cls_meta
         
-        # Use AutoSessionManager for automatic session management
-        auto_session_manager = OaasService._get_auto_session_manager()
-        obj = auto_session_manager.load_object(cls_meta, obj_id)
+        # Try to use AutoSessionManager for automatic session management
+        try:
+            auto_session_manager = OaasService._get_auto_session_manager()
+            obj = auto_session_manager.load_object(cls_meta, obj_id)
+        except Exception:
+            # Fallback to traditional session loading if auto session manager fails
+            session = global_oaas.new_session()
+            obj = session.load_object(cls_meta, obj_id)
+            # Manually set auto-commit if possible
+            if hasattr(obj, '_auto_commit'):
+                obj._auto_commit = False  # Disable since no auto session manager
         
         return obj
 

@@ -45,6 +45,9 @@ class Oparaca:
         self.default_session = self.new_session()
         self.async_mode = async_mode
         
+        # Auto session manager will be set externally by OaasService
+        self._auto_session_manager = None
+        
         
     def mock(self):
         return Oparaca(

@@ -96,9 +96,13 @@ class StateDescriptor:
             
             debug_ctx.log(DebugLevel.TRACE, f"StateDescriptor set {self.name} = {type(value).__name__}")
             
-            # Schedule auto-commit if enabled
-            if hasattr(obj, '_auto_commit') and obj._auto_commit and hasattr(obj, '_auto_session_manager'):
-                obj._auto_session_manager.schedule_commit(obj)
+            # Schedule auto-commit if enabled and available
+            if (hasattr(obj, '_auto_commit') and obj._auto_commit and 
+                hasattr(obj, '_auto_session_manager') and obj._auto_session_manager is not None):
+                try:
+                    obj._auto_session_manager.schedule_commit(obj)
+                except Exception as e:
+                    debug_ctx.log(DebugLevel.WARNING, f"Failed to schedule auto-commit for {self.name}: {e}")
             
             # Record performance metrics
             if debug_ctx.performance_monitoring and start_time:
