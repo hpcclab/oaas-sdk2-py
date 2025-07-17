@@ -6,7 +6,7 @@ This module provides unified configuration for the OaaS SDK.
 
 from typing import Optional
 
-from pydantic import HttpUrl, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 

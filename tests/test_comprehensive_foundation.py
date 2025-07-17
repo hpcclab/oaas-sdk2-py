@@ -11,29 +11,18 @@ This test suite provides comprehensive coverage for:
 """
 
 import asyncio
-import json
-import threading
 import time
-import gc
-import sys
-import tracemalloc
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Optional, Any, Union, get_origin, get_args
+from typing import List, Dict, Optional, Any
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 from pydantic import BaseModel
-import pickle
+
 
 # Test imports
 try:
     from oaas_sdk2_py import (
-        # Legacy API - should still work
-        Oparaca, Session, BaseObject, ClsMeta, FuncMeta, OprcConfig,
-        ObjectInvocationRequest, InvocationRequest, InvocationResponse,
-        
         # New simplified API
         OaasObject, OaasService, OaasConfig, oaas,
-        create_object, load_object
     )
     
     # Import specific components for unit testing
@@ -82,7 +71,7 @@ class TestStateDescriptor:
         )
         
         assert descriptor.name == "test_field"
-        assert descriptor.type_hint == int
+        assert descriptor.type_hint is int
         assert descriptor.default_value == 42
         assert descriptor.index == 0
         assert descriptor.private_name == "_state_test_field"
@@ -117,9 +106,9 @@ class TestStateDescriptor:
         
         # Test boolean descriptor
         bool_desc = StateDescriptor("active", bool, False, 2)
-        assert bool_desc.__get__(obj) == False
+        assert not bool_desc.__get__(obj)
         bool_desc.__set__(obj, True)
-        assert bool_desc.__get__(obj) == True
+        assert bool_desc.__get__(obj)
         
         print("✅ StateDescriptor basic types test passed")
     
@@ -167,12 +156,12 @@ class TestOaasObject:
         class StateTestObj(OaasObject):
             count: int = 0
             name: str = "default"
-            
+
             @oaas.method
             async def increment(self) -> int:
                 self.count += 1
                 return self.count
-                
+
             @oaas.method
             async def set_name(self, req: dict) -> str:
                 new_name = req.get("name", "default")
@@ -199,7 +188,7 @@ class TestOaasObject:
             return True
         
         result = asyncio.run(test_state())
-        assert result == True
+        assert result
         print("✅ OaasObject state management test passed")
     
     def test_oaas_object_lifecycle(self):
@@ -231,7 +220,7 @@ class TestOaasObject:
             return True
         
         result = asyncio.run(test_lifecycle())
-        assert result == True
+        assert result
         print("✅ OaasObject lifecycle test passed")
 
 
@@ -244,9 +233,9 @@ class TestOaasConfig:
         
         assert config.oprc_zenoh_peers is None
         assert config.oprc_partition_default == 0
-        assert config.mock_mode == False
-        assert config.async_mode == True
-        assert config.auto_commit == True
+        assert not config.mock_mode
+        assert config.async_mode
+        assert config.auto_commit
         assert config.batch_size == 100
         print("✅ OaasConfig creation test passed")
     
@@ -333,7 +322,7 @@ class TestOaasService:
         
         # Test that global oaas is reset
         global_oaas = OaasService._get_global_oaas()
-        assert global_oaas.mock_mode == True
+        assert global_oaas.mock_mode
         print("✅ OaasService global configuration test passed")
 
 
@@ -383,7 +372,7 @@ class TestIntegration:
             return True
         
         result = asyncio.run(test_workflow())
-        assert result == True
+        assert result
         print("✅ Integration workflow test passed")
 
 
@@ -424,7 +413,7 @@ class TestPerformance:
             return True
         
         result = asyncio.run(test_performance())
-        assert result == True
+        assert result
         print("✅ Performance test passed")
     
     def test_concurrent_access(self):
@@ -461,7 +450,7 @@ class TestPerformance:
             return True
         
         result = asyncio.run(test_concurrent())
-        assert result == True
+        assert result
         print("✅ Concurrent access test passed")
 
 
@@ -502,7 +491,7 @@ class TestErrorHandling:
             return True
         
         result = asyncio.run(test_invalid_types())
-        assert result == True
+        assert result
         print("✅ Error handling test passed")
     
     def test_serialization_edge_cases(self):
@@ -535,7 +524,7 @@ class TestErrorHandling:
             return True
         
         result = asyncio.run(test_serialization())
-        assert result == True
+        assert result
         print("✅ Serialization edge cases test passed")
 
 
