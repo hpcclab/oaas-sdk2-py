@@ -138,6 +138,25 @@ def parse_resp(resp) -> InvocationResponse:
         return InvocationResponse(
             status=int(InvocationResponseCode.Okay), payload=resp.encode()
         )
+    elif isinstance(resp, (int, float)):
+        # Handle numeric types
+        return InvocationResponse(
+            status=int(InvocationResponseCode.Okay), payload=str(resp).encode()
+        )
+    elif isinstance(resp, bool):
+        # Handle boolean type (convert to "true"/"false")
+        return InvocationResponse(
+            status=int(InvocationResponseCode.Okay), payload=str(resp).lower().encode()
+        )
+    elif isinstance(resp, (list, dict)):
+        # Handle list and dict types
+        b = json.dumps(resp).encode()
+        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=b)
+    else:
+        # For any other type, try to convert to string
+        return InvocationResponse(
+            status=int(InvocationResponseCode.Okay), payload=str(resp).encode()
+        )
 
 
 class ClsMeta:
@@ -429,7 +448,7 @@ class ClsMeta:
                     return parse_resp(resp)
 
                 return caller
-        elif isinstance(second_param.annotation, bytes):
+        elif second_param.annotation is bytes:
             if inspect.iscoroutinefunction(function):
                 @functools.wraps(function)
                 async def caller(obj_self, req):
@@ -441,7 +460,7 @@ class ClsMeta:
                     resp = function(obj_self, req.payload)
                     return parse_resp(resp)
             return caller
-        elif isinstance(second_param.annotation, str):
+        elif second_param.annotation is str:
             if inspect.iscoroutinefunction(function):
                 @functools.wraps(function)
                 async def caller(obj_self, req):
@@ -451,18 +470,6 @@ class ClsMeta:
                 @functools.wraps(function)
                 def caller(obj_self, req):
                     resp = function(obj_self, req.payload.decode())
-                    return parse_resp(resp)
-            return caller
-        elif isinstance(second_param.annotation, bytes):
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    resp = await function(obj_self, req.payload)
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    resp = function(obj_self, req.payload)
                     return parse_resp(resp)
             return caller
         elif second_param.annotation is dict or second_param.annotation is inspect.Parameter.empty:
@@ -477,6 +484,80 @@ class ClsMeta:
                 def caller(obj_self, req):
                     req_dict = json.loads(req.payload.decode())
                     resp = function(obj_self, req_dict)
+                    return parse_resp(resp)
+            return caller
+        elif second_param.annotation is int:
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    value = int(req.payload.decode())
+                    resp = await function(obj_self, value)
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    value = int(req.payload.decode())
+                    resp = function(obj_self, value)
+                    return parse_resp(resp)
+            return caller
+        elif second_param.annotation is float:
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    value = float(req.payload.decode())
+                    resp = await function(obj_self, value)
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    value = float(req.payload.decode())
+                    resp = function(obj_self, value)
+                    return parse_resp(resp)
+            return caller
+        elif second_param.annotation is bool:
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    # Handle bool conversion (JSON-style: "true"/"false" or "1"/"0")
+                    payload_str = req.payload.decode().lower()
+                    if payload_str in ("true", "1"):
+                        value = True
+                    elif payload_str in ("false", "0"):
+                        value = False
+                    else:
+                        raise ValueError(f"Invalid boolean value: {payload_str}")
+                    resp = await function(obj_self, value)
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    # Handle bool conversion (JSON-style: "true"/"false" or "1"/"0")
+                    payload_str = req.payload.decode().lower()
+                    if payload_str in ("true", "1"):
+                        value = True
+                    elif payload_str in ("false", "0"):
+                        value = False
+                    else:
+                        raise ValueError(f"Invalid boolean value: {payload_str}")
+                    resp = function(obj_self, value)
+                    return parse_resp(resp)
+            return caller
+        elif second_param.annotation is list:
+            if inspect.iscoroutinefunction(function):
+                @functools.wraps(function)
+                async def caller(obj_self, req):
+                    value = json.loads(req.payload.decode())
+                    if not isinstance(value, list):
+                        raise ValueError(f"Expected list, got {type(value)}")
+                    resp = await function(obj_self, value)
+                    return parse_resp(resp)
+            else:
+                @functools.wraps(function)
+                def caller(obj_self, req):
+                    value = json.loads(req.payload.decode())
+                    if not isinstance(value, list):
+                        raise ValueError(f"Expected list, got {type(value)}")
+                    resp = function(obj_self, value)
                     return parse_resp(resp)
             return caller
         else:

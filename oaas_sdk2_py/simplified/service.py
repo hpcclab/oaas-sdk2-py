@@ -763,7 +763,11 @@ class OaasService:
     @staticmethod
     def start_server(port: int = 8080, loop: Any = None, async_mode: bool = None) -> None:
         """
-        Start gRPC server with simplified configuration.
+        Start gRPC server to host all registered service definitions for external access.
+        
+        IMPORTANT: The server provides gRPC endpoints for external clients to call 
+        service methods. It operates independently of agents - clients can call 
+        regular methods through the server even if no agents are running.
         
         Args:
             port: Port to bind server to (default: 8080)
@@ -772,6 +776,12 @@ class OaasService:
             
         Raises:
             ServerError: If server already running or start fails
+            
+        Note:
+            - Server hosts ALL registered @oaas.service classes
+            - Provides gRPC API for external client access
+            - Independent of agents - can run without any agents
+            - Handles regular method calls (not serve_with_agent=True methods)
         """
         if OaasService._server_running:
             raise ServerError("gRPC server is already running")
@@ -855,19 +865,29 @@ class OaasService:
     async def start_agent(service_class: Type['OaasObject'], obj_id: int = None, 
                          partition_id: int = None, loop: Any = None) -> str:
         """
-        Start agent for service class or specific object instance.
+        Start agent for specific object instance to handle serve_with_agent=True methods.
+        
+        IMPORTANT: Agents operate independently of gRPC servers. An agent listens on 
+        message queue keys for specific object method invocations and can run without 
+        a server being active.
         
         Args:
             service_class: Service class decorated with @oaas.service
-            obj_id: Specific object ID (if None, serves all instances)
+            obj_id: Specific object ID (default: 1 if None)
             partition_id: Partition ID (uses default if None)
             loop: Event loop (auto-detected if None)
             
         Returns:
-            Agent ID for tracking/stopping
+            Agent ID for tracking/stopping (format: "package.service_name:obj_id")
             
         Raises:
             AgentError: If agent start fails or service invalid
+            
+        Note:
+            - Agents handle only methods marked with serve_with_agent=True
+            - Each agent serves ONE specific object instance
+            - Multiple agents can run for different object instances of same service
+            - Agents use message queue communication, not gRPC
         """
         if not hasattr(service_class, '_oaas_cls_meta'):
             raise AgentError(f"Service class {service_class.__name__} not registered with @oaas.service")

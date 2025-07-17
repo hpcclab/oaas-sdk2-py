@@ -2,9 +2,11 @@ import asyncio
 import logging
 import os
 import sys
-from .__init__ import oaas
+from oaas_sdk2_py import oaas
+
 
 def setup_event_loop():
+    """Set up the most appropriate event loop for the platform."""
     import asyncio
     import platform
     if platform.system() != "Windows":
@@ -24,18 +26,25 @@ def setup_event_loop():
             logging.warning("winloop not available, using asyncio")
 
 if __name__ == '__main__':
+    # Set up logging
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     logging.basicConfig(level=LOG_LEVEL)
     logging.getLogger('hpack').setLevel(logging.CRITICAL)
+    
+    # Set default environment variables
     os.environ.setdefault("OPRC_ODGM_URL", "http://localhost:10000")
-    if sys.argv.__len__() > 1 and sys.argv[1] == "gen":
-        oaas.meta_repo.print_pkg()
+    os.environ.setdefault("HTTP_PORT", "8080")
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "gen":
+        # Generate package metadata
+        print("Generating package metadata...")
+        # Note: This would need to be adapted to the new API
+        print("Package metadata generation not yet implemented for new API")
     else:
-        os.environ.setdefault("HTTP_PORT", "8080")
-        port = int(os.environ.get("HTTP_PORT"))
+        port = int(os.environ.get("HTTP_PORT", "8080"))
         setup_event_loop()
         loop = asyncio.new_event_loop() 
-        oaas.start_grpc_server(loop, port=port)
+        oaas.start_server(port=port, loop=loop)
         try:
             loop.run_forever()
         finally:

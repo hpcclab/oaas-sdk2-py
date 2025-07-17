@@ -1,13 +1,14 @@
 # OaaS-SDK2
 
-This library helps you develop a runtime that can be run in a  Object as a Service (OaaS) serverless. For more information on the OaaS model, visit [https://github.com/hpcclab/OaaS](https://github.com/hpcclab/OaaS).
+This library helps you develop a runtime that can be run in a Object as a Service (OaaS) serverless platform. For more information on the OaaS model, visit [https://github.com/hpcclab/OaaS](https://github.com/hpcclab/OaaS).
 
 ## Table of Contents
 - [Documentation](#documentation)
-- [Setup](#setup)
 - [Installation](#installation)
 - [Features](#features)
+- [Quick Start](#quick-start)
 - [Examples](#examples)
+- [API Overview](#api-overview)
 - [Build the project](#build-the-project)
 
 ## Documentation
@@ -16,8 +17,6 @@ For a comprehensive guide and API reference, please see the `docs` directory:
 
 - **[Tutorial](docs/tutorial.md)**: A step-by-step guide to getting started with the OaaS SDK.
 - **[API Reference](docs/reference.md)**: A detailed reference of all classes, methods, and functions.
-
-
 
 ## Installation
 
@@ -34,152 +33,288 @@ uv add oaas-sdk2-py
 
 ## Features
 
-- **Define Classes and Objects**: Easily define classes and create persistent objects.
-- **Remote Procedure Calls (RPC)**: Invoke methods on objects remotely.
-- **Data Persistence**: Object data is persisted and can be retrieved.
-- **Asynchronous Support**: Built with `async/await` for non-blocking operations.
-- **Mocking Framework**: Includes a mocking utility for testing your OaaS applications without needing a live environment.
-- **Typed Interactions**: Leverages Pydantic for data validation and serialization.
-- **Rust-Powered Core**: High-performance core components written in Rust for speed and efficiency.
+- **Simplified API**: Easy-to-use decorators and type-safe method definitions
+- **Type Safety**: Full Pydantic model support with automatic validation
+- **Async/Sync Support**: Built with `async/await` for non-blocking operations
+- **Data Persistence**: Object data is persisted and can be retrieved
+- **Remote Procedure Calls (RPC)**: Invoke methods on objects remotely
+- **Mocking Framework**: Includes a mocking utility for testing your OaaS applications
+- **Rust-Powered Core**: High-performance core components written in Rust for speed and efficiency
 
+## Quick Start
+
+### Basic Service Definition
+
+```python
+from oaas_sdk2_py import oaas, OaasObject, OaasConfig
+from pydantic import BaseModel
+
+# Configure OaaS
+config = OaasConfig(async_mode=True, mock_mode=False)
+oaas.configure(config)
+
+# Define request/response models
+class GreetRequest(BaseModel):
+    name: str
+
+class GreetResponse(BaseModel):
+    message: str
+
+# Define your service
+@oaas.service("Greeter", package="example")
+class Greeter(OaasObject):
+    counter: int = 0
+    
+    @oaas.method()
+    async def greet(self, req: GreetRequest) -> GreetResponse:
+        return GreetResponse(message=f"Hello, {req.name}!")
+    
+    @oaas.method()
+    async def count_greetings(self) -> int:
+        self.counter += 1
+        return self.counter
+    
+    @oaas.method()
+    async def is_popular(self, threshold: int = 10) -> bool:
+        return self.counter > threshold
+
+# Usage
+async def main():
+    # Create and use locally
+    greeter = Greeter.create(local=True)
+    
+    # Test with different types
+    response = await greeter.greet(GreetRequest(name="World"))
+    count = await greeter.count_greetings()  # Returns int
+    popular = await greeter.is_popular(5)     # Returns bool
+    
+    print(f"{response.message} (Count: {count}, Popular: {popular})")
+```
+
+### Server & Agent Management
+
+```python
+# Start gRPC server (for external access)
+oaas.start_server(port=8080)
+
+# Start agent (for background processing)
+agent_id = await oaas.start_agent(Greeter, obj_id=123)
+
+# Check status
+print(f"Server running: {oaas.is_server_running()}")
+print(f"Agents: {oaas.list_agents()}")
+
+# Cleanup
+await oaas.stop_agent(agent_id)
+oaas.stop_server()
+```
+
+
+## API Overview
+
+### Core Components
+
+- **`@oaas.service`**: Decorator to define OaaS services
+- **`@oaas.method`**: Decorator to expose methods as RPC endpoints
+- **`OaasObject`**: Base class for all OaaS objects with persistence
+- **`OaasConfig`**: Configuration for OaaS runtime
+
+### Supported Types
+
+The SDK natively supports these Python types:
+- **Primitives**: `int`, `float`, `bool`, `str`
+- **Collections**: `list`, `dict`
+- **Binary**: `bytes`
+- **Models**: Pydantic `BaseModel` classes
 
 ## Examples
 
-**Note (Sync/Async API):** The following examples demonstrate synchronous operations. To use `async/await` features, initialize Oparaca with `oaas = Oparaca(async_mode=True)`. You would then use methods like `get_data_async`, `set_data_async`, `commit_async`, and define your object methods with `async def`. 
-
-**Note (Remote object):** When an object is created without the `local=True` flag (the default behavior for `mock_oaas.create_object` unless specified, and standard for objects managed by a live OaaS environment), method calls decorated with `@your_cls_meta.func()` on that object instance will result in a Remote Procedure Call (RPC) to the OaaS platform.
-
-### Basic Usage
-
-First, define your class and its methods using the OaaS SDK decorators.
+### System Monitoring Service
 
 ```python
-# In your_module.py
-from pydantic import BaseModel
-from oaas_sdk2_py import Oparaca, BaseObject
+import psutil
+from oaas_sdk2_py import oaas, OaasObject
 
-# Initialize Oparaca (default is synchronous mode)
-oaas = Oparaca()
-# For asynchronous operations, use: oaas = Oparaca(async_mode=True)
+@oaas.service("ComputeDevice", package="monitoring")
+class ComputeDevice(OaasObject):
+    metrics: dict = {}
 
-# Define a class metadata
-sample_cls_meta = oaas.new_cls("MySampleClass")
+    @oaas.method()
+    async def get_cpu_usage(self) -> float:
+        """Get current CPU usage as a percentage."""
+        return psutil.cpu_percent(interval=0.1)
 
-class Msg(BaseModel):
-    content: str
+    @oaas.method()
+    async def get_process_count(self) -> int:
+        """Get number of running processes."""
+        return len(psutil.pids())
 
-class Result(BaseModel):
-    status: str
-    message: str
+    @oaas.method()
+    async def is_healthy(self, cpu_threshold: float = 80.0) -> bool:
+        """Check if system is healthy."""
+        cpu_usage = await self.get_cpu_usage()
+        return cpu_usage < cpu_threshold
 
-@sample_cls_meta
-class SampleObj(BaseObject):
-    def get_intro(self) -> str:
-        raw = self.get_data(0) # Key 0 for intro data
-        return raw.decode("utf-8") if raw is not None else "No intro set."
+    @oaas.method()
+    async def monitor_continuously(self, duration: int) -> dict:
+        """Monitor for specified duration and return metrics."""
+        samples = []
+        for _ in range(duration):
+            cpu = psutil.cpu_percent(interval=1.0)
+            samples.append(cpu)
+        
+        return {
+            "avg_cpu": sum(samples) / len(samples),
+            "samples": len(samples),
+            "duration": duration
+        }
 
-    def set_intro(self, data: str):
-        self.set_data(0, data.encode("utf-8"))
-
-    @sample_cls_meta.func()
-    def greet(self) -> str:
-        intro = self.get_intro()
-        return f"Hello from SampleObj! Intro: {intro}"
-
-    @sample_cls_meta.func("process_message")
-    def process(self, msg: Msg) -> Result:
-        # Process the message
-        processed_message = f"Processed: {msg.content}"
-        self.set_intro(processed_message) # Example of updating object state
-        self.commit()
-        return Result(status="success", message=processed_message)
-
+# Usage
+device = ComputeDevice.create(local=True)
+cpu_usage = await device.get_cpu_usage()      # Returns float
+process_count = await device.get_process_count()  # Returns int
+is_healthy = await device.is_healthy(75.0)    # Returns bool
+metrics = await device.monitor_continuously(5)  # Returns dict
 ```
 
-### Interacting with Objects
+### Counter Service with State
 
 ```python
-from oaas_sdk2_py import Oparaca
-# Assuming your_module defines oaas, sample_cls_meta, SampleObj, Msg
-from your_module import oaas, sample_cls_meta, SampleObj, Msg 
+from oaas_sdk2_py import oaas, OaasObject
 
-def main(): 
+@oaas.service("Counter", package="example")
+class Counter(OaasObject):
+    count: int = 0
+    history: list = []
 
-    # For local testing, you can use the mock
-    mock_oaas = oaas.mock()
+    @oaas.method()
+    async def increment(self, amount: int = 1) -> int:
+        """Increment counter by amount."""
+        self.count += amount
+        self.history.append(f"Added {amount}")
+        return self.count
 
-    # Create an object
-    # obj_id can be any unique identifier, e.g., 1
-    my_object: SampleObj = mock_oaas.create_object(sample_cls_meta, 1)
+    @oaas.method()
+    async def get_value(self) -> int:
+        """Get current counter value."""
+        return self.count
 
-    # Set initial data
-    my_object.set_intro("My first OaaS object!")
-    my_object.commit() # Persist changes (synchronous)
+    @oaas.method()
+    async def get_history(self) -> list:
+        """Get operation history."""
+        return self.history
 
-    # Invoke a simple RPC method
-    greeting = my_object.greet()
-    print(greeting)
+    @oaas.method()
+    async def reset(self) -> bool:
+        """Reset counter to zero."""
+        self.count = 0
+        self.history.clear()
+        return True
 
-    # Invoke an RPC method with input and output
-    response = my_object.process(Msg(content="Important data"))
-    print(f"Processing Response: {response.status} - {response.message}")
+# Usage
+counter = Counter.create(local=True)
+value = await counter.increment(5)    # Returns int: 5
+current = await counter.get_value()   # Returns int: 5
+history = await counter.get_history() # Returns list: ["Added 5"]
+reset = await counter.reset()         # Returns bool: True
+```
 
-    # Verify data was updated
-    updated_greeting = my_object.greet()
-    print(updated_greeting)
+### Testing with Mock Mode
 
-    # Load an existing object
-    loaded_object: SampleObj = mock_oaas.load_object(sample_cls_meta, 1)
-    intro = loaded_object.get_intro()
-    print(f"Loaded object intro: {intro}")
+```python
+import pytest
+from oaas_sdk2_py import oaas, OaasConfig
+
+# Configure for testing
+@pytest.fixture
+def setup_mock():
+    config = OaasConfig(mock_mode=True, async_mode=True)
+    oaas.configure(config)
+
+@pytest.mark.asyncio
+async def test_counter_service(setup_mock):
+    counter = Counter.create(local=True)
+    
+    # Test increment
+    result = await counter.increment(10)
+    assert result == 10
+    assert isinstance(result, int)
+    
+    # Test history
+    history = await counter.get_history()
+    assert history == ["Added 10"]
+    assert isinstance(history, list)
+    
+    # Test reset
+    reset_result = await counter.reset()
+    assert reset_result is True
+    assert isinstance(reset_result, bool)
+```
+
+### Running as Server/Agent
+
+Create a main module to run your service:
+
+```python
+# main.py
+import asyncio
+import sys
+from oaas_sdk2_py import oaas, OaasConfig
+
+async def run_server():
+    """Run gRPC server for external access."""
+    config = OaasConfig(async_mode=True, mock_mode=False)
+    oaas.configure(config)
+    
+    oaas.start_server(port=8080)
+    print("🚀 Server running on port 8080")
+    
+    try:
+        while True:
+            await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        print("🛑 Shutting down...")
+    finally:
+        oaas.stop_server()
+
+async def run_agent():
+    """Run agent for background processing."""
+    config = OaasConfig(async_mode=True, mock_mode=False)
+    oaas.configure(config)
+    
+    # Start both server and agent
+    oaas.start_server(port=8080)
+    agent_id = await oaas.start_agent(Counter, obj_id=1)
+    print(f"🤖 Agent started: {agent_id}")
+    
+    try:
+        while True:
+            await asyncio.sleep(5)
+            print(f"📊 Server: {oaas.is_server_running()}, Agents: {len(oaas.list_agents())}")
+    except KeyboardInterrupt:
+        print("🛑 Shutting down...")
+    finally:
+        await oaas.stop_all_agents()
+        oaas.stop_server()
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "agent":
+        asyncio.run(run_agent())
+    else:
+        asyncio.run(run_server())
 ```
 
-### Using the Mock Framework for Tests
+Run with:
+```bash
+# Server only
+python main.py
 
-The SDK provides a `oaas.mock()` utility that allows you to test your object logic without connecting to a live OaaS environment. This is particularly useful for unit and integration tests.
-
-```python
-# In your tests/test_my_sample_class.py
-import unittest
-# import asyncio # Not needed for synchronous example
-from oaas_sdk2_py import Oparaca
-# Assuming your_module defines oaas, sample_cls_meta, SampleObj, Msg
-from your_module import oaas, sample_cls_meta, SampleObj, Msg
-
-class TestMySampleClass(unittest.TestCase): # Changed from IsolatedAsyncioTestCase
-
-    def test_greeting_with_mock(self): # Changed from async def
-        mock_oaas = oaas.mock()
-        obj: SampleObj = mock_oaas.create_object(sample_cls_meta, 1)
-        
-        obj.set_intro("Mocked Intro")
-        obj.commit() # In mock, this updates the in-memory store (synchronous)
-        
-        result = obj.greet()
-        self.assertEqual(result, "Hello from SampleObj! Intro: Mocked Intro")
-
-    def test_process_message_with_mock(self): # Changed from async def
-        mock_oaas = oaas.mock()
-        obj: SampleObj = mock_oaas.create_object(sample_cls_meta, 2)
-        
-        response = obj.process(Msg(content="Test Message"))
-        self.assertEqual(response.status, "success")
-        self.assertEqual(response.message, "Processed: Test Message")
-        
-        # Verify state change
-        intro = obj.get_intro()
-        self.assertEqual(intro, "Processed: Test Message")
-
+# Server + Agent
+python main.py agent
 ```
-
-Refer to `tests/test_mock.py` and `tests/sample_cls.py` for more detailed examples of synchronous and asynchronous object definitions and mock usage.
 
 
 ## Run on OaaS
-
 
 ### Prerequisites
 - cargo (install via [rust](https://rustup.rs/))
@@ -187,8 +322,35 @@ Refer to `tests/test_mock.py` and `tests/sample_cls.py` for more detailed exampl
 - OaaS Platform (Oparaca)
     - Kubernetes Cluster (e.g., k3d with Docker runtime)
 
+### Deployment
 
-TODO
+1. **Package your service**:
+```bash
+# Generate package metadata
+python -m your_service gen
+
+# Build Docker image
+docker build -t your-service:latest .
+```
+
+2. **Deploy to OaaS platform**:
+```bash
+# Deploy service definition
+oprc-cli deploy service your-service.yaml
+
+# Create object instances
+oprc-cli create object your-service/YourClass --id 123
+```
+
+3. **Monitor and manage**:
+```bash
+# Check status
+oprc-cli list objects
+oprc-cli get object your-service/YourClass/123
+
+# Scale agents
+oprc-cli scale agents your-service/YourClass --replicas 3
+```
 
 
 ## Build the project

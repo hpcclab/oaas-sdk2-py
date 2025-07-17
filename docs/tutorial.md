@@ -5,16 +5,14 @@
 2. [Installation](#installation)
 3. [Getting Started](#getting-started)
 4. [Basic Concepts](#basic-concepts)
-5. [Creating Your First OaaS Class](#creating-your-first-oaas-class)
+5. [Creating Your First OaaS Service](#creating-your-first-oaas-service)
 6. [Working with Objects](#working-with-objects)
-7. [Sessions and Transactions](#sessions-and-transactions)
-8. [Function Types and Decorators](#function-types-and-decorators)
-9. [Data Management](#data-management)
-10. [Remote Procedure Calls](#remote-procedure-calls)
-11. [Event-Driven Programming](#event-driven-programming)
-12. [Testing with Mock Mode](#testing-with-mock-mode)
-13. [Advanced Topics](#advanced-topics)
-14. [Best Practices](#best-practices)
+7. [Type System](#type-system)
+8. [Server and Agent Management](#server-and-agent-management)
+9. [Configuration](#configuration)
+10. [Testing with Mock Mode](#testing-with-mock-mode)
+11. [Advanced Topics](#advanced-topics)
+12. [Best Practices](#best-practices)
 
 ## Introduction
 
@@ -31,16 +29,16 @@ Think of the OaaS platform as a managed environment for your Python objects. You
 -   **Concurrency**: Handling multiple requests to your objects.
 -   **Scalability**: Running many instances of your objects.
 
-This SDK provides the necessary building blocks (`Oparaca`, `BaseObject`, decorators, etc.) to make your Python classes compatible with the OaaS platform, effectively turning them into scalable, stateful microservices.
+This SDK provides the necessary building blocks (`@oaas.service`, `@oaas.method`, `OaasObject`, etc.) to make your Python classes compatible with the OaaS platform, effectively turning them into scalable, stateful microservices.
 
 ### Key Features
 
-- **Distributed Objects**: Create objects that can be accessed remotely across processes
-- **Stateful Services**: Objects maintain state that persists between method calls
+- **Simplified API**: Easy-to-use decorators with minimal boilerplate
+- **Native Type Support**: Built-in support for Python primitives (`int`, `float`, `bool`, `str`, `list`, `dict`, `bytes`) and Pydantic models
+- **Server/Agent Independence**: Servers host service definitions, agents host object instances
 - **Async/Sync Support**: Full support for both synchronous and asynchronous operations
-- **Type Safety**: Built-in support for Pydantic models and type hints
+- **State Management**: Objects maintain persistent state across method calls
 - **Event-Driven Architecture**: Trigger-based event system for reactive programming
-- **Transaction Support**: Session-based transactions for consistency
 - **Mock Support**: Built-in mocking for testing and development
 
 ## Installation
@@ -54,11 +52,12 @@ pip install oaas-sdk2-py
 ### Quick Start Example
 
 ```python
-from oaas_sdk2_py import Oparaca, BaseObject
+from oaas_sdk2_py import oaas, OaasObject, OaasConfig
 from pydantic import BaseModel
 
-# Create OaaS instance
-oaas = Oparaca()
+# Configure OaaS
+config = OaasConfig(async_mode=True, mock_mode=False)
+oaas.configure(config)
 
 # Define request/response models
 class GreetRequest(BaseModel):
@@ -67,636 +66,917 @@ class GreetRequest(BaseModel):
 class GreetResponse(BaseModel):
     message: str
 
-# Create a class metadata
-greeter_cls = oaas.new_cls("Greeter", pkg="example")
-
-@greeter_cls
-class Greeter(BaseObject):
-    @greeter_cls.func()
+# Create your service
+@oaas.service("Greeter", package="example")
+class Greeter(OaasObject):
+    greeting_count: int = 0
+    
+    @oaas.method()
     async def greet(self, req: GreetRequest) -> GreetResponse:
-        return GreetResponse(message=f"Hello, {req.name}!")
+        self.greeting_count += 1
+        return GreetResponse(message=f"Hello, {req.name}! (Greeting #{self.greeting_count})")
+    
+    @oaas.method()
+    async def get_count(self) -> int:
+        return self.greeting_count
 
 # Usage
 async def main():
-    session = oaas.new_session()
-    greeter = session.create_object(greeter_cls)
+    greeter = Greeter.create(local=True)
     response = await greeter.greet(GreetRequest(name="World"))
-    print(response.message)  # Output: Hello, World!
+    count = await greeter.get_count()
+    print(f"{response.message} | Total greetings: {count}")
 ```
 
 ## Basic Concepts
 
-### 1. Oparaca Engine
+### 1. OaaS Configuration
 
-The [`Oparaca`](oaas_sdk2_py/engine.py:17) class is the main engine that manages the entire OaaS system:
+Configure the OaaS runtime using [`OaasConfig`](oaas_sdk2_py/simplified/config.py):
 
 ```python
-from oaas_sdk2_py import Oparaca
-from oaas_sdk2_py.config import OprcConfig
+from oaas_sdk2_py import oaas, OaasConfig
 
 # Basic configuration
-config = OprcConfig(
-    oprc_odgm_url="http://localhost:10000",
-    oprc_partition_default=0
+config = OaasConfig(
+    async_mode=True,          # Enable async operations
+    mock_mode=False,          # Use real OaaS platform
+    server_url="http://localhost:10000",
+    default_partition=0
 )
 
-oaas = Oparaca(
-    default_pkg="my_package",
-    config=config,
-    mock_mode=False,  # Set to True for testing
-    async_mode=True   # Enable async server mode
-)
+oaas.configure(config)
 ```
 
-### 2. Class Metadata
+### 2. Service Definition
 
-Before creating objects, you need to define class metadata using [`new_cls()`](oaas_sdk2_py/engine.py:59):
-
-```python
-# Create class metadata
-my_cls = oaas.new_cls(name="MyService", pkg="my_package")
-```
-
-### 3. BaseObject
-
-All OaaS objects must inherit from [`BaseObject`](oaas_sdk2_py/obj.py:10):
+Define services using the [`@oaas.service`](oaas_sdk2_py/simplified/service.py) decorator:
 
 ```python
-from oaas_sdk2_py import BaseObject
-
-@my_cls
-class MyService(BaseObject):
+@oaas.service("MyService", package="my_package")
+class MyService(OaasObject):
     pass
 ```
 
-### 4. Sessions
+### 3. Method Exposure
 
-Sessions manage object lifecycle and provide transaction boundaries:
+Expose methods as RPC endpoints using [`@oaas.method`](oaas_sdk2_py/simplified/service.py):
 
 ```python
-session = oaas.new_session(partition_id=0)
-obj = session.create_object(my_cls)
+@oaas.method()
+async def my_method(self, param: int) -> str:
+    return f"Received: {param}"
 ```
 
-## Creating Your First OaaS Class
+### 4. Object Creation
 
-Let's create a simple counter service:
+Create object instances using the service class:
 
 ```python
-from oaas_sdk2_py import Oparaca, BaseObject
+# Local object (in-process)
+obj = MyService.create(local=True)
+
+# Remote object (distributed)
+obj = MyService.create(obj_id=123)
+```
+
+## Creating Your First OaaS Service
+
+Let's create a comprehensive counter service with different return types:
+
+```python
+from oaas_sdk2_py import oaas, OaasObject, OaasConfig
 from pydantic import BaseModel
-import json
+from typing import Dict, List, Any
 
-# Initialize OaaS
-oaas = Oparaca()
+# Configure OaaS
+config = OaasConfig(async_mode=True, mock_mode=False)
+oaas.configure(config)
 
-# Define models
+# Request models
 class IncrementRequest(BaseModel):
     amount: int = 1
 
+class SetValueRequest(BaseModel):
+    value: int
+
+# Response models
 class CounterResponse(BaseModel):
-    count: int
+    value: int
+    message: str
 
-# Create class metadata
-counter_cls = oaas.new_cls("Counter", pkg="example")
-
-@counter_cls
-class Counter(BaseObject):
-    async def get_count(self) -> int:
-        """Get current count from persistent storage"""
-        raw = await self.get_data_async(0)
-        return json.loads(raw.decode()) if raw else 0
+@oaas.service("Counter", package="example")
+class Counter(OaasObject):
+    """A counter service demonstrating different return types."""
     
-    async def set_count(self, count: int):
-        """Set count in persistent storage"""
-        await self.set_data_async(0, json.dumps(count).encode())
+    # State variables
+    count: int = 0
+    history: List[str] = []
+    metadata: Dict[str, Any] = {}
     
-    @counter_cls.func()
-    async def increment(self, req: IncrementRequest) -> CounterResponse:
-        """Increment counter by specified amount"""
-        current = await self.get_count()
-        new_count = current + req.amount
-        await self.set_count(new_count)
-        return CounterResponse(count=new_count)
+    @oaas.method()
+    async def increment(self, req: IncrementRequest) -> int:
+        """Increment counter and return new value as int."""
+        self.count += req.amount
+        self.history.append(f"Incremented by {req.amount}")
+        return self.count
     
-    @counter_cls.func()
-    async def get_value(self) -> CounterResponse:
-        """Get current counter value"""
-        count = await self.get_count()
-        return CounterResponse(count=count)
+    @oaas.method()
+    async def get_value(self) -> int:
+        """Get current counter value as int."""
+        return self.count
     
-    @counter_cls.func()
-    async def reset(self) -> CounterResponse:
-        """Reset counter to zero"""
-        await self.set_count(0)
-        return CounterResponse(count=0)
+    @oaas.method()
+    async def get_history(self) -> List[str]:
+        """Get operation history as list."""
+        return self.history.copy()
+    
+    @oaas.method()
+    async def get_metadata(self) -> Dict[str, Any]:
+        """Get counter metadata as dict."""
+        return {
+            "current_value": self.count,
+            "operation_count": len(self.history),
+            "last_operation": self.history[-1] if self.history else None
+        }
+    
+    @oaas.method()
+    async def is_positive(self) -> bool:
+        """Check if counter is positive as bool."""
+        return self.count > 0
+    
+    @oaas.method()
+    async def get_status(self) -> str:
+        """Get counter status as string."""
+        if self.count == 0:
+            return "zero"
+        elif self.count > 0:
+            return "positive"
+        else:
+            return "negative"
+    
+    @oaas.method()
+    async def get_value_as_bytes(self) -> bytes:
+        """Get counter value as bytes."""
+        return str(self.count).encode('utf-8')
+    
+    @oaas.method()
+    async def get_detailed_info(self) -> CounterResponse:
+        """Get detailed counter info as Pydantic model."""
+        return CounterResponse(
+            value=self.count,
+            message=f"Counter has been operated {len(self.history)} times"
+        )
+    
+    @oaas.method()
+    async def reset(self) -> bool:
+        """Reset counter and return success status."""
+        self.count = 0
+        self.history.clear()
+        self.metadata.clear()
+        return True
+    
+    @oaas.method()
+    async def batch_increment(self, amounts: List[int]) -> List[int]:
+        """Increment by multiple amounts and return values after each increment."""
+        results = []
+        for amount in amounts:
+            self.count += amount
+            self.history.append(f"Batch incremented by {amount}")
+            results.append(self.count)
+        return results
 ```
 
 ### Usage Example
 
 ```python
 async def main():
-    # Create session
-    session = oaas.new_session()
-    
     # Create counter object
-    counter = session.create_object(counter_cls, obj_id=1)
+    counter = Counter.create(local=True)
     
-    # Use the counter
-    result = await counter.increment(IncrementRequest(amount=5))
-    print(f"Count after increment: {result.count}")
+    # Test different return types
+    value = await counter.increment(IncrementRequest(amount=5))
+    print(f"Counter value: {value} (type: {type(value)})")  # int
     
-    result = await counter.get_value()
-    print(f"Current count: {result.count}")
+    history = await counter.get_history()
+    print(f"History: {history} (type: {type(history)})")   # list
     
-    # Commit changes
-    await session.commit_async()
+    metadata = await counter.get_metadata()
+    print(f"Metadata: {metadata} (type: {type(metadata)})")  # dict
+    
+    is_positive = await counter.is_positive()
+    print(f"Is positive: {is_positive} (type: {type(is_positive)})")  # bool
+    
+    status = await counter.get_status()
+    print(f"Status: {status} (type: {type(status)})")  # str
+    
+    value_bytes = await counter.get_value_as_bytes()
+    print(f"Value as bytes: {value_bytes} (type: {type(value_bytes)})")  # bytes
+    
+    detailed = await counter.get_detailed_info()
+    print(f"Detailed: {detailed} (type: {type(detailed)})")  # CounterResponse
+    
+    batch_results = await counter.batch_increment([1, 2, 3])
+    print(f"Batch results: {batch_results} (type: {type(batch_results)})")  # list
 ```
 
 ## Working with Objects
 
-### Object Creation
-
-There are two ways to work with objects:
-
-1. **Create new objects**: Use [`create_object()`](oaas_sdk2_py/session.py:59)
-2. **Load existing objects**: Use [`load_object()`](oaas_sdk2_py/session.py:95)
-
-```python
-# Create new object
-new_obj = session.create_object(my_cls, obj_id=123, local=False)
-
-# Load existing object
-existing_obj = session.load_object(my_cls, obj_id=123)
-```
-
-### Local vs Remote Objects
-
-Objects can be local (in-process) or remote (distributed):
+### Object Creation Patterns
 
 ```python
 # Local object (stays in current process)
-local_obj = session.create_object(my_cls, local=True)
+local_obj = MyService.create(local=True)
 
-# Remote object (can be distributed)
-remote_obj = session.create_object(my_cls, local=False)
+# Remote object with auto-generated ID
+remote_obj = MyService.create()
+
+# Remote object with specific ID
+specific_obj = MyService.create(obj_id=123)
+
+# Load existing object
+existing_obj = MyService.load(obj_id=123)
 ```
 
-### Object Deletion
+### Object Lifecycle
 
 ```python
+# Create and use
+obj = MyService.create(obj_id=42)
+
+# Perform operations
+result = await obj.some_method()
+
 # Delete object
-session.delete_object(my_cls, obj_id=123)
-await session.commit_async()
-
-# Or delete from the object itself
-obj.delete()
-await obj.commit_async()
+await obj.delete()
 ```
 
-## Sessions and Transactions
+## Type System
 
-### Session Management
+### Supported Types
 
-Sessions provide transaction boundaries and object lifecycle management:
+The OaaS SDK natively supports these Python types:
 
+#### Primitive Types
 ```python
-# Create session with specific partition
-session = oaas.new_session(partition_id=1)
+@oaas.method()
+async def return_int(self) -> int:
+    return 42
 
-# Create objects within session
-obj1 = session.create_object(cls1)
-obj2 = session.create_object(cls2)
+@oaas.method()
+async def return_float(self) -> float:
+    return 3.14
 
-# Commit all changes
-await session.commit_async()
+@oaas.method()
+async def return_bool(self) -> bool:
+    return True
+
+@oaas.method()
+async def return_str(self) -> str:
+    return "Hello, World!"
 ```
 
-### Transaction Semantics
-
-Changes are not persisted until you commit:
-
+#### Collection Types
 ```python
-async def transfer_data():
-    session = oaas.new_session()
-    
-    source = session.load_object(account_cls, source_id)
-    target = session.load_object(account_cls, target_id)
-    
-    # Modify objects
-    await source.withdraw(amount)
-    await target.deposit(amount)
-    
-    # Commit both changes atomically
-    await session.commit_async()
+@oaas.method()
+async def return_list(self) -> List[int]:
+    return [1, 2, 3, 4, 5]
+
+@oaas.method()
+async def return_dict(self) -> Dict[str, Any]:
+    return {"key": "value", "count": 42}
 ```
 
-## Function Types and Decorators
-
-### Basic Function Decorator
-
-The [`@cls.func()`](oaas_sdk2_py/model.py:176) decorator registers methods as OaaS functions:
-
+#### Binary Data
 ```python
-@my_cls.func()
-async def my_method(self, req: MyRequest) -> MyResponse:
-    # Method implementation
-    return MyResponse(...)
+@oaas.method()
+async def return_bytes(self) -> bytes:
+    return b"Binary data"
 ```
 
-### Decorator Parameters
-
-- **`name`**: Override function name
-- **`stateless`**: Function doesn't modify object state
-- **`serve_with_agent`**: Function can be served by an agent
-
+#### Pydantic Models
 ```python
-@my_cls.func(name="custom_name", stateless=True, serve_with_agent=True)
-async def my_stateless_function(self, req: MyRequest) -> MyResponse:
-    # Stateless function implementation
-    return MyResponse(...)
+from pydantic import BaseModel
+
+class UserData(BaseModel):
+    id: int
+    name: str
+    email: str
+
+@oaas.method()
+async def return_model(self) -> UserData:
+    return UserData(id=1, name="John", email="john@example.com")
 ```
 
-### Stateless Functions
+### Method Parameters
 
-Stateless functions don't require a specific object instance:
-
-```python
-@my_cls.func(stateless=True)
-async def utility_function(self, req: UtilityRequest) -> UtilityResponse:
-    # This function doesn't use object state
-    return UtilityResponse(result=req.input.upper())
-```
-
-### Function Parameter Types
-
-Functions can accept various parameter types:
+**Important Note**: OaaS methods support only **one parameter** (plus `self`). For multiple values, use a dictionary or Pydantic model:
 
 ```python
-# Pydantic model
-@my_cls.func()
-async def with_model(self, req: MyModel) -> MyResponse:
+# ❌ Multiple parameters NOT supported
+@oaas.method()
+async def process_data(self, count: int, rate: float, enabled: bool) -> Dict[str, Any]:
+    # This will cause errors
     pass
 
-# Raw bytes
-@my_cls.func()
-async def with_bytes(self, data: bytes) -> MyResponse:
-    pass
+# ✅ Use a dictionary for multiple simple values
+@oaas.method()
+async def process_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    count = params["count"]
+    rate = params["rate"]
+    enabled = params["enabled"]
+    return {"processed": True, "count": count}
 
-# String
-@my_cls.func()
-async def with_string(self, data: str) -> MyResponse:
-    pass
+# ✅ Use Pydantic model for structured data (RECOMMENDED)
+class ProcessRequest(BaseModel):
+    count: int
+    rate: float
+    enabled: bool
+    message: str
+    items: List[str]
+    config: Dict[str, Any]
+    data: bytes
+    user: UserData
 
-# Dictionary
-@my_cls.func()
-async def with_dict(self, data: dict) -> MyResponse:
-    pass
+@oaas.method()
+async def process_data(self, request: ProcessRequest) -> Dict[str, Any]:
+    return {
+        "processed": True,
+        "count": request.count,
+        "rate": request.rate,
+        "enabled": request.enabled,
+        "message": request.message,
+        "items": request.items,
+        "config": request.config,
+        "data_size": len(request.data),
+        "user_name": request.user.name
+    }
 
-# Request object
-@my_cls.func()
-async def with_request(self, req: ObjectInvocationRequest) -> MyResponse:
-    pass
+# ✅ Single parameter methods work fine
+@oaas.method()
+async def increment(self, amount: int) -> int:
+    return self.count + amount
 
-# Model and request
-@my_cls.func()
-async def with_both(self, model: MyModel, req: ObjectInvocationRequest) -> MyResponse:
-    pass
+@oaas.method()
+async def get_status(self) -> str:
+    return "running"
 ```
 
-## Data Management
+### Type Conversion
 
-### Persistent Data Storage
-
-Objects can store persistent data using indexed storage:
+The SDK automatically handles type conversion:
 
 ```python
-@my_cls
-class DataService(BaseObject):
-    async def store_user_data(self, user_id: int, data: dict):
-        """Store user data at index based on user_id"""
-        serialized = json.dumps(data).encode()
-        await self.set_data_async(user_id, serialized)
-    
-    async def get_user_data(self, user_id: int) -> dict:
-        """Retrieve user data by user_id"""
-        raw = await self.get_data_async(user_id)
-        return json.loads(raw.decode()) if raw else {}
+@oaas.method()
+async def calculate_percentage(self, numerator: int, denominator: int) -> float:
+    """Returns a float percentage."""
+    return (numerator / denominator) * 100.0
+
+@oaas.method()
+async def format_result(self, value: float) -> str:
+    """Converts float to formatted string."""
+    return f"{value:.2f}%"
+
+@oaas.method()
+async def is_significant(self, percentage: float, threshold: float = 50.0) -> bool:
+    """Returns boolean comparison result."""
+    return percentage >= threshold
 ```
 
-### Data Helpers
+## Server and Agent Management
 
-Create helper methods for common data operations:
+### Server Management
+
+Servers host service definitions and handle gRPC requests:
 
 ```python
-@my_cls
-class ConfigService(BaseObject):
-    CONFIG_INDEX = 0
-    
-    async def get_config(self) -> dict:
-        """Get configuration dictionary"""
-        raw = await self.get_data_async(self.CONFIG_INDEX)
-        return json.loads(raw.decode()) if raw else {}
-    
-    async def set_config(self, config: dict):
-        """Set configuration dictionary"""
-        await self.set_data_async(self.CONFIG_INDEX, json.dumps(config).encode())
-    
-    async def update_config(self, key: str, value: any):
-        """Update a single config value"""
-        config = await self.get_config()
-        config[key] = value
-        await self.set_config(config)
+# Start gRPC server
+oaas.start_server(port=8080)
+
+# Check server status
+if oaas.is_server_running():
+    print("Server is running")
+    info = oaas.get_server_info()
+    print(f"Server info: {info}")
+
+# Stop server
+oaas.stop_server()
 ```
 
-## Remote Procedure Calls
+### Agent Management
 
-### RPC Behavior
-
-When objects are remote, method calls automatically become RPC calls:
+Agents host specific object instances and handle background processing:
 
 ```python
-async def rpc_example():
-    session = oaas.new_session()
-    
-    # Create remote object
-    remote_obj = session.create_object(my_cls, local=False)
-    
-    # This will be an RPC call
-    result = await remote_obj.my_method(MyRequest(...))
-    
-    # Create local object
-    local_obj = session.create_object(my_cls, local=True)
-    
-    # This will be a local call
-    result = await local_obj.my_method(MyRequest(...))
+# Start agent for a specific service and object
+agent_id = await oaas.start_agent(MyService, obj_id=123)
+print(f"Started agent: {agent_id}")
+
+# List all running agents
+agents = oaas.list_agents()
+print(f"Running agents: {agents}")
+
+# Stop specific agent
+await oaas.stop_agent(agent_id)
+
+# Stop all agents
+await oaas.stop_all_agents()
 ```
 
-### Manual RPC
-
-You can also perform manual RPC calls:
+### Server + Agent Example
 
 ```python
-from oaas_sdk2_py import ObjectInvocationRequest, InvocationRequest
+import asyncio
+from oaas_sdk2_py import oaas, OaasConfig
 
-# Object method RPC
-request = ObjectInvocationRequest(
-    cls_id="my_pkg.MyClass",
-    partition_id=0,
-    object_id=123,
-    fn_id="my_method",
-    payload=json.dumps({"param": "value"}).encode()
+async def run_service():
+    # Configure OaaS
+    config = OaasConfig(async_mode=True, mock_mode=False)
+    oaas.configure(config)
+    
+    # Start server for external access
+    oaas.start_server(port=8080)
+    print("🚀 Server started on port 8080")
+    
+    # Start agent for background processing
+    agent_id = await oaas.start_agent(Counter, obj_id=1)
+    print(f"🤖 Agent started: {agent_id}")
+    
+    try:
+        # Keep running
+        while True:
+            await asyncio.sleep(5)
+            print(f"📊 Status - Server: {oaas.is_server_running()}, Agents: {len(oaas.list_agents())}")
+    except KeyboardInterrupt:
+        print("🛑 Shutting down...")
+    finally:
+        # Cleanup
+        await oaas.stop_all_agents()
+        oaas.stop_server()
+        print("✅ Cleanup complete")
+
+if __name__ == "__main__":
+    asyncio.run(run_service())
+```
+
+## Configuration
+
+### OaasConfig Options
+
+```python
+from oaas_sdk2_py import OaasConfig
+
+config = OaasConfig(
+    # Runtime settings
+    async_mode=True,                    # Enable async operations
+    mock_mode=False,                    # Use real OaaS platform
+    
+    # Server settings  
+    server_url="http://localhost:10000", # OaaS platform URL
+    default_partition=0,                 # Default partition ID
+    
+    # Optional settings
+    log_level="INFO",                   # Logging level
+    timeout=30.0,                       # Request timeout
 )
-response = await session.obj_rpc_async(request)
 
-# Static function RPC
-request = InvocationRequest(
-    cls_id="my_pkg.MyClass",
-    fn_id="my_static_method",
-    payload=json.dumps({"param": "value"}).encode()
-)
-response = await session.fn_rpc_async(request)
+oaas.configure(config)
 ```
 
-## Event-Driven Programming
+### Environment Variables
 
-### Triggers
+You can also configure using environment variables:
 
-Objects can register triggers to respond to events:
-
-```python
-from oprc_py.oprc_py import DataTriggerType, FnTriggerType
-
-@my_cls
-class EventDrivenService(BaseObject):
-    @my_cls.func()
-    async def on_data_change(self, req: ChangeNotification):
-        # Handle data change event
-        pass
-    
-    @my_cls.func()
-    async def setup_triggers(self):
-        # Trigger on data change at index 0
-        self.trigger(
-            source=0,  # Data index
-            target_fn=self.on_data_change,
-            event_type=DataTriggerType.OnSet
-        )
-        
-        # Trigger on function completion
-        self.trigger(
-            source=self.some_function,
-            target_fn=self.on_function_complete,
-            event_type=FnTriggerType.OnSuccess
-        )
-```
-
-### Managing Triggers
-
-```python
-# Add trigger
-obj.trigger(source, target_fn, event_type)
-
-# Remove trigger
-obj.suppress(source, target_fn, event_type)
+```bash
+export OPRC_ODGM_URL="http://localhost:10000"
+export OPRC_PARTITION_DEFAULT="0"
+export LOG_LEVEL="INFO"
+export HTTP_PORT="8080"
 ```
 
 ## Testing with Mock Mode
 
-### Mock Mode Setup
+### Mock Configuration
 
-Enable mock mode for testing:
+Enable mock mode for testing without connecting to the OaaS platform:
 
 ```python
-# Create mock instance
-mock_oaas = oaas.mock()
-
-# Or create with mock mode enabled
-oaas = Oparaca(mock_mode=True)
+# Configure for testing
+config = OaasConfig(mock_mode=True, async_mode=True)
+oaas.configure(config)
 ```
 
-### Mock Testing Example
+### Unit Testing Example
 
 ```python
 import pytest
-from oaas_sdk2_py import Oparaca, BaseObject
+from oaas_sdk2_py import oaas, OaasConfig
+
+@pytest.fixture
+def setup_mock():
+    """Setup mock OaaS for testing."""
+    config = OaasConfig(mock_mode=True, async_mode=True)
+    oaas.configure(config)
 
 @pytest.mark.asyncio
-async def test_counter_service():
-    # Setup mock environment
-    oaas = Oparaca(mock_mode=True)
-    counter_cls = oaas.new_cls("Counter", pkg="test")
+async def test_counter_increment(setup_mock):
+    """Test counter increment functionality."""
+    counter = Counter.create(local=True)
     
-    @counter_cls
-    class Counter(BaseObject):
-        @counter_cls.func()
-        async def increment(self, req: IncrementRequest) -> CounterResponse:
-            # Implementation
-            pass
+    # Test increment
+    result = await counter.increment(IncrementRequest(amount=10))
+    assert result == 10
+    assert isinstance(result, int)
     
-    # Test the service
-    session = oaas.new_session()
-    counter = session.create_object(counter_cls)
+    # Test get_value
+    value = await counter.get_value()
+    assert value == 10
+    assert isinstance(value, int)
+
+@pytest.mark.asyncio
+async def test_counter_types(setup_mock):
+    """Test different return types."""
+    counter = Counter.create(local=True)
     
-    result = await counter.increment(IncrementRequest(amount=5))
-    assert result.count == 5
+    # Setup counter
+    await counter.increment(IncrementRequest(amount=5))
     
-    await session.commit_async()
+    # Test different return types
+    value = await counter.get_value()
+    assert isinstance(value, int)
+    
+    history = await counter.get_history()
+    assert isinstance(history, list)
+    
+    metadata = await counter.get_metadata()
+    assert isinstance(metadata, dict)
+    
+    is_positive = await counter.is_positive()
+    assert isinstance(is_positive, bool)
+    assert is_positive is True
+    
+    status = await counter.get_status()
+    assert isinstance(status, str)
+    assert status == "positive"
+    
+    value_bytes = await counter.get_value_as_bytes()
+    assert isinstance(value_bytes, bytes)
+    
+    detailed = await counter.get_detailed_info()
+    assert isinstance(detailed, CounterResponse)
+
+@pytest.mark.asyncio
+async def test_counter_reset(setup_mock):
+    """Test counter reset functionality."""
+    counter = Counter.create(local=True)
+    
+    # Increment and verify
+    await counter.increment(IncrementRequest(amount=15))
+    assert await counter.get_value() == 15
+    
+    # Reset and verify
+    reset_result = await counter.reset()
+    assert reset_result is True
+    assert isinstance(reset_result, bool)
+    
+    assert await counter.get_value() == 0
+    assert await counter.get_history() == []
+```
+
+### Integration Testing
+
+```python
+@pytest.mark.asyncio
+async def test_service_lifecycle(setup_mock):
+    """Test complete service lifecycle."""
+    # Create service
+    counter = Counter.create(obj_id=42)
+    
+    # Perform operations
+    for i in range(1, 6):
+        result = await counter.increment(IncrementRequest(amount=i))
+        assert result == sum(range(1, i+1))
+    
+    # Check final state
+    final_value = await counter.get_value()
+    assert final_value == 15  # 1+2+3+4+5
+    
+    history = await counter.get_history()
+    assert len(history) == 5
+    
+    # Test batch operations
+    batch_results = await counter.batch_increment([10, 20])
+    assert batch_results == [25, 45]  # 15+10, 25+20
+    
+    # Verify persistence simulation
+    metadata = await counter.get_metadata()
+    assert metadata["current_value"] == 45
+    assert metadata["operation_count"] == 7  # 5 + 2
 ```
 
 ## Advanced Topics
 
-### Server Mode
-
-Run OaaS as a server:
+### Real-World System Monitoring Example
 
 ```python
-import asyncio
+import psutil
+from oaas_sdk2_py import oaas, OaasObject
 
-async def run_server():
-    oaas = Oparaca(async_mode=True)
+@oaas.service("ComputeDevice", package="monitoring")
+class ComputeDevice(OaasObject):
+    """A real system monitoring service."""
     
-    # Define your classes here
-    # ...
+    metrics: Dict[str, Any] = {}
     
-    # Start server
-    loop = asyncio.get_event_loop()
-    oaas.start_grpc_server(loop, port=8080)
+    @oaas.method(serve_with_agent=True)
+    async def get_cpu_usage(self) -> float:
+        """Get current CPU usage percentage."""
+        return psutil.cpu_percent(interval=0.1)
     
-    try:
-        await asyncio.Event().wait()  # Run forever
-    finally:
-        oaas.stop_server()
+    @oaas.method()
+    async def get_memory_usage(self) -> float:
+        """Get current memory usage percentage."""
+        memory_info = psutil.virtual_memory()
+        return memory_info.percent
+    
+    @oaas.method()
+    async def get_process_count(self) -> int:
+        """Get number of running processes."""
+        return len(psutil.pids())
+    
+    @oaas.method()
+    async def is_healthy(self, cpu_threshold: float = 80.0, memory_threshold: float = 90.0) -> bool:
+        """Check if system is healthy based on thresholds."""
+        cpu_ok = await self.get_cpu_usage() < cpu_threshold
+        memory_ok = await self.get_memory_usage() < memory_threshold
+        return cpu_ok and memory_ok
+    
+    @oaas.method(serve_with_agent=True)
+    async def monitor_continuously(self, duration_seconds: int) -> Dict[str, Any]:
+        """Monitor system for specified duration and return statistics."""
+        cpu_samples = []
+        memory_samples = []
+        
+        for _ in range(duration_seconds):
+            cpu_usage = psutil.cpu_percent(interval=1.0)
+            memory_info = psutil.virtual_memory()
+            
+            cpu_samples.append(cpu_usage)
+            memory_samples.append(memory_info.percent)
+        
+        return {
+            "avg_cpu_percent": sum(cpu_samples) / len(cpu_samples),
+            "avg_memory_percent": sum(memory_samples) / len(memory_samples),
+            "max_cpu_percent": max(cpu_samples),
+            "max_memory_percent": max(memory_samples),
+            "samples_taken": len(cpu_samples),
+            "duration_seconds": duration_seconds
+        }
 
-if __name__ == "__main__":
-    asyncio.run(run_server())
+# Usage
+async def monitor_system():
+    device = ComputeDevice.create(local=True)
+    
+    # Get current metrics
+    cpu = await device.get_cpu_usage()
+    memory = await device.get_memory_usage()
+    processes = await device.get_process_count()
+    healthy = await device.is_healthy()
+    
+    print(f"CPU: {cpu}%, Memory: {memory}%, Processes: {processes}, Healthy: {healthy}")
+    
+    # Monitor for 5 seconds
+    stats = await device.monitor_continuously(5)
+    print(f"5-second average: CPU {stats['avg_cpu_percent']:.1f}%, Memory {stats['avg_memory_percent']:.1f}%")
 ```
 
-### Agent Mode
-
-Run functions as agents:
+### Custom Error Handling
 
 ```python
-async def run_agent():
-    oaas = Oparaca(async_mode=True)
+from oaas_sdk2_py.simplified.errors import OaasError
+
+@oaas.service("Calculator", package="math")
+class Calculator(OaasObject):
     
-    # Run agent for specific object and class
-    loop = asyncio.get_event_loop()
-    await oaas.run_agent(loop, my_cls, obj_id=123)
+    @oaas.method()
+    async def divide(self, numerator: float, denominator: float) -> float:
+        """Divide two numbers with error handling."""
+        if denominator == 0:
+            raise OaasError("Division by zero is not allowed")
+        return numerator / denominator
+    
+    @oaas.method()
+    async def safe_divide(self, numerator: float, denominator: float) -> Dict[str, Any]:
+        """Safe division that returns error info."""
+        try:
+            result = await self.divide(numerator, denominator)
+            return {"success": True, "result": result, "error": None}
+        except OaasError as e:
+            return {"success": False, "result": None, "error": str(e)}
 ```
 
-### Configuration
-
-Configure OaaS with [`OprcConfig`](oaas_sdk2_py/config.py:5):
+### Performance Considerations
 
 ```python
-from oaas_sdk2_py.config import OprcConfig
-
-config = OprcConfig(
-    oprc_odgm_url="http://localhost:10000",
-    oprc_zenoh_peers="peer1:7447,peer2:7447",
-    oprc_partition_default=0
-)
-
-oaas = Oparaca(config=config)
-```
-
-### Metadata Export
-
-Export class metadata for external tools:
-
-```python
-# Print package metadata
-oaas.meta_repo.print_pkg()
-
-# Export as dictionary
-pkg_dict = oaas.meta_repo.export_pkg()
+@oaas.service("DataProcessor", package="performance")
+class DataProcessor(OaasObject):
+    
+    cache: Dict[str, Any] = {}
+    
+    @oaas.method(serve_with_agent=True)
+    async def expensive_computation(self, data_id: str, force_refresh: bool = False) -> Dict[str, Any]:
+        """Expensive computation with caching."""
+        if not force_refresh and data_id in self.cache:
+            return {"result": self.cache[data_id], "from_cache": True}
+        
+        # Simulate expensive computation
+        import asyncio
+        await asyncio.sleep(2)  # Simulated delay
+        
+        result = f"processed_{data_id}_{len(data_id)}"
+        self.cache[data_id] = result
+        
+        return {"result": result, "from_cache": False}
+    
+    @oaas.method()
+    async def clear_cache(self) -> bool:
+        """Clear the computation cache."""
+        self.cache.clear()
+        return True
+    
+    @oaas.method()
+    async def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        return {
+            "cache_size": len(self.cache),
+            "cached_keys": list(self.cache.keys())
+        }
 ```
 
 ## Best Practices
 
-### 1. Error Handling
+### 1. Service Design
 
-Always handle errors appropriately:
-
+**Keep services focused and cohesive:**
 ```python
-from oaas_sdk2_py import InvocationResponse, InvocationResponseCode
+# Good: Focused on user management
+@oaas.service("UserManager", package="auth")
+class UserManager(OaasObject):
+    users: Dict[int, Dict[str, Any]] = {}
+    
+    @oaas.method()
+    async def create_user(self, name: str, email: str) -> int:
+        user_id = len(self.users) + 1
+        self.users[user_id] = {"name": name, "email": email}
+        return user_id
+    
+    @oaas.method()
+    async def get_user(self, user_id: int) -> Dict[str, Any]:
+        return self.users.get(user_id, {})
 
-@my_cls.func()
-async def safe_function(self, req: MyRequest) -> MyResponse:
-    try:
-        # Your logic here
-        return MyResponse(success=True)
-    except Exception as e:
-        return InvocationResponse(
-            status=int(InvocationResponseCode.AppError),
-            payload=str(e).encode()
-        )
+# Avoid: Mixed responsibilities
+# Don't mix user management with file operations, email sending, etc.
 ```
 
-### 2. Resource Management
+### 2. Type Safety
 
-Use proper resource management:
-
+**Use type hints consistently:**
 ```python
-async def process_data():
-    session = oaas.new_session()
+from typing import Optional, List, Dict, Any
+
+@oaas.method()
+async def process_users(self, user_ids: List[int], include_metadata: bool = False) -> Dict[str, Any]:
+    """Process multiple users with optional metadata."""
+    results = []
+    for user_id in user_ids:
+        user = await self.get_user(user_id)
+        if user:
+            if include_metadata:
+                user["processed_at"] = time.time()
+            results.append(user)
+    
+    return {
+        "processed_count": len(results),
+        "users": results,
+        "include_metadata": include_metadata
+    }
+```
+
+### 3. Error Handling
+
+**Handle errors gracefully:**
+```python
+@oaas.method()
+async def robust_operation(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Perform operation with comprehensive error handling."""
     try:
-        obj = session.create_object(my_cls)
+        # Validate input
+        if not data or "id" not in data:
+            return {"success": False, "error": "Invalid input data"}
+        
         # Process data
-        await obj.process()
-    finally:
-        await session.commit_async()
+        result = await self.process_data(data)
+        
+        return {"success": True, "result": result, "error": None}
+        
+    except Exception as e:
+        # Log error and return structured response
+        import logging
+        logging.error(f"Operation failed: {e}")
+        return {"success": False, "error": str(e), "result": None}
 ```
 
-### 3. Type Safety
+### 4. Resource Management
 
-Use Pydantic models for type safety:
-
+**Clean up resources properly:**
 ```python
-from pydantic import BaseModel, Field
-
-class UserRequest(BaseModel):
-    user_id: int = Field(..., gt=0)
-    name: str = Field(..., min_length=1)
-    email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
-
-@my_cls.func()
-async def create_user(self, req: UserRequest) -> UserResponse:
-    # Type checking is automatic
-    pass
+@oaas.service("FileProcessor", package="io")
+class FileProcessor(OaasObject):
+    
+    open_files: Dict[str, Any] = {}
+    
+    @oaas.method()
+    async def open_file(self, filename: str) -> bool:
+        """Open file for processing."""
+        try:
+            # In real implementation, you'd open actual files
+            self.open_files[filename] = {"status": "open", "size": 1024}
+            return True
+        except Exception:
+            return False
+    
+    @oaas.method()
+    async def close_file(self, filename: str) -> bool:
+        """Close file and clean up resources."""
+        if filename in self.open_files:
+            del self.open_files[filename]
+            return True
+        return False
+    
+    @oaas.method()
+    async def cleanup_all(self) -> int:
+        """Close all open files."""
+        count = len(self.open_files)
+        self.open_files.clear()
+        return count
 ```
 
-### 4. Async Best Practices
+### 5. Testing Strategy
 
-Use async consistently:
-
-```python
-@my_cls.func()
-async def async_function(self, req: MyRequest) -> MyResponse:
-    # Use async versions of methods
-    data = await self.get_data_async(0)
-    await self.set_data_async(0, new_data)
-    await self.commit_async()
-    return MyResponse(...)
-```
-
-### 5. Testing
-
-Write comprehensive tests:
-
+**Write comprehensive tests:**
 ```python
 import pytest
-from oaas_sdk2_py import Oparaca
+from oaas_sdk2_py import oaas, OaasConfig
 
-@pytest.fixture
-def mock_oaas():
-    return Oparaca(mock_mode=True)
-
-@pytest.mark.asyncio
-async def test_my_service(mock_oaas):
-    # Test implementation
-    pass
+class TestUserManager:
+    
+    @pytest.fixture
+    def setup_mock(self):
+        config = OaasConfig(mock_mode=True, async_mode=True)
+        oaas.configure(config)
+    
+    @pytest.mark.asyncio
+    async def test_user_creation(self, setup_mock):
+        """Test user creation functionality."""
+        manager = UserManager.create(local=True)
+        
+        user_id = await manager.create_user("John Doe", "john@example.com")
+        assert isinstance(user_id, int)
+        assert user_id > 0
+        
+        user = await manager.get_user(user_id)
+        assert user["name"] == "John Doe"
+        assert user["email"] == "john@example.com"
+    
+    @pytest.mark.asyncio
+    async def test_nonexistent_user(self, setup_mock):
+        """Test getting nonexistent user."""
+        manager = UserManager.create(local=True)
+        
+        user = await manager.get_user(999)
+        assert user == {}
+    
+    @pytest.mark.asyncio
+    async def test_multiple_users(self, setup_mock):
+        """Test processing multiple users."""
+        manager = UserManager.create(local=True)
+        
+        # Create test users
+        user_ids = []
+        for i in range(3):
+            user_id = await manager.create_user(f"User{i}", f"user{i}@example.com")
+            user_ids.append(user_id)
+        
+        # Process users
+        result = await manager.process_users(user_ids, include_metadata=True)
+        
+        assert result["processed_count"] == 3
+        assert len(result["users"]) == 3
+        assert result["include_metadata"] is True
+        
+        # Check metadata was added
+        for user in result["users"]:
+            assert "processed_at" in user
 ```
 
-This tutorial covers the essential aspects of the OaaS SDK. For detailed API documentation, refer to the [API Reference](reference.md).
+This tutorial covers the essential aspects of the new OaaS SDK API. The simplified interface makes it much easier to define services, handle different data types, and manage server/agent lifecycles while maintaining all the powerful features of the OaaS platform.

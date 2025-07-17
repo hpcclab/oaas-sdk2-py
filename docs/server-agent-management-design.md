@@ -26,7 +26,38 @@ This document specifies the design for integrating gRPC server and agent managem
 3. **Backward Compatibility**: Maintain existing functionality
 4. **Type Safety**: Leverage Python type hints
 5. **Error Handling**: Comprehensive error management
-6. **Auto-management**: Leverage existing `AutoSessionManager` patterns
+6. **Independence**: Servers and agents operate independently - agents can run without servers
+
+## Architecture Clarification
+
+### Server vs Agent Distinction
+
+**Server (`start_grpc_server`)**:
+- Hosts the entire service definitions/classes
+- Provides gRPC endpoint for external client access
+- Handles incoming requests for all registered services
+- Uses `InvocationHandler` to route requests
+
+**Agent (`run_agent`)**:
+- Hosts specific object instances with `serve_with_agent=True` methods
+- Listens on specific message queue keys for function invocations
+- Handles method calls for specific object instances
+- **Can run independently** - no server required
+- Uses `serve_function` for specific method/object combinations
+
+### Independence Model
+```
+┌─────────────────┐    ┌─────────────────┐
+│   gRPC Server   │    │      Agent      │
+│                 │    │                 │
+│ • All services  │    │ • Specific obj  │
+│ • External API  │    │ • Method calls  │
+│ • Routing       │    │ • Independent   │
+└─────────────────┘    └─────────────────┘
+        │                       │
+        └───────────────────────┘
+              Can operate separately
+```
 
 ## Server Management API Integration
 
@@ -329,66 +360,12 @@ class OaasObject(BaseObject):
 
 ## Usage Examples
 
-### Server Management
+### Server-Only Mode (External gRPC Access)
 
 ```python
-from oaas_sdk2_py.simplified import oaas, OaasConfig
-
-# Configure and start server
-config = OaasConfig(async_mode=True, mock_mode=False)
-oaas.configure(config)
-
-# Start server
-oaas.start_server(port=8080)
-
-# Check server status
-if oaas.is_server_running():
-    print("Server is running")
-    print(oaas.get_server_info())
-
-# Stop server
-oaas.stop_server()
-```
-
-### Agent Management
-
-```python
-@oaas.service("MyService", package="example")
-class MyService(OaasObject):
-    counter: int = 0
-    
-    @oaas.method(serve_with_agent=True)
-    async def increment(self) -> int:
-        self.counter += 1
-        return self.counter
-
-# Start agent for the service class
-agent_id = await oaas.start_agent(MyService)
-
-# Start agent for specific object
-agent_id = await oaas.start_agent(MyService, obj_id=123)
-
-# Using class methods
-agent_id = await MyService.start_agent()
-await MyService.stop_agent()
-
-# Using instance methods
-service = MyService.create(obj_id=456)
-agent_id = await service.start_instance_agent()
-await service.stop_instance_agent()
-
-# List and manage agents
-agents = oaas.list_agents()
-await oaas.stop_all_agents()
-```
-
-### Combined Server and Agent Example
-
-```python
-import asyncio
 from oaas_sdk2_py.simplified import oaas, OaasObject, OaasConfig
 
-# Configure OaaS
+# Configure and start server only
 config = OaasConfig(async_mode=True, mock_mode=False)
 oaas.configure(config)
 
@@ -396,36 +373,88 @@ oaas.configure(config)
 class Calculator(OaasObject):
     result: float = 0.0
     
-    @oaas.method(serve_with_agent=True)
+    @oaas.method()  # Regular method - served by gRPC server
     async def add(self, value: float) -> float:
         self.result += value
         return self.result
     
+    @oaas.method(serve_with_agent=True)  # Agent method - requires agent
+    async def complex_calculation(self, data: list) -> float:
+        # This method can only be called if an agent is running
+        return sum(data) * self.result
+
+# Start gRPC server (no agents needed for regular methods)
+oaas.start_server(port=8080)
+
+# External clients can now call Calculator.add() via gRPC
+# But Calculator.complex_calculation() requires an agent to be running
+
+print(f"Server running: {oaas.is_server_running()}")
+print(f"Server info: {oaas.get_server_info()}")
+```
+
+### Agent-Only Mode (No External Access)
+
+```python
+# Don't start server - only run agents for background processing
+
+@oaas.service("BackgroundProcessor", package="worker")
+class BackgroundProcessor(OaasObject):
     @oaas.method(serve_with_agent=True)
-    async def multiply(self, value: float) -> float:
-        self.result *= value
-        return self.result
+    async def process_data(self, data: dict) -> dict:
+        # Heavy background processing
+        await asyncio.sleep(5)  # Simulate work
+        return {"processed": True, "result": data}
 
-async def main():
-    # Start gRPC server
-    oaas.start_server(port=8080)
-    
-    # Start agent for Calculator service
-    agent_id = await oaas.start_agent(Calculator)
-    
-    print(f"Server running: {oaas.is_server_running()}")
-    print(f"Agent started: {agent_id}")
-    print(f"Running agents: {oaas.list_agents()}")
-    
-    # Server and agent are now running and ready to handle requests
-    # ... do work ...
-    
-    # Cleanup
-    await oaas.stop_agent(agent_id)
-    oaas.stop_server()
+# Start agent only - no gRPC server needed
+agent_id = await oaas.start_agent(BackgroundProcessor, obj_id=123)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# This agent now listens for process_data() calls via message queue
+# Other services can invoke this via internal message passing
+
+print(f"Agent running: {agent_id}")
+print(f"No server needed: {not oaas.is_server_running()}")
+```
+
+### Combined Mode (Server + Agents)
+
+```python
+@oaas.service("HybridService", package="hybrid")
+class HybridService(OaasObject):
+    @oaas.method()  # Served by gRPC server
+    async def quick_info(self) -> str:
+        return "This is served by the server"
+    
+    @oaas.method(serve_with_agent=True)  # Served by agent
+    async def heavy_work(self, data: list) -> dict:
+        return {"processed_count": len(data)}
+
+# Start both server and agent
+oaas.start_server(port=8080)
+agent_id = await oaas.start_agent(HybridService, obj_id=456)
+
+# Now:
+# - External clients can call quick_info() via gRPC
+# - Internal/external systems can call heavy_work() via message queue
+# - They operate completely independently
+```
+
+### Independence Demonstration
+
+```python
+# Scenario 1: Agent without server
+await oaas.start_agent(BackgroundProcessor, obj_id=1)
+# Agent runs and processes messages - no server needed
+
+# Scenario 2: Server without agents  
+oaas.start_server(port=8080)
+# External clients can call regular methods - no agents needed
+
+# Scenario 3: Multiple agents, no server
+agent1 = await oaas.start_agent(Worker, obj_id=1)
+agent2 = await oaas.start_agent(Worker, obj_id=2) 
+agent3 = await oaas.start_agent(Calculator, obj_id=100)
+# All agents run independently, handling different object instances
 ```
 
 ## Backward Compatibility
@@ -460,10 +489,10 @@ from oaas_sdk2_py.config import OprcConfig
 config = OprcConfig()
 oparaca = Oparaca(config=config, async_mode=True)
 
-# Start server
+# Start server (hosts all service definitions)
 oparaca.start_grpc_server(port=8080)
 
-# Start agent
+# Start agent (hosts specific object instance methods)
 import asyncio
 loop = asyncio.get_event_loop()
 await oparaca.run_agent(loop, cls_meta, obj_id=123)
@@ -482,10 +511,10 @@ from oaas_sdk2_py.simplified import oaas, OaasConfig
 config = OaasConfig(async_mode=True)
 oaas.configure(config)
 
-# Start server
+# Start server (hosts all service definitions for gRPC access)
 oaas.start_server(port=8080)
 
-# Start agent
+# Start agent (hosts specific object instance for serve_with_agent methods)
 agent_id = await oaas.start_agent(MyService, obj_id=123)
 
 # Stop agent
@@ -494,6 +523,14 @@ await oaas.stop_agent(agent_id)
 # Stop server
 oaas.stop_server()
 ```
+
+### Key Improvements
+
+1. **Clearer Separation**: Explicit distinction between server (gRPC endpoint) and agent (object instance processor)
+2. **Independence**: Can run agents without servers, or servers without agents
+3. **Better Tracking**: Agent IDs for easier management
+4. **Type Safety**: Strongly typed service classes instead of raw metadata
+5. **Simplified API**: No need to manage event loops or metadata manually
 
 ## Implementation Priority
 

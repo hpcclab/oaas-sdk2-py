@@ -1,37 +1,58 @@
-import json
-from oaas_sdk2_py.config import OprcConfig
-from oaas_sdk2_py.engine import BaseObject, Oparaca
+from typing import Optional
+from oaas_sdk2_py.simplified import oaas, OaasObject, OaasConfig
 
 def object_detection(image_bytes: bytes):
-    pass
+    """Placeholder for object detection logic."""
+    # In a real implementation, this would use a computer vision library
+    # like OpenCV, PIL, or a machine learning model
+    return {"detected": True}  # Return something to avoid unused variable
 
 
+# Configure OaaS with simplified interface
+config = OaasConfig(async_mode=True, mock_mode=False)
+oaas.configure(config)
 
-IMAGE_KEY = 0
-oaas = Oparaca(config=OprcConfig())
-image_cls = oaas.new_cls(pkg="example", name="image")
 
-@image_cls
-class OaasImage(BaseObject):
+@oaas.service("OaasImage", package="example")
+class OaasImage(OaasObject):
+    """An image processing service for object detection."""
     
-    @image_cls.func()
-    async def new(self, image: bytes):
-        self.set_data(IMAGE_KEY, image)
+    image_data: Optional[bytes] = None
+    
+    @oaas.method()
+    async def load_image(self, image: bytes) -> str:
+        """Load image data into the object."""
+        self.image_data = image
+        return f"Image loaded: {len(image)} bytes"
         
-    @image_cls.func()
-    async def detect(self) -> str:
-        image_bytes = await self.get_data(IMAGE_KEY)
-        if image_bytes is None:
-            raise ValueError("Image data not found")
-        result = object_detection(image_bytes)  # Execute object detection
-        summary = result.summary()
-        return json.dumps({'label': summary})
+    @oaas.method(serve_with_agent=True)
+    async def detect_objects(self) -> dict:
+        """Perform object detection on the loaded image."""
+        if self.image_data is None:
+            raise ValueError("No image data loaded. Call load_image() first.")
+        
+        # Execute object detection
+        _detection_result = object_detection(self.image_data)
+        
+        # In a real implementation, this would return actual detection results
+        # For now, return a placeholder result
+        detection_result = {
+            'objects_detected': 0,
+            'labels': [],
+            'confidence_scores': [],
+            'image_size_bytes': len(self.image_data)
+        }
+        
+        return detection_result
     
-
-async def example_usage():
-    ctx = oaas.new_session()
-    image = ctx.create_object(image_cls)
-    with open("file.mp4", "rb") as file:
-        await image.new(image=file.read())
-    result = await image.detect()
-    print(result)
+    @oaas.method()
+    async def get_image_info(self) -> dict:
+        """Get information about the currently loaded image."""
+        if self.image_data is None:
+            return {'status': 'no_image_loaded'}
+        
+        return {
+            'status': 'image_loaded',
+            'size_bytes': len(self.image_data),
+            'format': 'unknown'  # In real implementation, would detect format
+        }
