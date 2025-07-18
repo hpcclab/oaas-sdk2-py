@@ -17,6 +17,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from oaas_sdk2_py.engine import BaseObject
 
+# Import unified serialization system lazily to avoid circular imports
+# from oaas_sdk2_py.simplified.serialization import UnifiedSerializer, RpcSerializationError
+
 
 # def create_obj_meta(
 #     cls: str,
@@ -124,38 +127,41 @@ class StateMeta:
         self.name = name
 
 
-def parse_resp(resp) -> InvocationResponse:
+def parse_resp(resp, return_type_hint: Optional[type] = None) -> InvocationResponse:
+    """
+    Enhanced response parser that supports all types using unified serialization.
+    
+    Args:
+        resp: The response value to serialize
+        return_type_hint: Optional type hint for better serialization
+        
+    Returns:
+        InvocationResponse with serialized payload
+    """
     if resp is None:
         return InvocationResponse(status=int(InvocationResponseCode.Okay))
     elif isinstance(resp, InvocationResponse):
         return resp
-    elif isinstance(resp, BaseModel):
-        b = resp.model_dump_json().encode()
-        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=b)
-    elif isinstance(resp, bytes):
-        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=resp)
-    elif isinstance(resp, str):
+    
+    # Use unified serialization system for comprehensive type support
+    try:
+        # Lazy import to avoid circular imports
+        from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+        serializer = UnifiedSerializer()
+        payload = serializer.serialize(resp, return_type_hint)
+        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=payload)
+    except Exception as e:
+        # Create error response with detailed information
+        error_details = {
+            'error_type': type(e).__name__,
+            'response_type': type(resp).__name__,
+            'return_type_hint': return_type_hint.__name__ if return_type_hint else None,
+            'error_message': str(e)
+        }
+        
         return InvocationResponse(
-            status=int(InvocationResponseCode.Okay), payload=resp.encode()
-        )
-    elif isinstance(resp, (int, float)):
-        # Handle numeric types
-        return InvocationResponse(
-            status=int(InvocationResponseCode.Okay), payload=str(resp).encode()
-        )
-    elif isinstance(resp, bool):
-        # Handle boolean type (convert to "true"/"false")
-        return InvocationResponse(
-            status=int(InvocationResponseCode.Okay), payload=str(resp).lower().encode()
-        )
-    elif isinstance(resp, (list, dict)):
-        # Handle list and dict types
-        b = json.dumps(resp).encode()
-        return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=b)
-    else:
-        # For any other type, try to convert to string
-        return InvocationResponse(
-            status=int(InvocationResponseCode.Okay), payload=str(resp).encode()
+            status=int(InvocationResponseCode.AppError),
+            payload=json.dumps(error_details).encode()
         )
 
 
@@ -395,193 +401,112 @@ class ClsMeta:
 
     def _create_no_param_caller(self, function):
         """Create caller for functions with no parameters."""
+        sig = inspect.signature(function)
+        
         if inspect.iscoroutinefunction(function):
             @functools.wraps(function)
             async def caller(obj_self, req):
                 result = await function(obj_self)
-                return parse_resp(result)
+                return parse_resp(result, sig.return_annotation)
             return caller
         else:
             @functools.wraps(function)
             def caller(obj_self, req):
                 result = function(obj_self)
-                return parse_resp(result)
+                return parse_resp(result, sig.return_annotation)
             return caller
 
     def _create_single_param_caller(self, function, sig: inspect.Signature, strict):
-        """Create caller for functions with a single parameter."""
+        """Create caller for functions with a single parameter using unified serialization."""
         second_param = list(sig.parameters.values())[1]
-
-        if issubclass(second_param.annotation, BaseModel):
-            model_cls = second_param.annotation
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    model = model_cls.model_validate_json(req.payload, strict=strict)
-                    result = await function(obj_self, model)
-                    return parse_resp(result)
-                return caller
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    model = model_cls.model_validate_json(req.payload, strict=strict)
-                    result = function(obj_self, model)
-                    return parse_resp(result)
-
-                return caller
-        elif (
-            second_param.annotation == InvocationRequest
-            or second_param.annotation == ObjectInvocationRequest
-        ):
-            
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    resp = await function(obj_self, req)
-                    return parse_resp(resp)
-
-                return caller
-            else:
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    resp = await function(obj_self, req)
-                    return parse_resp(resp)
-
-                return caller
-        elif second_param.annotation is bytes:
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    resp = await function(obj_self, req.payload)
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    resp = function(obj_self, req.payload)
-                    return parse_resp(resp)
-            return caller
-        elif second_param.annotation is str:
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    resp = await function(obj_self, req.payload.decode())
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    resp = function(obj_self, req.payload.decode())
-                    return parse_resp(resp)
-            return caller
-        elif second_param.annotation is dict or second_param.annotation is inspect.Parameter.empty:
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    req_dict = json.loads(req.payload.decode())
-                    resp = await function(obj_self, req_dict)
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    req_dict = json.loads(req.payload.decode())
-                    resp = function(obj_self, req_dict)
-                    return parse_resp(resp)
-            return caller
-        elif second_param.annotation is int:
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    value = int(req.payload.decode())
-                    resp = await function(obj_self, value)
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    value = int(req.payload.decode())
-                    resp = function(obj_self, value)
-                    return parse_resp(resp)
-            return caller
-        elif second_param.annotation is float:
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    value = float(req.payload.decode())
-                    resp = await function(obj_self, value)
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    value = float(req.payload.decode())
-                    resp = function(obj_self, value)
-                    return parse_resp(resp)
-            return caller
-        elif second_param.annotation is bool:
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    # Handle bool conversion (JSON-style: "true"/"false" or "1"/"0")
-                    payload_str = req.payload.decode().lower()
-                    if payload_str in ("true", "1"):
-                        value = True
-                    elif payload_str in ("false", "0"):
-                        value = False
-                    else:
-                        raise ValueError(f"Invalid boolean value: {payload_str}")
-                    resp = await function(obj_self, value)
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    # Handle bool conversion (JSON-style: "true"/"false" or "1"/"0")
-                    payload_str = req.payload.decode().lower()
-                    if payload_str in ("true", "1"):
-                        value = True
-                    elif payload_str in ("false", "0"):
-                        value = False
-                    else:
-                        raise ValueError(f"Invalid boolean value: {payload_str}")
-                    resp = function(obj_self, value)
-                    return parse_resp(resp)
-            return caller
-        elif second_param.annotation is list:
-            if inspect.iscoroutinefunction(function):
-                @functools.wraps(function)
-                async def caller(obj_self, req):
-                    value = json.loads(req.payload.decode())
-                    if not isinstance(value, list):
-                        raise ValueError(f"Expected list, got {type(value)}")
-                    resp = await function(obj_self, value)
-                    return parse_resp(resp)
-            else:
-                @functools.wraps(function)
-                def caller(obj_self, req):
-                    value = json.loads(req.payload.decode())
-                    if not isinstance(value, list):
-                        raise ValueError(f"Expected list, got {type(value)}")
-                    resp = function(obj_self, value)
-                    return parse_resp(resp)
+        param_type = second_param.annotation
+        
+        # Use unified serialization system for comprehensive type support
+        # Lazy import to avoid circular imports
+        from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+        serializer = UnifiedSerializer()
+        
+        if inspect.iscoroutinefunction(function):
+            @functools.wraps(function)
+            async def caller(obj_self, req):
+                try:
+                    # Handle special cases first
+                    if (param_type == InvocationRequest or param_type == ObjectInvocationRequest):
+                        # Pass the request object directly
+                        result = await function(obj_self, req)
+                        return parse_resp(result, sig.return_annotation)
+                    
+                    # Deserialize with comprehensive type support
+                    value = serializer.deserialize(req.payload, param_type)
+                    result = await function(obj_self, value)
+                    return parse_resp(result, sig.return_annotation)
+                except Exception as e:
+                    return self._create_error_response(e, param_type)
             return caller
         else:
-            raise ValueError(f"Unsupported parameter type: {second_param.annotation}")
+            @functools.wraps(function)
+            def caller(obj_self, req):
+                try:
+                    # Handle special cases first
+                    if (param_type == InvocationRequest or param_type == ObjectInvocationRequest):
+                        # Pass the request object directly
+                        result = function(obj_self, req)
+                        return parse_resp(result, sig.return_annotation)
+                    
+                    # Deserialize with comprehensive type support
+                    value = serializer.deserialize(req.payload, param_type)
+                    result = function(obj_self, value)
+                    return parse_resp(result, sig.return_annotation)
+                except Exception as e:
+                    return self._create_error_response(e, param_type)
+            return caller
 
     def _create_dual_param_caller(self, function, sig, strict):
         """Create caller for functions with model and request parameters."""
         second_param = list(sig.parameters.values())[1]
         model_cls = second_param.annotation
+        
+        # Use unified serialization system
+        # Lazy import to avoid circular imports
+        from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+        serializer = UnifiedSerializer()
 
         if inspect.iscoroutinefunction(function):
             @functools.wraps(function)
             async def caller(obj_self, req):
-                model = model_cls.model_validate_json(req.payload, strict=strict)
-                result = await function(obj_self, model, req)
-                return parse_resp(result)
+                try:
+                    # Deserialize using unified serializer for comprehensive type support
+                    model = serializer.deserialize(req.payload, model_cls)
+                    result = await function(obj_self, model, req)
+                    return parse_resp(result, sig.return_annotation)
+                except Exception as e:
+                    return self._create_error_response(e, model_cls)
         else:
             @functools.wraps(function)
             def caller(obj_self, req):
-                model = model_cls.model_validate_json(req.payload, strict=strict)
-                result = function(obj_self, model, req)
-                return parse_resp(result)
+                try:
+                    # Deserialize using unified serializer for comprehensive type support
+                    model = serializer.deserialize(req.payload, model_cls)
+                    result = function(obj_self, model, req)
+                    return parse_resp(result, sig.return_annotation)
+                except Exception as e:
+                    return self._create_error_response(e, model_cls)
         return caller
 
+    def _create_error_response(self, error: Exception, param_type: type) -> InvocationResponse:
+        """Create detailed error response for RPC serialization failures."""
+        error_details = {
+            'error_type': type(error).__name__,
+            'parameter_type': param_type.__name__ if param_type else 'unknown',
+            'error_message': str(error),
+            'error_code': getattr(error, 'error_code', 'RPC_PARAM_ERROR'),
+            'details': getattr(error, 'details', {})
+        }
+        
+        return InvocationResponse(
+            status=int(InvocationResponseCode.AppError),
+            payload=json.dumps(error_details).encode()
+        )
 
     def __str__(self):
         return "{" + f"name={self.name}, func_list={self.func_dict}" + "}"

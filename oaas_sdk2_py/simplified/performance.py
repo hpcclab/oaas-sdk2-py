@@ -23,7 +23,7 @@ class PerformanceMetrics:
     max_duration: float = 0.0
     error_count: int = 0
     
-    def record_call(self, duration: float, success: bool = True):
+    def record_call(self, duration: float, success: bool = True, data_size: int = 0):
         """Record a function call"""
         self.call_count += 1
         self.total_duration += duration

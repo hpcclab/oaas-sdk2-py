@@ -148,6 +148,10 @@ oaas.configure(config)
 
 ## Type System
 
+### Enhanced Serialization System
+
+The OaaS SDK features a unified serialization system that provides comprehensive type support for both RPC parameter handling and state management. This system automatically handles serialization/deserialization of complex Python types with performance monitoring and detailed error handling.
+
 ### Supported Types
 
 The OaaS SDK natively supports these Python types for method parameters and return values:
@@ -160,25 +164,47 @@ The OaaS SDK natively supports these Python types for method parameters and retu
 | `float` | Floating point numbers | `3.14`, `-2.5`, `0.0` |
 | `bool` | Boolean values | `True`, `False` |
 | `str` | String values | `"Hello"`, `""` |
+| `bytes` | Binary data | `b"binary data"`, `"text".encode()` |
 
 #### Collection Types
 
 | Type | Description | Example |
 | --- | --- | --- |
-| `list` | Lists of any supported type | `[1, 2, 3]`, `["a", "b"]` |
-| `dict` | Dictionaries with string keys | `{"key": "value", "count": 42}` |
+| `List[T]` | Typed lists with element type validation | `List[int]`, `List[str]` |
+| `Dict[K, V]` | Typed dictionaries with key/value validation | `Dict[str, int]`, `Dict[str, Any]` |
+| `Tuple[T, ...]` | Typed tuples with element type validation | `Tuple[int, str]`, `Tuple[int, ...]` |
+| `Set[T]` | Sets with element type validation | `Set[int]`, `Set[str]` |
 
-#### Binary Data
+#### Advanced Types
 
 | Type | Description | Example |
 | --- | --- | --- |
-| `bytes` | Binary data | `b"binary data"`, `"text".encode()` |
+| `Optional[T]` | Optional types (Union with None) | `Optional[int]`, `Optional[str]` |
+| `Union[T, U]` | Union types | `Union[int, str]`, `Union[int, float]` |
+| `datetime` | Date and time objects | `datetime.now()`, `datetime(2023, 1, 1)` |
+| `UUID` | Universally unique identifiers | `uuid4()`, `UUID("123e4567-...")` |
 
-#### Pydantic Models
+#### Structured Data
 
 | Type | Description | Example |
 | --- | --- | --- |
 | `BaseModel` | Pydantic models for structured data | Custom model classes |
+| Custom Classes | User-defined classes with serializable attributes | Any Python class |
+
+#### Performance Monitoring
+
+The serialization system includes built-in performance monitoring:
+
+```python
+from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+
+# Access performance metrics
+serializer = UnifiedSerializer()
+metrics = serializer.get_performance_metrics()
+print(f"Total operations: {metrics.total_operations}")
+print(f"Success rate: {metrics.success_rate}")
+print(f"Average duration: {metrics.average_duration_ms}ms")
+```
 
 ### Method Parameter Limitation
 
@@ -292,25 +318,135 @@ class UserService(OaasObject):
             return f"{count} users registered"
 ```
 
-### Type Conversion
+### Type Conversion and Serialization
 
-The SDK automatically handles type conversion between Python objects and the OaaS platform:
+The SDK's unified serialization system automatically handles type conversion between Python objects and the OaaS platform with comprehensive type validation:
 
 ```python
-@oaas.method()
-async def calculate_percentage(self, correct: int, total: int) -> float:
-    """Automatically converts result to float."""
-    return (correct / total) * 100.0  # int division result becomes float
+from typing import List, Dict, Optional, Union
+from datetime import datetime
+from uuid import UUID
+from pydantic import BaseModel
 
-@oaas.method() 
-async def format_percentage(self, percentage: float) -> str:
-    """Automatically converts float to string."""
-    return f"{percentage:.2f}%"  # String formatting
+class UserData(BaseModel):
+    name: str
+    age: int
+    email: Optional[str] = None
+
+@oaas.service("DataProcessor", package="example")
+class DataProcessor(OaasObject):
+    
+    @oaas.method()
+    async def process_numbers(self, numbers: List[int]) -> float:
+        """Automatically validates list elements and converts result."""
+        return sum(numbers) / len(numbers) if numbers else 0.0
+    
+    @oaas.method()
+    async def process_user_data(self, user: UserData) -> Dict[str, Any]:
+        """Automatically serializes/deserializes Pydantic models."""
+        return {
+            "processed_at": datetime.now(),
+            "user_id": str(UUID.uuid4()),
+            "name": user.name,
+            "age_category": "adult" if user.age >= 18 else "minor"
+        }
+    
+    @oaas.method()
+    async def flexible_input(self, data: Union[int, str]) -> str:
+        """Handles union types automatically."""
+        if isinstance(data, int):
+            return f"Number: {data}"
+        return f"Text: {data}"
+    
+    @oaas.method()
+    async def optional_parameter(self, value: Optional[str]) -> bool:
+        """Handles optional types automatically."""
+        return value is not None
+```
+
+### Serialization Error Handling
+
+The enhanced serialization system provides detailed error handling with specific error types:
+
+```python
+from oaas_sdk2_py.simplified.serialization import SerializationError, ValidationError
 
 @oaas.method()
-async def is_passing_grade(self, percentage: float) -> bool:
-    """Automatically converts comparison to bool."""
-    return percentage >= 60.0  # Comparison result becomes bool
+async def safe_processing(self, data: List[int]) -> Dict[str, Any]:
+    """Method with comprehensive error handling."""
+    try:
+        # The serialization system automatically validates types
+        result = sum(data) / len(data) if data else 0.0
+        return {
+            "success": True,
+            "result": result,
+            "count": len(data)
+        }
+    except SerializationError as e:
+        # Detailed serialization error information
+        return {
+            "success": False,
+            "error": str(e),
+            "error_code": e.error_code,
+            "context": e.context
+        }
+    except ValidationError as e:
+        # Type validation error information
+        return {
+            "success": False,
+            "error": "Validation failed",
+            "details": str(e)
+        }
+```
+
+### Performance Monitoring
+
+The serialization system includes built-in performance monitoring for all operations:
+
+```python
+from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+
+# Access serialization performance metrics
+serializer = UnifiedSerializer()
+
+# Enable performance monitoring (enabled by default)
+serializer.enable_performance_monitoring()
+
+# Get current metrics
+metrics = serializer.get_performance_metrics()
+print(f"Total serialization operations: {metrics.total_operations}")
+print(f"Success rate: {metrics.success_rate:.2%}")
+print(f"Average duration: {metrics.average_duration_ms:.2f}ms")
+print(f"Total errors: {metrics.total_errors}")
+
+# Reset metrics
+serializer.reset_performance_metrics()
+```
+
+### Custom Type Serialization
+
+The system supports custom classes with automatic serialization:
+
+```python
+class CustomData:
+    """Custom class that can be automatically serialized."""
+    def __init__(self, value: str):
+        self.value = value
+    
+    def __eq__(self, other):
+        return isinstance(other, CustomData) and self.value == other.value
+
+@oaas.service("CustomProcessor", package="example")
+class CustomProcessor(OaasObject):
+    
+    @oaas.method()
+    async def process_custom(self, data: CustomData) -> Dict[str, Any]:
+        """Automatically handles custom class serialization."""
+        return {
+            "original_value": data.value,
+            "processed": data.value.upper(),
+            "length": len(data.value)
+        }
 ```
 
 ## Server and Agent Management
@@ -453,6 +589,224 @@ try:
     agent_id = await oaas.start_agent(MyService, obj_id=123)
 except AgentError as e:
     print(f"Failed to start agent: {e}")
+```
+
+## Enhanced Serialization System
+
+The OaaS SDK features a unified serialization system that provides comprehensive type support for both RPC parameter handling and state management, ensuring consistency across the entire system.
+
+### UnifiedSerializer
+
+**Module:** `oaas_sdk2_py.simplified.serialization`
+
+Core serialization class that handles all Python types with automatic type validation, error handling, and performance monitoring.
+
+#### Key Features
+
+- **Comprehensive Type Support**: All Python types including primitives, collections, Optional/Union, datetime/UUID, Pydantic models, and custom classes
+- **Automatic Type Validation**: Runtime type checking with detailed error messages
+- **Performance Monitoring**: Built-in metrics collection for serialization operations
+- **Error Recovery**: Graceful fallbacks and detailed error context
+- **JSON/Pickle Hybrid**: JSON serialization with pickle fallback for complex objects
+
+#### Usage
+
+```python
+from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+from typing import List, Dict, Optional
+from datetime import datetime
+from uuid import UUID
+
+# Create serializer instance
+serializer = UnifiedSerializer()
+
+# Serialize different types
+data = {
+    "numbers": [1, 2, 3],
+    "timestamp": datetime.now(),
+    "user_id": UUID.uuid4(),
+    "metadata": {"key": "value"}
+}
+
+# Serialize to bytes
+serialized = serializer.serialize(data, Dict[str, Any])
+
+# Deserialize back to Python object
+deserialized = serializer.deserialize(serialized, Dict[str, Any])
+
+# Type conversion
+converted = serializer.convert_value("123", int)  # Returns 123 as int
+```
+
+### Serialization Errors
+
+The system provides specialized error classes for different failure scenarios:
+
+#### SerializationError
+
+**Module:** `oaas_sdk2_py.simplified.serialization`
+
+Raised when serialization or deserialization fails.
+
+```python
+from oaas_sdk2_py.simplified.serialization import SerializationError
+
+try:
+    result = serializer.serialize(complex_object, SomeType)
+except SerializationError as e:
+    print(f"Serialization failed: {e}")
+    print(f"Error code: {e.error_code}")
+    print(f"Context: {e.context}")
+```
+
+#### ValidationError
+
+**Module:** `oaas_sdk2_py.simplified.serialization`
+
+Raised when type validation fails during conversion.
+
+```python
+from oaas_sdk2_py.simplified.serialization import ValidationError
+
+try:
+    result = serializer.convert_value("not_a_number", int)
+except ValidationError as e:
+    print(f"Type validation failed: {e}")
+```
+
+### Performance Monitoring
+
+#### RpcPerformanceMetrics
+
+**Module:** `oaas_sdk2_py.simplified.serialization`
+
+Tracks performance metrics for serialization operations.
+
+```python
+from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+
+serializer = UnifiedSerializer()
+
+# Enable performance monitoring (default: enabled)
+serializer.enable_performance_monitoring()
+
+# Perform operations...
+serializer.serialize(data, DataType)
+serializer.deserialize(serialized_data, DataType)
+
+# Get metrics
+metrics = serializer.get_performance_metrics()
+print(f"Operations: {metrics.total_operations}")
+print(f"Success rate: {metrics.success_rate:.2%}")
+print(f"Average duration: {metrics.average_duration_ms:.2f}ms")
+print(f"Errors: {metrics.total_errors}")
+
+# Reset metrics
+serializer.reset_performance_metrics()
+```
+
+### RPC Integration
+
+The serialization system is fully integrated with the RPC system in [`oaas_sdk2_py/model.py`](oaas_sdk2_py/model.py:1):
+
+```python
+# Automatic serialization in RPC methods
+@oaas.method()
+async def process_data(self, request: ComplexRequest) -> ComplexResponse:
+    # request is automatically deserialized from RPC parameters
+    # return value is automatically serialized for RPC response
+    return ComplexResponse(result=f"Processed: {request.data}")
+```
+
+### State Management Integration
+
+The serialization system is integrated with state management in [`oaas_sdk2_py/simplified/state_descriptor.py`](oaas_sdk2_py/simplified/state_descriptor.py:1):
+
+```python
+@oaas.service("DataService", package="example")
+class DataService(OaasObject):
+    # All attributes use unified serialization for persistence
+    complex_data: Dict[str, List[int]] = {}
+    timestamps: List[datetime] = []
+    user_ids: Set[UUID] = set()
+    
+    @oaas.method()
+    async def update_data(self, new_data: Dict[str, List[int]]) -> bool:
+        # Changes are automatically serialized and persisted
+        self.complex_data.update(new_data)
+        self.timestamps.append(datetime.now())
+        return True
+```
+
+### Type Support Examples
+
+The unified serialization system handles all Python types seamlessly:
+
+```python
+from typing import List, Dict, Optional, Union, Tuple, Set
+from datetime import datetime
+from uuid import UUID
+from pydantic import BaseModel
+
+class UserProfile(BaseModel):
+    name: str
+    age: int
+    email: Optional[str] = None
+
+@oaas.service("ComprehensiveService", package="example")
+class ComprehensiveService(OaasObject):
+    
+    # State attributes using various types
+    numbers: List[int] = []
+    metadata: Dict[str, Any] = {}
+    coordinates: Tuple[float, float] = (0.0, 0.0)
+    tags: Set[str] = set()
+    created_at: datetime = None
+    user_id: UUID = None
+    
+    @oaas.method()
+    async def process_all_types(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Demonstrates comprehensive type handling."""
+        
+        # All these assignments use the unified serialization system
+        self.numbers = data.get("numbers", [])
+        self.metadata = data.get("metadata", {})
+        self.coordinates = tuple(data.get("coordinates", [0.0, 0.0]))
+        self.tags = set(data.get("tags", []))
+        self.created_at = datetime.now()
+        self.user_id = UUID.uuid4()
+        
+        return {
+            "processed": True,
+            "timestamp": self.created_at,
+            "id": str(self.user_id),
+            "stats": {
+                "number_count": len(self.numbers),
+                "metadata_keys": list(self.metadata.keys()),
+                "coordinate_sum": sum(self.coordinates),
+                "tag_count": len(self.tags)
+            }
+        }
+    
+    @oaas.method()
+    async def handle_optional_union(self, value: Optional[Union[int, str]]) -> str:
+        """Handles complex optional union types."""
+        if value is None:
+            return "No value provided"
+        elif isinstance(value, int):
+            return f"Number: {value}"
+        else:
+            return f"Text: {value}"
+    
+    @oaas.method()
+    async def process_user_profile(self, profile: UserProfile) -> Dict[str, Any]:
+        """Handles Pydantic model serialization."""
+        return {
+            "name": profile.name,
+            "age_category": "adult" if profile.age >= 18 else "minor",
+            "has_email": profile.email is not None,
+            "processed_at": datetime.now().isoformat()
+        }
 ```
 
 ## Legacy API
