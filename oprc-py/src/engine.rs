@@ -145,9 +145,10 @@ impl OaasEngine {
         let ke = key_expr.clone();
         let z_handler = InvocationZenohHandler::new("".to_string(), Arc::new(handler));
         let runtime = get_runtime();
+        let conf = oprc_zenoh::util::ManagedConfig::new(ke, 1, 65536);
         let q = runtime
             .spawn(async move {
-                oprc_zenoh::util::declare_managed_queryable(&z_session, ke, z_handler, 1, 65536)
+                oprc_zenoh::util::declare_managed_queryable(&z_session, conf, z_handler)
                     .await
             })
             .await

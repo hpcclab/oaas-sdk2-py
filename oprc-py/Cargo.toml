@@ -18,13 +18,13 @@ flume = "0.11"
 prost = { version = "0.14.1" }
 pyo3 = {version = "0.25.1", features = ["extension-module", "experimental-async"]}
 pyo3-async-runtimes = { version = "0.25", features = ["attributes", "tokio-runtime"] }
-pyo3-stub-gen = {version = "0.10", optional = true}
+pyo3-stub-gen = {version = "0.12", optional = true}
 tokio = { version = "1.46", features = ["rt-multi-thread", "signal"] }
-tonic = "0.13"
+tonic = "0.14"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-zenoh = {version = "1.4"}
-zenoh-config = {version = "1.4"}
+zenoh = {version = "1.5"}
+zenoh-config = {version = "1.5"}
 # pyo3-python-tracing-subscriber ={ version = "0.1"}
 oprc-invoke = {git = "https://github.com/pawissanutt/oaas-rs", branch = "dev"}
 oprc-zenoh = {git = "https://github.com/pawissanutt/oaas-rs", branch = "dev"}

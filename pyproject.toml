@@ -6,7 +6,6 @@ requires-python = ">=3.11"
 readme = "README.md"
 # authors = ["Pawissanutt <pawissanutt@gmail.com>"]
 dependencies = [
-    "asyncio>=3.4.3",
     "uvloop>=0.21.0; sys_platform != 'win32'", # uvloop only for non-Windows platforms
     "winloop>=0.1.8; sys_platform == 'win32'", # winloop only for Windows platforms
     "pydantic>=2.11.6",

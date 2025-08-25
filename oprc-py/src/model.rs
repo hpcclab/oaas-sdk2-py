@@ -94,6 +94,7 @@ pub struct InvocationResponse {
     payload: Vec<u8>,
     status: i32,
     header: HashMap<String, String>,
+    invocation_id: String,
 }
 
 impl From<oprc_pb::InvocationResponse> for InvocationResponse {
@@ -103,6 +104,7 @@ impl From<oprc_pb::InvocationResponse> for InvocationResponse {
             payload: value.payload.unwrap_or_default(),
             status: value.status,
             header: value.headers,
+            invocation_id: value.invocation_id,
         }
     }
 }
@@ -114,6 +116,7 @@ impl From<InvocationResponse> for oprc_pb::InvocationResponse {
             payload: Some(value.payload),
             status: value.status,
             headers: value.header,
+            invocation_id: value.invocation_id,
         }
     }
 }
@@ -125,6 +128,7 @@ impl From<&InvocationResponse> for oprc_pb::InvocationResponse {
             payload: Some(value.payload.to_owned()),
             status: value.status,
             headers: value.header.to_owned(),
+            invocation_id: value.invocation_id.to_owned(),
         }
     }
 }
@@ -133,13 +137,14 @@ impl From<&InvocationResponse> for oprc_pb::InvocationResponse {
 #[pyo3::pymethods]
 impl InvocationResponse {
     #[new]
-    #[pyo3(signature = (payload=vec![], status=0, header=HashMap::new()))]
+    #[pyo3(signature = (payload=vec![], status=0, header=HashMap::new(), invocation_id="".into()))]
     /// Creates a new `InvocationResponse`.
-    fn new(payload: Vec<u8>, status: i32, header: HashMap<String, String>) -> Self {
+    fn new(payload: Vec<u8>, status: i32, header: HashMap<String, String>, invocation_id: String) -> Self {
         InvocationResponse {
             payload,
             status,
             header,
+            invocation_id,
         }
     }
 

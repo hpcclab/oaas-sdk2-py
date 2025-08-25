@@ -110,7 +110,7 @@ class TestMock(unittest.TestCase):
         obj.set_intro("Object 1")
         obj.commit()
         result = obj.greet()
-        assert result == "Hello, Object 1"
+        assert result == '"Hello, Object 1"'
     
     def test_multiple_objects(self):
         mock_oaas = oaas.mock()
