@@ -4,7 +4,7 @@ from oprc_py import FnTriggerType, DataTriggerType
 from .sample_cls import oaas, sample_cls_meta, SampleObj
 
 try:
-    oprc_py.init_logger("debug")
+    oprc_py.init_logger("info,oprc_py=debug")
 except Exception as _:
     pass
 

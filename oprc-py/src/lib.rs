@@ -14,15 +14,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 fn init_logger(level: &str, raise_error: bool) -> PyResult<()> {
     let r = tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::new(level.to_string()))
-        // .with_target(false)
-        // .compact()
         .with_ansi(true)
-        // .with_line_number(true)
-        // .with_file(true)
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
         .with_timer(tracing_subscriber::fmt::time::time())
-        // .with_thread_names(true)
-        // .with_thread_ids(true)
         .with_writer(std::io::stderr)
         .finish()
         .try_init();

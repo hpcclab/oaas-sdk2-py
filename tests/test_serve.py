@@ -17,7 +17,7 @@ class TestServe(unittest.IsolatedAsyncioTestCase):
             oaas.stop_server()
     
     async def test_agent(self):
-        oprc_py.init_logger("debug")
+        oprc_py.init_logger("info,oprc_py=debug")
         loop = asyncio.get_running_loop() 
         await oaas.run_agent(
             loop,

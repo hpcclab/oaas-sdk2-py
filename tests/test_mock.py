@@ -4,7 +4,7 @@ import unittest
 import oprc_py
 from .sample_cls import AsyncSampleObj, SampleObj, oaas, async_sample_cls_meta, sample_cls_meta
 
-oprc_py.init_logger("debug")
+oprc_py.init_logger("info,oprc_py=debug")
 
 class TestAsyncMock(unittest.IsolatedAsyncioTestCase):
     
@@ -110,7 +110,7 @@ class TestMock(unittest.TestCase):
         obj.set_intro("Object 1")
         obj.commit()
         result = obj.greet()
-        assert result == '"Hello, Object 1"'
+        assert result == "Hello, Object 1"
     
     def test_multiple_objects(self):
         mock_oaas = oaas.mock()

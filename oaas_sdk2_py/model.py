@@ -143,6 +143,19 @@ def parse_resp(resp, return_type_hint: Optional[type] = None) -> InvocationRespo
     elif isinstance(resp, InvocationResponse):
         return resp
     
+    # Fast-path for common simple types to avoid unnecessary JSON quoting
+    # - If the function declares it returns str, send UTF-8 bytes directly (no JSON quotes)
+    # - If the function returns bytes, pass through as-is
+    try:
+        if return_type_hint is str and isinstance(resp, str):
+            return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=resp.encode())
+        if return_type_hint is bytes and isinstance(resp, (bytes, bytearray, memoryview)):
+            payload = bytes(resp)
+            return InvocationResponse(status=int(InvocationResponseCode.Okay), payload=payload)
+    except Exception:
+        # Fallback to unified serializer path below on any unexpected issue
+        pass
+    
     # Use unified serialization system for comprehensive type support
     try:
         # Lazy import to avoid circular imports

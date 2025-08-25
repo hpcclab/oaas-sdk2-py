@@ -128,6 +128,19 @@ class StateDescriptor:
                 }
             ) from e
         
+    # --- Helper methods for testing and explicit control ---
+    def _serialize(self, value: Any) -> bytes:
+        """Serialize a value according to this descriptor's type hint."""
+        return self.serializer.serialize(value, self.type_hint)
+
+    def _deserialize(self, data: bytes) -> Any:
+        """Deserialize bytes into a typed value according to this descriptor's type hint."""
+        return self.serializer.deserialize(data, self.type_hint)
+
+    def _convert_value(self, value: Any) -> Any:
+        """Convert a value into the descriptor's type with validation."""
+        return self.serializer.convert_value(value, self.type_hint)
+    
     
     def get_performance_metrics(self) -> PerformanceMetrics:
         """Get performance metrics for this state descriptor."""
