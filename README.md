@@ -322,7 +322,7 @@ python main.py agent
 - OaaS Platform (Oparaca)
     - Kubernetes Cluster (e.g., k3d with Docker runtime)
 
-### Deployment
+<!-- ### Deployment
 
 1. **Package your service**:
 ```bash
@@ -350,7 +350,7 @@ oprc-cli get object your-service/YourClass/123
 
 # Scale agents
 oprc-cli scale agents your-service/YourClass --replicas 3
-```
+``` -->
 
 
 ## Build the project
