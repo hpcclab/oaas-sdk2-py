@@ -30,7 +30,6 @@ class Oparaca:
         if config is None:
             config = OaasConfig()
         self.config = config
-        # self.odgm_url = config.oprc_odgm_url
         self.default_partition_id = config.oprc_partition_default
         self.meta_repo = meta_repo if meta_repo else MetadataRepo()
         self.default_pkg = default_pkg

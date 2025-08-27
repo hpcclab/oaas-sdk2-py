@@ -27,10 +27,12 @@ class MetadataRepo:
             cls.export_pkg(output[pkg_name])
         return output
 
-    def print_pkg(self):
+    def print_pkg(self) -> str:
+        out = ""
         for (_, pkg) in self.export_pkg().items():
-            print(yaml.dump(pkg, indent=2))
-            print("---")
+            out += yaml.dump(pkg, indent=2)
+            out += "---\n"
+        return out
 
     def get_cls_meta(self, cls_id: str) -> ClsMeta:
         return self.cls_dict.get(cls_id)

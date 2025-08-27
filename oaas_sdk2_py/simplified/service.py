@@ -77,6 +77,11 @@ class OaasService:
         return OaasService._auto_session_manager
     
     @staticmethod
+    def print_pkg() -> str:
+        repo = OaasService._global_oaas.meta_repo
+        return repo.print_pkg()
+
+    @staticmethod
     def configure(config: OaasConfig) -> None:
         """Configure the global OaaS instance."""
         OaasService._global_config = config

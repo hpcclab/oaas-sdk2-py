@@ -36,10 +36,7 @@ if __name__ == '__main__':
     os.environ.setdefault("HTTP_PORT", "8080")
     
     if len(sys.argv) > 1 and sys.argv[1] == "gen":
-        # Generate package metadata
-        print("Generating package metadata...")
-        # Note: This would need to be adapted to the new API
-        print("Package metadata generation not yet implemented for new API")
+        print(oaas.print_pkg())
     else:
         port = int(os.environ.get("HTTP_PORT", "8080"))
         setup_event_loop()

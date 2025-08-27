@@ -18,4 +18,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 EXPOSE 8080
 
-ENTRYPOINT uv run python -m ${APP_MODULE}
+ENTRYPOINT ["uv", "run", "python", "-m", "${APP_MODULE}"]
