@@ -97,15 +97,25 @@ class DebugContext:
     performance_monitoring: bool = False
     
     def __post_init__(self):
-        # Configure logger
-        if not self.logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
+        # Configure logger once, avoiding duplicate emissions.
+        root = logging.getLogger()
+        if root.handlers:
+            # Root already configured (e.g., basicConfig in an app). Rely on it.
+            # Do not add our own handler; keep propagation so root handles output.
             self.logger.setLevel(self._get_log_level())
+            self.logger.propagate = True
+        else:
+            # No root handlers — create a minimal handler for our logger.
+            if not self.logger.handlers:
+                handler = logging.StreamHandler()
+                formatter = logging.Formatter(
+                    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+                )
+                handler.setFormatter(formatter)
+                self.logger.addHandler(handler)
+            self.logger.setLevel(self._get_log_level())
+            # Prevent double logging if root later gets configured.
+            self.logger.propagate = False
     
     def _get_log_level(self) -> int:
         """Convert DebugLevel to logging level"""
