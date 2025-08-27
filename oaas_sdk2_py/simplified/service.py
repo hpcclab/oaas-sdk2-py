@@ -300,6 +300,34 @@ class OaasService:
         
         return decorator
     
+    # -------------------------------------------------------------------------
+    # Accessor decorators (delegates)
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def getter(field: str | None = None, *, projection: Optional[list[str]] = None):
+        """Accessor decorator for persisted reads.
+
+        Usage:
+            @oaas.getter("field_name")
+            async def get_field(self) -> FieldType: ...
+
+        Note: Accessors are not exported as standalone functions; they remain
+        methods on the class, with metadata captured for introspection/exports.
+        """
+        from .accessors import getter as _getter
+        return _getter(field, projection=projection)
+
+    @staticmethod
+    def setter(field: str | None = None):
+        """Accessor decorator for persisted writes.
+
+        Usage:
+            @oaas.setter("field_name")
+            async def set_field(self, value: FieldType) -> None: ...
+        """
+        from .accessors import setter as _setter
+        return _setter(field)
+
     @staticmethod
     def method(func_or_name=None, *, name: str = "", stateless: bool = False, strict: bool = False,
                serve_with_agent: bool = False, timeout: Optional[float] = None,

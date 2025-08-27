@@ -96,7 +96,6 @@ __all__ = [
     
     # Decorators
     'EnhancedFunctionDecorator', 'ConstructorDecorator', 'EnhancedMethodDecorator',
-    'getter', 'setter',
     
     # Convenience functions
     'create_object', 'load_object'

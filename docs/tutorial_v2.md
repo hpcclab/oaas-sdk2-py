@@ -22,6 +22,7 @@ Conceptually, the OaaS SDK helps you author classes that run on the OaaS platfor
 
 Key features:
 - Simplified decorators (`@oaas.service`, `@oaas.method`, etc.)
+- Accessor decorators (`@oaas.getter`, `@oaas.setter`) for direct state access (not exported as functions)
 - Automatic state management on typed attributes
 - Native support for Python primitives, collections, Pydantic models
 - Server (gRPC) and agents managed independently
@@ -63,10 +64,11 @@ class Greeter(OaasObject):
     async def greet(self, req: GreetRequest) -> GreetResponse:
         self.greeting_count += 1
         return GreetResponse(message=f"Hello, {req.name}! (Greeting #{self.greeting_count})")
-    
-    @oaas.method()
+
+    # Accessor: persisted read of the 'greeting_count' field
+    @oaas.getter("greeting_count")
     async def get_count(self) -> int:
-        return self.greeting_count
+        ...
 
 # Usage
 async def main():
@@ -154,13 +156,14 @@ class Counter(OaasObject):
         self.history.append(f"Incremented by {req.amount}")
         return self.count
     
-    @oaas.method()
+    # Accessors: direct reads of persisted fields
+    @oaas.getter("count")
     async def get_value(self) -> int:
-        return self.count
-    
-    @oaas.method()
+        ...
+
+    @oaas.getter("history")
     async def get_history(self) -> List[str]:
-        return self.history.copy()
+        ...
     
     @oaas.method()
     async def get_metadata(self) -> Dict[str, Any]:

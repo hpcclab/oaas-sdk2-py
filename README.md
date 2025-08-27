@@ -40,6 +40,7 @@ uv add oaas-sdk2-py
 - **Remote Procedure Calls (RPC)**: Invoke methods on objects remotely
 - **Mocking Framework**: Includes a mocking utility for testing your OaaS applications
 - **Rust-Powered Core**: High-performance core components written in Rust for speed and efficiency
+ - **Accessor Methods**: Explicit `@oaas.getter`/`@oaas.setter` for typed persisted fields (not exported as standalone functions)
 
 ## Quick Start
 
@@ -78,6 +79,16 @@ class Greeter(OaasObject):
     async def is_popular(self, threshold: int = 10) -> bool:
         return self.counter > threshold
 
+    # Accessor methods (not exported as RPC functions)
+    @oaas.getter()
+    async def get_counter(self) -> int:
+        return self.counter
+
+    @oaas.setter()
+    async def set_counter(self, value: int) -> int:
+        self.counter = value
+        return self.counter
+
 # Usage
 async def main():
     # Create and use locally
@@ -87,6 +98,8 @@ async def main():
     response = await greeter.greet(GreetRequest(name="World"))
     count = await greeter.count_greetings()  # Returns int
     popular = await greeter.is_popular(5)     # Returns bool
+    current_counter = await greeter.get_counter()  # Accessor getter
+    _ = await greeter.set_counter(42)             # Accessor setter
     
     print(f"{response.message} (Count: {count}, Popular: {popular})")
 ```
@@ -116,6 +129,7 @@ oaas.stop_server()
 
 - **`@oaas.service`**: Decorator to define OaaS services
 - **`@oaas.method`**: Decorator to expose methods as RPC endpoints
+- **`@oaas.getter`/`@oaas.setter`**: Accessor decorators for persisted fields (not exported as RPC functions)
 - **`OaasObject`**: Base class for all OaaS objects with persistence
 - **`OaasConfig`**: Configuration for OaaS runtime
 
@@ -126,6 +140,33 @@ The SDK natively supports these Python types:
 - **Collections**: `list`, `dict`
 - **Binary**: `bytes`
 - **Models**: Pydantic `BaseModel` classes
+
+## Why use accessors over methods?
+
+Primary goal: avoid redundant RPC for simple state access. A method does RPC → run code → access data → RPC reply; an accessor reads/writes the persisted data directly.
+
+Accessors (@oaas.getter/@oaas.setter) are the preferred way to expose simple reads/writes of persisted fields:
+
+- Smaller external surface: accessors are not exported as standalone RPC functions, reducing accidental public APIs.
+- Type-safe binding: validated against the field’s annotation at registration; name-based inference cuts boilerplate.
+- Clear semantics: getters don’t have side effects; setters just write. Easy to reason about and review.
+- Projection support: getters can return a projected sub-value from structured fields (e.g., dict/model paths).
+
+Before (method):
+
+```python
+@oaas.method()
+async def get_count(self) -> int:
+    return self.count
+```
+
+After (accessor):
+
+```python
+@oaas.getter("count")
+async def get_count(self) -> int:
+    ...  # body not required; semantics = read persisted field
+```
 
 ## Examples
 
@@ -195,28 +236,34 @@ class Counter(OaasObject):
         return self.count
 
     @oaas.method()
-    async def get_value(self) -> int:
-        """Get current counter value."""
-        return self.count
-
-    @oaas.method()
-    async def get_history(self) -> list:
-        """Get operation history."""
-        return self.history
-
-    @oaas.method()
     async def reset(self) -> bool:
         """Reset counter to zero."""
         self.count = 0
         self.history.clear()
         return True
 
+    # Accessors for the state fields
+    @oaas.getter()
+    async def get_count(self) -> int:
+        return self.count
+
+    @oaas.setter()
+    async def set_count(self, value: int) -> int:
+        self.count = value
+        return self.count
+
+    @oaas.getter("history")
+    async def get_history(self) -> list:
+        return self.history
+
 # Usage
 counter = Counter.create(local=True)
-value = await counter.increment(5)    # Returns int: 5
-current = await counter.get_value()   # Returns int: 5
-history = await counter.get_history() # Returns list: ["Added 5"]
-reset = await counter.reset()         # Returns bool: True
+value = await counter.increment(5)     # Returns int: 5
+current = await counter.get_count()    # Accessor getter: 5
+history = await counter.get_history()  # Accessor getter: ["Added 5"]
+reset = await counter.reset()          # Returns bool: True
+await counter.set_count(5)             # Accessor setter: set to 5
+value = await counter.get_count()      # Accessor getter: 5
 ```
 
 ### Testing with Mock Mode

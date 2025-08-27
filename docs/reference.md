@@ -87,6 +87,84 @@ async def background_task(self) -> bool:
     return True
 ```
 
+### @oaas.getter and @oaas.setter (Accessor Methods)
+
+Accessors provide typed read/write methods bound to persisted fields. They are async, validated at registration, and behave like normal methods for callers. Accessors are not exported as standalone RPC functions; they remain methods on the service class and do not appear in the package "functions" list.
+
+Why: avoid redundant RPC for pure data access. A method incurs an RPC call that then reads/writes state and returns; an accessor performs the data operation directly.
+
+Signatures:
+- `@oaas.getter(field: str | None = None, *, projection: list[str] | None = None)`
+- `@oaas.setter(field: str | None = None)`
+
+Contracts:
+- Getter: async; only `self`; must have a return annotation matching the field type (or projected sub-type). No side effects.
+- Setter: async; `self` plus a single `value` parameter; parameter type must match the field type. Returns updated value or `None` if annotated as `None`.
+
+Field inference:
+- Getter: `get_<field>` → `<field>`; else method name equals field name.
+- Setter: `set_<field>` → `<field>`; else method name equals field name.
+Field must be type-annotated on the class (MRO-aware). Ambiguity or failure raises `TypeError`.
+
+Projection (getter only):
+- `projection=["a", "b"]` traverses attribute or dict keys after deserialization. Invalid paths raise `ValueError`.
+
+Usage:
+```python
+from oaas_sdk2_py import oaas, OaasObject
+
+@oaas.service("Counter", package="example")
+class Counter(OaasObject):
+    count: int = 0
+
+    @oaas.getter()  # inferred from method name: get_count -> count
+    async def get_count(self) -> int:
+        # Body is not used by the runtime; recommended to reflect semantics.
+        return self.count
+
+    @oaas.setter()  # inferred from method name: set_count -> count
+    async def set_count(self, value: int) -> int:
+        self.count = value
+        return self.count
+
+    @oaas.getter("profile", projection=["address", "city"])
+    async def get_city(self) -> str:
+        # Returns projected sub-value from a structured field
+        ...
+```
+
+Notes:
+- Accessors are metadata-driven; they do not get exported as RPC functions.
+- They work alongside normal `@oaas.method` methods.
+- In local/mock mode, state semantics follow in-memory behavior.
+
+When to choose accessors vs methods
+
+Prefer accessors for simple persisted reads/writes:
+- Minimize public RPC surface: accessors stay as class methods and won’t appear in the exported function list.
+- Strong coupling to state: validated against field annotations, with optional name-based inference.
+- Predictable behavior: getters should be side-effect free; setters only write; easy to reason about.
+- Projections: return just a path of interest from structured fields without extra plumbing.
+- Cleaner docs/UX: keep the “real” RPC methods list focused on domain operations.
+
+Use `@oaas.method` when the operation:
+- Combines multiple fields, interacts with external systems, or has complex logic.
+- Needs custom validation, retries, timeouts, or agent execution.
+
+Example (before → after):
+
+```python
+# Before: exported RPC function
+@oaas.method()
+async def get_count(self) -> int:
+    return self.count
+
+# After: accessor (not exported as RPC function)
+@oaas.getter("count")
+async def get_count(self) -> int:
+    ...
+```
+
 ### @oaas.function
 
 Decorator: `@oaas.function(name: str = "", serve_with_agent: bool = False, timeout: float | None = None, retry_count: int = 0, retry_delay: float = 1.0)`
