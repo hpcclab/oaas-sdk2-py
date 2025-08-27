@@ -259,19 +259,6 @@ class TestOaasConfig:
         assert config.batch_size == 50
         print("✅ OaasConfig custom values test passed")
     
-    def test_oaas_config_to_oprc_config(self):
-        """Test OaasConfig to OprcConfig conversion."""
-        config = OaasConfig(
-            oprc_zenoh_peers="peer1:7447,peer2:7447",
-            oprc_partition_default=1
-        )
-        
-        oprc_config = config  # OprcConfig is now an alias for OaasConfig
-    
-        assert oprc_config.oprc_zenoh_peers == "peer1:7447,peer2:7447"
-        assert oprc_config.oprc_partition_default == 1
-        print("✅ OaasConfig to OprcConfig conversion test passed")
-    
     def test_oaas_config_peer_parsing(self):
         """Test OaasConfig peer parsing."""
         config = OaasConfig(oprc_zenoh_peers="peer1:7447,peer2:7447,peer3:7447")

@@ -184,31 +184,6 @@ def test_state_management():
     print("✅ State management works correctly")
     
     
-def test_config_compatibility():
-    """Test that OaasConfig works with existing OprcConfig."""
-    print("\n⚙️ Testing Configuration Compatibility...")
-    
-    # Test OaasConfig to OprcConfig conversion
-    oaas_config = OaasConfig(
-        oprc_zenoh_peers="peer1:7447,peer2:7447",
-        oprc_partition_default=1,
-        mock_mode=False
-    )
-    
-    # Convert to legacy config
-    oprc_config = oaas_config  # OprcConfig is now an alias for OaasConfig
-    
-    # Verify conversion
-    assert oprc_config.oprc_zenoh_peers == "peer1:7447,peer2:7447"
-    assert oprc_config.oprc_partition_default == 1
-    
-    # Test peer parsing
-    peers = oaas_config.get_zenoh_peers()
-    assert peers == ["peer1:7447", "peer2:7447"]
-    
-    print("✅ Configuration compatibility works correctly")
-    
-    
 def test_mixed_usage():
     """Test that legacy and new APIs can be used together."""
     print("\n🔄 Testing Mixed Usage...")

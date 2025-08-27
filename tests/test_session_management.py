@@ -41,7 +41,6 @@ from oaas_sdk2_py import (
     BaseObject,
     ClsMeta,
     FuncMeta,
-    OprcConfig,
 )
 
 

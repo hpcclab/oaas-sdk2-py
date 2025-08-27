@@ -34,7 +34,3 @@ class OaasConfig(BaseSettings):
         if self.oprc_zenoh_peers is None:
             return None
         return self.oprc_zenoh_peers.split(",")
-
-
-# For backward compatibility, create an alias
-OprcConfig = OaasConfig
