@@ -141,32 +141,6 @@ The SDK natively supports these Python types:
 - **Binary**: `bytes`
 - **Models**: Pydantic `BaseModel` classes
 
-## Why use accessors over methods?
-
-Primary goal: avoid redundant RPC for simple state access. A method does RPC → run code → access data → RPC reply; an accessor reads/writes the persisted data directly.
-
-Accessors (@oaas.getter/@oaas.setter) are the preferred way to expose simple reads/writes of persisted fields:
-
-- Smaller external surface: accessors are not exported as standalone RPC functions, reducing accidental public APIs.
-- Type-safe binding: validated against the field’s annotation at registration; name-based inference cuts boilerplate.
-- Clear semantics: getters don’t have side effects; setters just write. Easy to reason about and review.
-- Projection support: getters can return a projected sub-value from structured fields (e.g., dict/model paths).
-
-Before (method):
-
-```python
-@oaas.method()
-async def get_count(self) -> int:
-    return self.count
-```
-
-After (accessor):
-
-```python
-@oaas.getter("count")
-async def get_count(self) -> int:
-    ...  # body not required; semantics = read persisted field
-```
 
 ## Examples
 
@@ -264,6 +238,34 @@ history = await counter.get_history()  # Accessor getter: ["Added 5"]
 reset = await counter.reset()          # Returns bool: True
 await counter.set_count(5)             # Accessor setter: set to 5
 value = await counter.get_count()      # Accessor getter: 5
+```
+
+
+### Why use accessors over methods?
+
+Primary goal: avoid redundant RPC for simple state access. A method does RPC → run code → access data → RPC reply; an accessor reads/writes the persisted data directly.
+
+Accessors (@oaas.getter/@oaas.setter) are the preferred way to expose simple reads/writes of persisted fields:
+
+- Smaller external surface: accessors are not exported as standalone RPC functions, reducing accidental public APIs.
+- Type-safe binding: validated against the field’s annotation at registration; name-based inference cuts boilerplate.
+- Clear semantics: getters don’t have side effects; setters just write. Easy to reason about and review.
+- Projection support: getters can return a projected sub-value from structured fields (e.g., dict/model paths).
+
+Before (method):
+
+```python
+@oaas.method()
+async def get_count(self) -> int:
+    return self.count
+```
+
+After (accessor):
+
+```python
+@oaas.getter("count")
+async def get_count(self) -> int:
+    ...  # body not required; semantics = read persisted field
 ```
 
 ### Testing with Mock Mode

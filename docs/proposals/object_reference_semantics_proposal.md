@@ -44,13 +44,43 @@ Scope: Interface-only design. When an OaaS object field holds another OaaS objec
 
 ## Minimal API Additions (Interfaces)
 - Reference helper (optional ergonomic API):
-  - `oaas.ref(cls_id: str, object_id: int, partition_id: int = 0) -> ObjectRef[T]`
+  - `oaas.ref(cls_id: str, object_id: int, partition_id: int = 0) -> T` (returns a proxy of the service type `T`)
 - On all objects:
   - `self.metadata: ObjectMetadata` (read-only).
-  - `self.as_ref() -> ObjectRef[Self]`
+  - `self.as_ref() -> Self` (returns a proxy of `Self`)
 - Proxy surface:
   - `proxy.metadata: ObjectMetadata`
   - Service methods as `async def` matching the target class annotations.
+
+## RPC Parameters and Return Values (Pass-by-reference semantics)
+Extend identity-based semantics to RPC: when service objects cross a method boundary, they go by identity and surface as proxies on the other side.
+
+- Parameter normalization
+  - If a parameter is annotated as an OaaS service type (e.g., `p: Profile`), the client stub accepts any of:
+    - In-process instance (`OaasObject`)
+  - A proxy of type `T`
+    - `ObjectMetadata` or `(cls_id, partition_id, object_id)` tuple, or an equivalent dict
+  - Wire format is identity-only: `{ cls_id, partition_id, object_id }`.
+  - On the callee, the parameter is presented as a proxy of the annotated type. If a local in-memory instance is available, the runtime may optimize to local dispatch (interface unchanged).
+
+- Return value normalization
+  - If a method is annotated to return a service type `T` (or collections thereof), the implementation may return an in-process instance, a proxy, or `ObjectMetadata`; transport serializes identity-only, and the caller receives a proxy of `T`.
+  - `None` is preserved.
+
+- Collections and optionals
+  - `list[T]`, `dict[K, T]`, `set[T]`, `tuple[...]`, and `Optional[T]` where `T` is a service type map element-wise to identities on the wire and to proxies at the destination.
+
+- Untyped parameters
+  - If a parameter lacks a service type annotation but is explicitly a proxy or `ObjectMetadata`, it is normalized as a reference. Passing a plain `OaasObject` without a service type annotation yields `TypeError` to avoid accidental by-value embedding.
+
+- Validation and errors
+  - `TypeError` if a provided value cannot be normalized to the annotated service type.
+  - `OaasError.NotFound` if the referenced object id does not exist when first used (configurable eager/lazy check).
+  - `OaasError.AccessDenied` on permission failures.
+
+- Method-level options (optional)
+  - `@oaas.method(validate_refs="lazy" | "eager")` controls whether existence/ACL checks occur at call time or upon first use.
+  - Future consideration: `pass_by="ref"` (default) vs `pass_by="value"` for DTO-like non-service models.
 
 ## Examples
 ```python
@@ -93,6 +123,74 @@ user.profile = prof_ref
 
 Collections of refs serialize as arrays/maps of identities; accessing items returns proxies.
 
+## Serialization Layer (SDK-wide)
+Canonical wire form for any reference (single or inside collections):
+```json
+{ "cls_id": "<package.Class>", "partition_id": 0, "object_id": 123 }
+```
+
+Normalization (to wire):
+- Accepts: in-process instance (`OaasObject`), a proxy of a service type, `ObjectMetadata`, `(cls_id, partition_id, object_id)` tuple, or dict with those keys.
+- Emits: exactly the metadata dict above.
+- Collections (`list`/`dict`/`set`/`tuple`/`Optional`): normalize element-wise.
+
+Materialization (from wire):
+- Given metadata, produce a typed proxy of `T` whose methods invoke RPC.
+- May optimize to an in-memory instance if available; interface unchanged.
+
+Safety defaults:
+- Never serialize full target state through references; proxies are recursion-safe.
+
+## Pydantic Integration
+
+Recommended (Pydantic v2): provide a reusable `Ref[T]` type alias that coerces inputs to proxies of `T` and serializes to identity.
+
+```python
+from __future__ import annotations
+from typing import Any, TypeVar, Annotated
+from pydantic import BaseModel, BeforeValidator, PlainSerializer, ConfigDict
+
+T = TypeVar("T")
+
+def _normalize_to_ref(v: Any):
+  # If it's already an OaaS service instance or proxy, keep or convert to proxy
+  if isinstance(v, OaasObject):
+    # Ensure proxy form for pass-by-identity
+    try:
+      return v.as_ref()
+    except AttributeError:
+      return v  # assume it's already a proxy
+  # Accept ObjectMetadata
+  if isinstance(v, ObjectMetadata):
+    return oaas.ref(v.cls_id, v.object_id, v.partition_id)
+  # Accept tuple (cls_id, partition_id, object_id)
+  if isinstance(v, tuple) and len(v) == 3 and isinstance(v[0], str):
+    cls_id, partition_id, object_id = v
+    return oaas.ref(cls_id, object_id, partition_id)
+  # Accept dict form
+  if isinstance(v, dict) and "cls_id" in v and "object_id" in v:
+    return oaas.ref(v["cls_id"], v["object_id"], v.get("partition_id", 0))
+  raise TypeError(f"Cannot normalize value to a service reference: {v!r}")
+
+def _serialize_ref(v: Any):
+  m = v.metadata
+  return {"cls_id": m.cls_id, "partition_id": m.partition_id, "object_id": m.object_id}
+
+# Alias applies the normalization/serialization while keeping type hint as the service type T
+Ref = Annotated[T, BeforeValidator(_normalize_to_ref), PlainSerializer(_serialize_ref, return_type=dict)]
+
+class UserMsg(BaseModel):
+  model_config = ConfigDict(arbitrary_types_allowed=True)
+  profile: Ref[Profile] | None = None
+  friends: list[Ref[Profile]] = []
+  index: dict[str, Ref[Profile]] = {}
+
+# Accepts instance, proxy, metadata dict/tuple; serializes to identity
+# m = UserMsg(profile=user.profile)
+# m.model_dump() -> {'profile': {'cls_id': 'example.Profile', 'partition_id': 0, 'object_id': 123}, ...}
+```
+
+
 ## Validation and Errors (Interface)
 - `TypeError` if an assigned value cannot be normalized to a reference of the declared type.
 - `OaasError.NotFound` if a method call targets a non-existent object id.
@@ -105,6 +203,4 @@ Collections of refs serialize as arrays/maps of identities; accessing items retu
 - Reference fields must be typed with OaaS service classes to opt in.
 
 ## Open Questions
-- Should proxies be strongly typed (generic `ObjectRef[T]`) in the public API or duck-typed per service methods?
 - Should assignment validate existence eagerly or lazily (on first use), and can this be configured?
-- How should refs interact with new `@oaas.getter/@oaas.setter` accessors (e.g., `@getter(field="profile", projection=[...])`)?
