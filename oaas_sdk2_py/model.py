@@ -14,37 +14,10 @@ from pydantic import BaseModel
 
 from typing import TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from oaas_sdk2_py.engine import BaseObject
-
-# Import unified serialization system lazily to avoid circular imports
-# from oaas_sdk2_py.simplified.serialization import UnifiedSerializer, RpcSerializationError
-
-
-# def create_obj_meta(
-#     cls: str,
-#     partition_id: int,
-#     obj_id: int = None,
-# ):
-#     oid = obj_id if obj_id is not None else tsidpy.TSID.create().number
-#     return ObjectMeta(
-#         obj_id=oid,
-#         cls=cls,
-#         partition_id=partition_id if partition_id is not None else -1,
-#     )
-
-
-# class ObjectMeta:
-#     def __init__(
-#         self, cls: str, partition_id: int, obj_id: Optional[int] = None, remote=False
-#     ):
-#         self.cls = cls
-#         self.obj_id = obj_id
-#         self.partition_id = partition_id
-#         self.remote = remote
-
-#     def __hash__(self):
-#         return hash((self.cls, self.partition_id, self.obj_id))
+    from oaas_sdk2_py.simplified.accessors import AccessorSpec  
 
 
 class FuncMeta:
@@ -181,6 +154,7 @@ def parse_resp(resp, return_type_hint: Optional[type] = None) -> InvocationRespo
 class ClsMeta:
     func_dict: dict[str, FuncMeta]
     state_dict: dict[int, StateMeta]
+    accessor_dict: dict[str, "AccessorSpec"]
 
     def __init__(
         self, name: Optional[str], pkg: str = "default", update: Callable = None
@@ -191,6 +165,7 @@ class ClsMeta:
         self.update = update
         self.func_dict = {}
         self.state_dict = {}
+        self.accessor_dict = {}
 
     def __call__(self, cls):
         """
@@ -528,7 +503,28 @@ class ClsMeta:
         fb_list = []
         for k, f in self.func_dict.items():
             fb_list.append({"name": k, "function": "." + k})
+        # Accessors export if available on class
+        accessors_export = []
+        try:
+            # Prefer accessor specs captured on decorated class
+            decorated_cls = getattr(self, 'cls', None)
+            accessor_specs = getattr(decorated_cls, '_oaas_accessors', {}) if decorated_cls else {}
+        except Exception:
+            accessor_specs = {}
+        for name, spec in accessor_specs.items():
+            accessors_export.append({
+                "name": name,
+                "kind": spec.kind.value,
+                "field": spec.field_name,
+                "projection": spec.projection,
+                "function": "." + name,
+                "uses_descriptor": spec.uses_descriptor,
+                "index": spec.storage_index,
+            })
+
         cls = {"name": self.name, "functions": fb_list}
+        if accessors_export:
+            cls["accessors"] = accessors_export
         pkg["classes"].append(cls)
 
         for k, f in self.func_dict.items():

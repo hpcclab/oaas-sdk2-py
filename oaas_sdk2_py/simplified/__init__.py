@@ -36,7 +36,7 @@ from .errors import (
     OaasError, SerializationError, ValidationError, SessionError,
     DecoratorError, PerformanceError, ConfigurationError,
     ServerError, AgentError,
-    DebugLevel, DebugContext, get_debug_context, set_debug_level
+    DebugLevel, DebugContext, get_debug_context, set_debug_level, configure_debug
 )
 
 from .performance import (
@@ -57,6 +57,7 @@ from .objects import OaasObject
 from .decorators import (
     EnhancedFunctionDecorator, ConstructorDecorator, EnhancedMethodDecorator
 )
+from .accessors import getter, setter
 
 from .service import (
     OaasService, oaas,
@@ -79,8 +80,8 @@ __all__ = [
     'OaasError', 'SerializationError', 'ValidationError', 'SessionError',
     'DecoratorError', 'PerformanceError', 'ConfigurationError',
     'ServerError', 'AgentError',
-    'DebugLevel', 'DebugContext', 'get_debug_context', 'set_debug_level',
-    
+    'DebugLevel', 'DebugContext', 'get_debug_context', 'set_debug_level', 'configure_debug',
+
     # Performance monitoring
     'PerformanceMetrics', 'debug_wrapper',
     'get_performance_metrics', 'reset_performance_metrics',
@@ -95,6 +96,7 @@ __all__ = [
     
     # Decorators
     'EnhancedFunctionDecorator', 'ConstructorDecorator', 'EnhancedMethodDecorator',
+    'getter', 'setter',
     
     # Convenience functions
     'create_object', 'load_object'

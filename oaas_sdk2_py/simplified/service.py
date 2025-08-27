@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, Optional, Type, Union, TYPE_CHECKING
 
 from .config import OaasConfig
 from .decorators import EnhancedFunctionDecorator, ConstructorDecorator, EnhancedMethodDecorator
+from .accessors import collect_accessor_members, build_accessor_wrapper, AccessorKind
 from .errors import DecoratorError, ServerError, AgentError, get_debug_context, DebugLevel
 from .performance import PerformanceMetrics, get_performance_metrics, reset_performance_metrics
 from .session_manager import AutoSessionManager, LegacySessionAdapter
@@ -234,8 +235,37 @@ class OaasService:
                                         }
                                     ) from e
                 
+                # Build accessor wrappers but don't register them as functions
+                accessor_configs = collect_accessor_members(cls)
+                accessor_specs = {}
+                for m_name, cfg in accessor_configs.items():
+                    try:
+                        original = getattr(cls, m_name)
+                        wrapper, spec = build_accessor_wrapper(cls, m_name, original, cfg)
+                        # Replace the method with the wrapper but don't register as function
+                        setattr(cls, m_name, wrapper)
+                        accessor_specs[m_name] = spec
+                    except Exception as e:
+                        debug_ctx.log(DebugLevel.ERROR, f"Failed to process accessor {m_name}: {e}")
+                        raise DecoratorError(
+                            f"Failed to process accessor {m_name} in service {name}",
+                            error_code="ACCESSOR_PROCESSING_ERROR",
+                            details={
+                                'service_name': name,
+                                'accessor_name': m_name,
+                                'error': str(e)
+                            }
+                        ) from e
+
                 # Apply the legacy decorator to maintain compatibility
                 decorated_cls = cls_meta(cls)
+                # Attach accessor specs on class for later export/introspection
+                decorated_cls._oaas_accessors = accessor_specs
+                # Persist on metadata too for repo export
+                try:
+                    cls_meta.accessor_dict = accessor_specs
+                except Exception:
+                    pass
                 
                 # Store the class metadata for later use
                 decorated_cls._oaas_cls_meta = cls_meta

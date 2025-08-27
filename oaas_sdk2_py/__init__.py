@@ -13,6 +13,7 @@ from .simplified import (
     StateDescriptor,   # Automatic state management
     AutoSessionManager, # Automatic session lifecycle management
     LegacySessionAdapter, # Backward compatibility for Session API
+    getter, setter,    # Accessor decorators
     oaas,             # Global service instance
     create_object,     # Convenience function
     load_object,       # Convenience function
@@ -45,6 +46,8 @@ __all__ = [
     "StateDescriptor",
     "AutoSessionManager",
     "LegacySessionAdapter",
+    "getter",
+    "setter",
     "oaas",
     "create_object",
     "load_object",

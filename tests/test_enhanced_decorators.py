@@ -27,6 +27,7 @@ from typing import List, Dict, Optional, Any, Union
 from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel
+import pytest
 import traceback
 
 # Import the enhanced OaaS SDK
@@ -171,12 +172,11 @@ class TestEnhancedDecorators:
             assert metrics.call_count > 0
             
             print("✓ Enhanced service decorator works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Enhanced service decorator test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Enhanced service decorator test failed: {e}")
     
     def test_enhanced_method_decorator_features(self):
         """Test enhanced method decorator features"""
@@ -238,12 +238,11 @@ class TestEnhancedDecorators:
             assert result.message == "agent processed"
             
             print("✓ Enhanced method decorator features work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Enhanced method decorator test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Enhanced method decorator test failed: {e}")
     
     def test_type_safe_state_serialization(self):
         """Test type-safe state serialization with comprehensive type safety"""
@@ -350,12 +349,11 @@ class TestEnhancedDecorators:
                 assert "TYPE_CONVERSION_ERROR" in str(e) or "Failed to set state field" in str(e)
             
             print("✓ Type-safe state serialization works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Type-safe state serialization test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Type-safe state serialization test failed: {e}")
     
     def test_error_handling_and_debugging(self):
         """Test comprehensive error handling and debugging support"""
@@ -429,12 +427,11 @@ class TestEnhancedDecorators:
                 print("  No performance metrics collected yet")
             
             print("✓ Error handling and debugging work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Error handling and debugging test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Error handling and debugging test failed: {e}")
     
     def test_performance_optimizations(self):
         """Test performance optimizations for decorators and serialization"""
@@ -506,12 +503,11 @@ class TestEnhancedDecorators:
             assert serialization_duration < 0.1  # Less than 100ms for serialization test
             
             print("✓ Performance optimizations work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Performance optimizations test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Performance optimizations test failed: {e}")
     
     def test_backward_compatibility(self):
         """Test 100% backward compatibility with existing API"""
@@ -560,12 +556,11 @@ class TestEnhancedDecorators:
             assert len(services) > 0
             
             print("✓ Backward compatibility works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Backward compatibility test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Backward compatibility test failed: {e}")
     
     def test_system_management(self):
         """Test system management and monitoring features"""
@@ -625,12 +620,11 @@ class TestEnhancedDecorators:
             assert metrics_after_reset.call_count == 0
             
             print("✓ System management works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ System management test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"System management test failed: {e}")
 
 
 # =============================================================================
@@ -692,12 +686,11 @@ class TestConcurrencyAndThreadSafety:
             assert success_count > 0  # At least some should succeed
             
             print("✓ Concurrent service access works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Concurrent service access test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Concurrent service access test failed: {e}")
     
     def test_thread_safety_with_state(self):
         """Test thread safety with state modifications"""
@@ -757,12 +750,11 @@ class TestConcurrencyAndThreadSafety:
             assert final_dict_size <= 25  # Should not exceed total items
             
             print("✓ Thread safety with state modifications works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Thread safety test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Thread safety test failed: {e}")
 
 
 # =============================================================================
@@ -908,12 +900,11 @@ class TestComprehensiveTypeSafety:
             assert len(result['mixed_data']['list_key']) == 2
             
             print("✓ Complex type serialization works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Complex type serialization test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Complex type serialization test failed: {e}")
     
     def test_type_validation_edge_cases(self):
         """Test type validation with edge cases and invalid inputs"""
@@ -1013,12 +1004,11 @@ class TestComprehensiveTypeSafety:
                 print(f"  ✓ Invalid UUID properly rejected: {type(e).__name__}")
             
             print("✓ Type validation edge cases work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Type validation edge cases test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Type validation edge cases test failed: {e}")
     
     def test_serialization_performance(self):
         """Test serialization performance with large data sets"""
@@ -1108,12 +1098,11 @@ class TestComprehensiveTypeSafety:
             assert sizes['model_list'] == model_list_size
             
             print("✓ Serialization performance tests passed")
-            return True
             
         except Exception as e:
             print(f"❌ Serialization performance test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Serialization performance test failed: {e}")
 
 
 # =============================================================================
@@ -1211,12 +1200,11 @@ class TestEnhancedMethodDecorators:
             asyncio.run(test_no_timeout())
             
             print("✓ Timeout scenarios work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Timeout scenarios test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Timeout scenarios test failed: {e}")
     
     def test_retry_scenarios(self):
         """Test various retry scenarios"""
@@ -1287,12 +1275,11 @@ class TestEnhancedMethodDecorators:
                 assert "No retry failure" in str(e)
             
             print("✓ Retry scenarios work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Retry scenarios test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Retry scenarios test failed: {e}")
     
     def test_stateless_methods(self):
         """Test stateless method functionality"""
@@ -1349,12 +1336,11 @@ class TestEnhancedMethodDecorators:
             assert service.counter == 8
             
             print("✓ Stateless methods work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Stateless methods test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Stateless methods test failed: {e}")
     
     def test_strict_validation(self):
         """Test strict validation in method decorators"""
@@ -1401,12 +1387,11 @@ class TestEnhancedMethodDecorators:
             # which would be handled by the underlying framework
             
             print("✓ Strict validation works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Strict validation test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Strict validation test failed: {e}")
 
 
 # =============================================================================
@@ -1476,12 +1461,11 @@ class TestAutoSessionManagerIntegration:
             assert result_loaded.result == 3
             
             print("✓ Automatic session management works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Automatic session management test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Automatic session management test failed: {e}")
     
     def test_session_scope_management(self):
         """Test session scope management"""
@@ -1532,12 +1516,11 @@ class TestAutoSessionManagerIntegration:
             oaas.cleanup_session(thread_id)
             
             print("✓ Session scope management works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Session scope management test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Session scope management test failed: {e}")
     
     def test_concurrent_session_management(self):
         """Test concurrent session management across threads"""
@@ -1592,12 +1575,11 @@ class TestAutoSessionManagerIntegration:
                 assert result == expected, f"Worker {worker_id}: expected {expected}, got {result}"
             
             print("✓ Concurrent session management works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Concurrent session management test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Concurrent session management test failed: {e}")
 
 
 # =============================================================================
@@ -1635,12 +1617,11 @@ class TestDebuggingAndTracing:
             assert debug_ctx.performance_monitoring
             
             print("✓ Debug level configuration works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Debug level configuration test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Debug level configuration test failed: {e}")
     
     def test_performance_monitoring(self):
         """Test performance monitoring capabilities"""
@@ -1693,12 +1674,11 @@ class TestDebuggingAndTracing:
             assert len(global_metrics) >= 0  # May be empty if not collected
             
             print("✓ Performance monitoring works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Performance monitoring test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Performance monitoring test failed: {e}")
     
     def test_error_tracing(self):
         """Test error tracing and debugging information"""
@@ -1744,12 +1724,11 @@ class TestDebuggingAndTracing:
                 assert "failed after" in str(e)
             
             print("✓ Error tracing works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Error tracing test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Error tracing test failed: {e}")
     
     def test_serialization_tracing(self):
         """Test serialization tracing capabilities"""
@@ -1805,12 +1784,11 @@ class TestDebuggingAndTracing:
             assert result['model_field']['name'] == "trace_test"
             
             print("✓ Serialization tracing works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Serialization tracing test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Serialization tracing test failed: {e}")
 
 
 # =============================================================================
@@ -1856,12 +1834,11 @@ class TestValidationAndErrorScenarios:
             assert len(invalid_validation['errors']) > 0
             
             print("✓ Comprehensive service validation works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Comprehensive service validation test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"Comprehensive service validation test failed: {e}")
     
     def test_system_health_monitoring(self):
         """Test system health monitoring and diagnostics"""
@@ -1908,12 +1885,11 @@ class TestValidationAndErrorScenarios:
             print(f"  Info: {len(health_status['info'])}")
             
             print("✓ System health monitoring works correctly")
-            return True
             
         except Exception as e:
             print(f"❌ System health monitoring test failed: {e}")
             traceback.print_exc()
-            return False
+            pytest.fail(f"System health monitoring test failed: {e}")
     
     def test_error_recovery_scenarios(self):
         """Test error recovery scenarios"""
@@ -1974,93 +1950,8 @@ class TestValidationAndErrorScenarios:
             asyncio.run(test_timeout_recovery())
             
             print("✓ Error recovery scenarios work correctly")
-            return True
             
         except Exception as e:
             print(f"❌ Error recovery scenarios test failed: {e}")
             traceback.print_exc()
-            return False
-
-
-# =============================================================================
-# MAIN TEST RUNNER
-# =============================================================================
-
-def run_all_tests():
-    """Run all Phase 2 Week 3 comprehensive tests"""
-    print("🧪 Running Phase 2 Week 3: Enhanced Decorator System and Error Handling Tests")
-    print("=" * 80)
-    
-    test_suites = [
-        TestEnhancedDecorators(),
-        TestConcurrencyAndThreadSafety(),
-        TestComprehensiveTypeSafety(),
-        TestEnhancedMethodDecorators(),
-        TestAutoSessionManagerIntegration(),
-        TestDebuggingAndTracing(),
-        TestValidationAndErrorScenarios(),
-    ]
-    
-    total_passed = 0
-    total_failed = 0
-    
-    for suite in test_suites:
-        suite_name = suite.__class__.__name__
-        print(f"\n📋 {suite_name}")
-        print("-" * 50)
-        
-        # Get all test methods
-        test_methods = [method for method in dir(suite) if method.startswith('test_')]
-        
-        suite_passed = 0
-        suite_failed = 0
-        
-        for test_method_name in test_methods:
-            try:
-                test_method = getattr(suite, test_method_name)
-                if test_method():
-                    total_passed += 1
-                    suite_passed += 1
-                else:
-                    total_failed += 1
-                    suite_failed += 1
-            except Exception as e:
-                print(f"❌ {test_method_name} failed with exception: {e}")
-                traceback.print_exc()
-                total_failed += 1
-                suite_failed += 1
-        
-        print(f"  📊 {suite_name}: {suite_passed} passed, {suite_failed} failed")
-    
-    print("\n" + "=" * 80)
-    print(f"📊 Phase 2 Week 3 Test Results: {total_passed} passed, {total_failed} failed")
-    
-    if total_failed == 0:
-        print("🎉 All tests passed! Phase 2 Week 3 enhanced decorator system is working correctly.")
-        print("✅ Enhanced decorators provide full feature parity with ClsMeta and FuncMeta")
-        print("✅ Type-safe state serialization with comprehensive error handling")
-        print("✅ Performance optimizations and monitoring capabilities")
-        print("✅ Comprehensive debugging and tracing support")
-        print("✅ Thread safety and concurrent access validation")
-        print("✅ Timeout and retry mechanisms with robust error handling")
-        print("✅ Complex type serialization with edge case handling")
-        print("✅ AutoSessionManager integration and session management")
-        print("✅ System health monitoring and diagnostics")
-        print("✅ Error recovery and validation scenarios")
-        print("✅ 100% backward compatibility maintained")
-        return True
-    else:
-        print("❌ Some tests failed. Please check the implementation.")
-        return False
-
-
-if __name__ == "__main__":
-    success = run_all_tests()
-    
-    # Cleanup
-    try:
-        oaas.shutdown()
-    except:
-        pass
-    
-    exit(0 if success else 1)
+            pytest.fail(f"Error recovery scenarios test failed: {e}")
