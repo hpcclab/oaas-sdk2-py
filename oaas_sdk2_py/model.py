@@ -27,11 +27,10 @@ class FuncMeta:
         invoke_handler: Callable,
         signature: inspect.Signature,
         name,
-        stateless: bool = False,
-        serve_with_agent: bool = False,
-        is_async: bool = False,
-        origin: Optional[str] | None = None,
-    ) -> None:
+        stateless=False,
+        serve_with_agent=False,
+        is_async=False,
+    ):
         self.func = func
         self.invoke_handler = invoke_handler
         self.signature = signature
@@ -42,7 +41,6 @@ class FuncMeta:
         self.__name__ = func.__name__
         self.__qualname__ = func.__qualname__
         self.__doc__ = func.__doc__
-        self.origin = origin  # "method" | "function" | None
 
     def __get__(self, obj, objtype=None):
         """
@@ -188,7 +186,7 @@ class ClsMeta:
             self.update(self)
         return cls
 
-    def func(self, name="", stateless=False, strict=False, serve_with_agent=False, origin: str | None = None):
+    def func(self, name="", stateless=False, strict=False, serve_with_agent=False):
         """
         Decorator for registering class methods as invokable functions in OaaS platform.
 
@@ -262,7 +260,6 @@ class ClsMeta:
                     name=fn_name,
                     serve_with_agent=serve_with_agent,
                     is_async=True,
-                    origin=origin,
                 )
                 self.func_dict[fn_name] = fn_meta
                 return fn_meta  # Return FuncMeta instance instead of wrapper
@@ -313,7 +310,6 @@ class ClsMeta:
                     stateless=stateless,
                     name=fn_name,
                     serve_with_agent=serve_with_agent,
-                    origin=origin,
                 )
                 self.func_dict[fn_name] = fn_meta
                 return fn_meta  # Return FuncMeta instance instead of wrapper
@@ -507,20 +503,11 @@ class ClsMeta:
         # Build function bindings for this class per proposal
         fb_list = []
         for k, f in self.func_dict.items():
-            # Determine stateless based on origin when available
-            origin = getattr(f, "origin", None)
-            if origin == "function":
-                is_stateless_binding = True
-            elif origin == "method":
-                is_stateless_binding = False
-            else:
-                # Fallback to the flag if origin isn't set
-                is_stateless_binding = bool(getattr(f, "stateless", False))
             fb_list.append({
                 "name": k,
                 "function_key": f"{self.name}.{k}",
                 "access_modifier": "PUBLIC",
-                "stateless": is_stateless_binding,
+                "immutable": False,
                 "parameters": []
             })
 

@@ -203,15 +203,9 @@ class OaasService:
                                         name=method_config.get('name', attr_name),
                                         stateless=method_config.get('stateless', False),
                                         strict=method_config.get('strict', False),
-                                        serve_with_agent=method_config.get('serve_with_agent', False),
-                                        origin="method",
+                                        serve_with_agent=method_config.get('serve_with_agent', False)
                                     )(attr)
                                     
-                                    # Tag origin for export purposes
-                                    try:
-                                        decorated_method._oaas_origin = "method"
-                                    except Exception:
-                                        pass
                                     # Replace the method on the class
                                     setattr(cls, attr_name, decorated_method)
                                     enhanced_methods[attr_name] = method_config
@@ -240,15 +234,9 @@ class OaasService:
                                     decorated_function = cls_meta.func(
                                         name=function_config.get('name', attr_name),
                                         stateless=True,  # Functions are always stateless
-                                        serve_with_agent=function_config.get('serve_with_agent', False),
-                                        origin="function",
+                                        serve_with_agent=function_config.get('serve_with_agent', False)
                                     )(attr)
                                     
-                                    # Tag origin for export purposes
-                                    try:
-                                        decorated_function._oaas_origin = "function"
-                                    except Exception:
-                                        pass
                                     # Replace the function on the class
                                     setattr(cls, attr_name, decorated_function)
                                     enhanced_functions[attr_name] = function_config

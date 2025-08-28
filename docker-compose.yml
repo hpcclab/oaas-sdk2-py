@@ -47,15 +47,12 @@ services:
       OPRC_LOG: "INFO"
       OPRC_ZENOH_PORT: "7447"
 
+
   
   hello-fn:
     build:
       context: .
-      dockerfile: examples/Dockerfile
-      args:
-        APP_DIR: examples.helloworld
-    # command: "'uv sync && uv run python -m examples.helloworld'"
-    # entrypoint: ["/bin/bash", "-c"]
+      dockerfile: deploy/Dockerfile
     ports:
       - "10002:8080"
     environment:
@@ -63,6 +60,10 @@ services:
       OPRC_ZENOH_PEERS: tcp/router:7447
       LOG_LEVEL: DEBUG
       RUST_LOG: info
+      APP_DIR: /app/helloworld
+    volumes:
+      - ./examples/helloworld:/app/helloworld
+    
 
 volumes:
   poetry-cache:
