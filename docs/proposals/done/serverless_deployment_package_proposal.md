@@ -36,7 +36,7 @@ Top-level object — one per package name:
   - name: string
   - function_key: string
   - access_modifier: "PUBLIC" | "INTERNAL" | "PRIVATE"
-  - immutable: bool
+  - stateless: bool
   - parameters: string[]
 }]
 - disabled: bool
@@ -103,7 +103,7 @@ Infra/runtime configuration (container images, ports, scaling, resources, env/co
     name: str,
     function_key: str,
     access_modifier: str = "PUBLIC",
-    immutable: bool = False,
+  stateless: bool = False,
     parameters: list[str] | None = None,
 )
 
@@ -151,7 +151,7 @@ classes:
       - name: incr
         function_key: counter.incr
         access_modifier: PUBLIC
-        immutable: false
+  stateless: false
         parameters: [delta]
     disabled: false
 functions:

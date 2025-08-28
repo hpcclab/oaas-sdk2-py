@@ -1,6 +1,8 @@
 import logging
 import os
 from oaas_sdk2_py import oaas
+# Import the package to register services before run/gen
+from . import *  # noqa: F401,F403
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 

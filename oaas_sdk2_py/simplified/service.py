@@ -100,8 +100,38 @@ class OaasService:
     
     @staticmethod
     def print_pkg() -> str:
-        repo = OaasService._global_oaas.meta_repo
+        # Ensure global oaas is initialized so classes are registered
+        global_oaas = OaasService._get_global_oaas()
+        repo = global_oaas.meta_repo
         return repo.print_pkg()
+
+    @staticmethod
+    def package(
+        name: str,
+        version: Optional[str] | None = None,
+        author: Optional[str] | None = None,
+        description: Optional[str] | None = None,
+        tags: Optional[list[str]] | None = None,
+        dependencies: Optional[list[str]] | None = None,
+    ):
+        """Decorator to attach package metadata to a service class.
+
+        Values are stored on the class for export time consumption.
+        """
+        def decorator(cls: Type['OaasObject']) -> Type['OaasObject']:
+            meta = {
+                "pkg_name": name,
+                "version": version,
+                "metadata": {
+                    "author": author,
+                    "description": description,
+                    "tags": tags or [],
+                },
+                "dependencies": dependencies or [],
+            }
+            setattr(cls, "_oaas_package_meta", meta)
+            return cls
+        return decorator
 
     @staticmethod
     def configure(config: OaasConfig) -> None:
@@ -173,9 +203,15 @@ class OaasService:
                                         name=method_config.get('name', attr_name),
                                         stateless=method_config.get('stateless', False),
                                         strict=method_config.get('strict', False),
-                                        serve_with_agent=method_config.get('serve_with_agent', False)
+                                        serve_with_agent=method_config.get('serve_with_agent', False),
+                                        origin="method",
                                     )(attr)
                                     
+                                    # Tag origin for export purposes
+                                    try:
+                                        decorated_method._oaas_origin = "method"
+                                    except Exception:
+                                        pass
                                     # Replace the method on the class
                                     setattr(cls, attr_name, decorated_method)
                                     enhanced_methods[attr_name] = method_config
@@ -204,9 +240,15 @@ class OaasService:
                                     decorated_function = cls_meta.func(
                                         name=function_config.get('name', attr_name),
                                         stateless=True,  # Functions are always stateless
-                                        serve_with_agent=function_config.get('serve_with_agent', False)
+                                        serve_with_agent=function_config.get('serve_with_agent', False),
+                                        origin="function",
                                     )(attr)
                                     
+                                    # Tag origin for export purposes
+                                    try:
+                                        decorated_function._oaas_origin = "function"
+                                    except Exception:
+                                        pass
                                     # Replace the function on the class
                                     setattr(cls, attr_name, decorated_function)
                                     enhanced_functions[attr_name] = function_config
@@ -894,11 +936,56 @@ class OaasService:
     def run_or_gen() -> None:
         """
         Main entry point for the service.
+        
+        Modes:
+          - No args: start server
+          - gen [--out FILE] [--stdout] [--format yaml|json]: generate package spec
         """
         import sys
         import os
+        # Ensure application services are imported/registered if package provides __init__ side effects
+        # Users should import their module before invoking this entry.
         if len(sys.argv) > 1 and sys.argv[1] == "gen":
-            print(oaas.print_pkg())
+            # Parse minimal flags
+            out_path = None
+            to_stdout = True
+            fmt = "yaml"
+            args = sys.argv[2:]
+            i = 0
+            while i < len(args):
+                a = args[i]
+                if a in ("--out", "-o") and i + 1 < len(args):
+                    out_path = args[i+1]
+                    to_stdout = False
+                    i += 2
+                    continue
+                if a == "--stdout":
+                    to_stdout = True
+                    i += 1
+                    continue
+                if a in ("--format", "-f") and i + 1 < len(args):
+                    fmt = args[i+1].lower()
+                    i += 2
+                    continue
+                i += 1
+
+            # Build doc
+            global_oaas = OaasService._get_global_oaas()
+            repo = global_oaas.meta_repo
+            pkgs = repo.export_pkg()
+            # Serialize
+            if fmt == "json":
+                import json
+                content = "".join(json.dumps(p, indent=2) + "\n---\n" for p in pkgs.values())
+            else:
+                content = repo.print_pkg()
+
+            if to_stdout or not out_path:
+                print(content)
+            else:
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+            return
         else:
             ctx = get_debug_context()
             

@@ -27,10 +27,11 @@ class FuncMeta:
         invoke_handler: Callable,
         signature: inspect.Signature,
         name,
-        stateless=False,
-        serve_with_agent=False,
-        is_async=False,
-    ):
+        stateless: bool = False,
+        serve_with_agent: bool = False,
+        is_async: bool = False,
+        origin: Optional[str] | None = None,
+    ) -> None:
         self.func = func
         self.invoke_handler = invoke_handler
         self.signature = signature
@@ -41,6 +42,7 @@ class FuncMeta:
         self.__name__ = func.__name__
         self.__qualname__ = func.__qualname__
         self.__doc__ = func.__doc__
+        self.origin = origin  # "method" | "function" | None
 
     def __get__(self, obj, objtype=None):
         """
@@ -186,7 +188,7 @@ class ClsMeta:
             self.update(self)
         return cls
 
-    def func(self, name="", stateless=False, strict=False, serve_with_agent=False):
+    def func(self, name="", stateless=False, strict=False, serve_with_agent=False, origin: str | None = None):
         """
         Decorator for registering class methods as invokable functions in OaaS platform.
 
@@ -260,6 +262,7 @@ class ClsMeta:
                     name=fn_name,
                     serve_with_agent=serve_with_agent,
                     is_async=True,
+                    origin=origin,
                 )
                 self.func_dict[fn_name] = fn_meta
                 return fn_meta  # Return FuncMeta instance instead of wrapper
@@ -310,6 +313,7 @@ class ClsMeta:
                     stateless=stateless,
                     name=fn_name,
                     serve_with_agent=serve_with_agent,
+                    origin=origin,
                 )
                 self.func_dict[fn_name] = fn_meta
                 return fn_meta  # Return FuncMeta instance instead of wrapper
@@ -500,33 +504,44 @@ class ClsMeta:
         return "{" + f"name={self.name}, func_list={self.func_dict}" + "}"
 
     def export_pkg(self, pkg: dict) -> dict[str, Any]:
+        # Build function bindings for this class per proposal
         fb_list = []
         for k, f in self.func_dict.items():
-            fb_list.append({"name": k, "function": "." + k})
-        # Accessors export if available on class
-        accessors_export = []
-        try:
-            # Prefer accessor specs captured on decorated class
-            decorated_cls = getattr(self, 'cls', None)
-            accessor_specs = getattr(decorated_cls, '_oaas_accessors', {}) if decorated_cls else {}
-        except Exception:
-            accessor_specs = {}
-        for name, spec in accessor_specs.items():
-            accessors_export.append({
-                "name": name,
-                "kind": spec.kind.value,
-                "field": spec.field_name,
-                "projection": spec.projection,
-                "function": "." + name,
-                "uses_descriptor": spec.uses_descriptor,
-                "index": spec.storage_index,
+            # Determine stateless based on origin when available
+            origin = getattr(f, "origin", None)
+            if origin == "function":
+                is_stateless_binding = True
+            elif origin == "method":
+                is_stateless_binding = False
+            else:
+                # Fallback to the flag if origin isn't set
+                is_stateless_binding = bool(getattr(f, "stateless", False))
+            fb_list.append({
+                "name": k,
+                "function_key": f"{self.name}.{k}",
+                "access_modifier": "PUBLIC",
+                "stateless": is_stateless_binding,
+                "parameters": []
             })
 
-        cls = {"name": self.name, "functions": fb_list}
-        if accessors_export:
-            cls["accessors"] = accessors_export
-        pkg["classes"].append(cls)
+        # Optional: attempt to extract state/accessor metadata if present
+        cls_entry = {
+            "key": self.name,
+            "description": getattr(getattr(self, 'cls', None), "__doc__", None) or "",
+            "function_bindings": fb_list,
+            "disabled": False,
+        }
 
+        # Accessors are not part of proposal's function_bindings, skip exporting separate accessors
+        pkg["classes"].append(cls_entry)
+
+        # Export functions list
         for k, f in self.func_dict.items():
-            pkg["functions"].append({"name": k, "provision": {}})
+            pkg["functions"].append({
+                "key": f"{self.name}.{k}",
+                "function_type": "CUSTOM",
+                "description": getattr(f.func, "__doc__", None) or "",
+                # Do not emit provision_config by default per proposal
+                "config": {},
+            })
         return pkg
