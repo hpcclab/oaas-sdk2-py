@@ -18,6 +18,18 @@ from typing import Any, Dict
 # ERROR HANDLING AND DEBUGGING SUPPORT
 # =============================================================================
 
+# Register a TRACE level for stdlib logging (lower than DEBUG)
+TRACE_LEVEL_NUM = 5
+if not hasattr(logging, "TRACE"):
+    logging.addLevelName(TRACE_LEVEL_NUM, "TRACE")
+    logging.TRACE = TRACE_LEVEL_NUM  # type: ignore[attr-defined]
+
+    def trace(self: logging.Logger, msg, *args, **kwargs):  # pragma: no cover - thin shim
+        if self.isEnabledFor(TRACE_LEVEL_NUM):
+            self._log(TRACE_LEVEL_NUM, msg, args, **kwargs)
+
+    logging.Logger.trace = trace  # type: ignore[attr-defined]
+
 class OaasError(Exception):
     """Base exception class for OaaS SDK errors."""
     
@@ -97,44 +109,35 @@ class DebugContext:
     performance_monitoring: bool = False
     
     def __post_init__(self):
-        # Configure logger once, avoiding duplicate emissions.
-        root = logging.getLogger()
-        if root.handlers:
-            # Root already configured (e.g., basicConfig in an app). Rely on it.
-            # Do not add our own handler; keep propagation so root handles output.
-            self.logger.setLevel(self._get_log_level())
-            self.logger.propagate = True
-        else:
-            # No root handlers — create a minimal handler for our logger.
-            if not self.logger.handlers:
-                handler = logging.StreamHandler()
-                formatter = logging.Formatter(
-                    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-                )
-                handler.setFormatter(formatter)
-                self.logger.addHandler(handler)
-            self.logger.setLevel(self._get_log_level())
-            # Prevent double logging if root later gets configured.
-            self.logger.propagate = False
+        # Library best practice: don't configure root or attach stream handlers.
+        if not self.logger.handlers:
+            self.logger.addHandler(logging.NullHandler())
+        # Allow application/root to handle emissions
+        self.logger.propagate = True
+        self.logger.setLevel(self._map_to_logging_level(self.level))
     
-    def _get_log_level(self) -> int:
-        """Convert DebugLevel to logging level"""
+    def _map_to_logging_level(self, level: DebugLevel) -> int:
+        """Convert DebugLevel to stdlib logging level"""
         mapping = {
-            DebugLevel.NONE: logging.CRITICAL + 1,
+            DebugLevel.NONE: logging.CRITICAL + 1,  # effectively disables
             DebugLevel.ERROR: logging.ERROR,
             DebugLevel.WARNING: logging.WARNING,
             DebugLevel.INFO: logging.INFO,
             DebugLevel.DEBUG: logging.DEBUG,
-            DebugLevel.TRACE: logging.DEBUG
+            DebugLevel.TRACE: getattr(logging, "TRACE", logging.DEBUG),
         }
-        return mapping.get(self.level, logging.INFO)
+        return mapping.get(level, logging.INFO)
+
+    def _get_log_level(self) -> int:
+        """Backward-compat shim: current context's level as stdlib logging level"""
+        return self._map_to_logging_level(self.level)
     
     def log(self, level: DebugLevel, message: str, **kwargs):
         """Log a message with context"""
         if not self.enabled or level.value > self.level.value:
             return
-            
-        log_level = self._get_log_level()
+
+        log_level = self._map_to_logging_level(level)
         extra_info = ""
         if kwargs:
             extra_info = f" | {json.dumps(kwargs, default=str)}"
@@ -193,7 +196,9 @@ def set_debug_level(level: DebugLevel) -> None:
     """Set the global debug level."""
     global _debug_context
     _debug_context.level = level
-    _debug_context.enabled = level != DebugLevel.DISABLED
+    _debug_context.enabled = level != DebugLevel.NONE
+    _debug_context.logger.setLevel(_debug_context._map_to_logging_level(level))
+    _debug_context.logger.disabled = not _debug_context.enabled
 
 
 def configure_debug(level: DebugLevel = DebugLevel.INFO,
@@ -208,4 +213,4 @@ def configure_debug(level: DebugLevel = DebugLevel.INFO,
     _debug_context.trace_serialization = trace_serialization
     _debug_context.trace_session_operations = trace_session_operations
     _debug_context.performance_monitoring = performance_monitoring
-    _debug_context.logger.setLevel(_debug_context._get_log_level())
+    _debug_context.logger.setLevel(_debug_context._map_to_logging_level(level))

@@ -24,6 +24,27 @@ if TYPE_CHECKING:
     from .objects import OaasObject
 
 
+def setup_event_loop():
+    """Set up the most appropriate event loop for the platform."""
+    import asyncio
+    import platform
+    ctx = get_debug_context()
+    if platform.system() != "Windows":
+        try:
+            import uvloop # type: ignore
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            ctx.log(DebugLevel.INFO, "Using uvloop")
+        except ImportError:
+            ctx.log(DebugLevel.WARNING, "uvloop not available, using asyncio")
+    else:
+        ctx.log(DebugLevel.INFO, "Running on Windows, using winloop")
+        try:
+            import winloop # type: ignore
+            winloop.install()
+            ctx.log(DebugLevel.INFO, "Using winloop")
+        except ImportError:
+            ctx.log(DebugLevel.WARNING, "winloop not available, using asyncio")
+
 class OaasService:
     """
     Enhanced global service registry and decorator system.
@@ -868,6 +889,30 @@ class OaasService:
             
         except Exception as e:
             raise ServerError(f"Failed to start gRPC server: {e}") from e
+
+    @staticmethod
+    def run_or_gen() -> None:
+        """
+        Main entry point for the service.
+        """
+        import sys
+        import os
+        if len(sys.argv) > 1 and sys.argv[1] == "gen":
+            print(oaas.print_pkg())
+        else:
+            ctx = get_debug_context()
+            
+            port = int(os.environ.get("HTTP_PORT", "8080"))
+            setup_event_loop()
+            loop = asyncio.new_event_loop() 
+            oaas.start_server(port=port, loop=loop)
+            try:
+                loop.run_forever()
+            except KeyboardInterrupt:
+                ctx.log(DebugLevel.INFO, "Received KeyboardInterrupt, shutting down server")
+            finally:
+                oaas.stop_server()
+                
 
     @staticmethod
     def stop_server() -> None:
