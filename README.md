@@ -82,12 +82,11 @@ class Greeter(OaasObject):
     # Accessor methods (not exported as RPC functions)
     @oaas.getter()
     async def get_counter(self) -> int:
-        return self.counter
+        ...
 
     @oaas.setter()
     async def set_counter(self, value: int) -> int:
-        self.counter = value
-        return self.counter
+        ...
 
 # Usage
 async def main():
@@ -219,16 +218,15 @@ class Counter(OaasObject):
     # Accessors for the state fields
     @oaas.getter()
     async def get_count(self) -> int:
-        return self.count
+        ...
 
     @oaas.setter()
     async def set_count(self, value: int) -> int:
-        self.count = value
-        return self.count
+        ...
 
     @oaas.getter("history")
     async def get_history(self) -> list:
-        return self.history
+        ...
 
 # Usage
 counter = Counter.create(local=True)
