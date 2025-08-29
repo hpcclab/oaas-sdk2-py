@@ -41,7 +41,6 @@ class Oparaca:
         else:
             self.rpc_manager = self.engine.rpc_manager
             self.data_manager = self.engine.data_manager    
-        self.default_session = self.new_session()
         self.async_mode = async_mode
         
         # Auto session manager will be set externally by OaasService

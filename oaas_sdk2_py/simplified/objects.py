@@ -352,9 +352,9 @@ class OaasObject:
         if self._auto_commit:
             self.commit()
 
-    async def commit_async(self):
+    async def commit_async(self, force: bool = False):
         """Commit changes to the server asynchronously."""
-        if self._dirty:
+        if self._dirty or force:
             obj_data = oprc_py.ObjectData(
                 meta=self.meta,
                 entries=self._state,
@@ -363,9 +363,9 @@ class OaasObject:
             await self.session.data_manager.set_obj_async(obj_data)
             self._dirty = False
 
-    def commit(self):
+    def commit(self, force: bool = False):
         """Commit changes to the server synchronously."""
-        if self._dirty:
+        if self._dirty or force:
             obj_data = oprc_py.ObjectData(
                 meta=self.meta,
                 entries=self._state,
@@ -507,7 +507,7 @@ class OaasObject:
         return obj
     
     @classmethod
-    def load(cls, obj_id: int) -> 'OaasObject':
+    def load(cls, obj_id: int, partition_id: Optional[int] = None) -> 'OaasObject':
         """
         Load an existing instance of this service.
         
@@ -535,17 +535,9 @@ class OaasObject:
             cls._oaas_cls_meta = cls_meta
         
         # Try to use AutoSessionManager for automatic session management
-        try:
-            auto_session_manager = OaasService._get_auto_session_manager()
-            obj = auto_session_manager.load_object(cls_meta, obj_id)
-        except Exception:
-            # Fallback to traditional session loading if auto session manager fails
-            session = global_oaas.new_session()
-            obj = session.load_object(cls_meta, obj_id)
-            # Manually set auto-commit if possible
-            if hasattr(obj, '_auto_commit'):
-                obj._auto_commit = False  # Disable since no auto session manager
-        
+        auto_session_manager = OaasService._get_auto_session_manager()
+        obj = auto_session_manager.load_object(cls_meta, obj_id, partition_id=partition_id)
+    
         return obj
 
     # =============================================================================

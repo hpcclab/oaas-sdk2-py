@@ -300,7 +300,7 @@ wheels = [
 
 [[package]]
 name = "oaas-sdk2-py"
-version = "0.3.0"
+version = "0.3.1"
 source = { virtual = "." }
 dependencies = [
     { name = "oprc-py" },
@@ -315,6 +315,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "ipykernel" },
+    { name = "oaas-sdk2-py" },
     { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -335,6 +336,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "ipykernel" },
+    { name = "oaas-sdk2-py", directory = "." },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },

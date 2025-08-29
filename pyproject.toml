@@ -1,6 +1,6 @@
 [project]
 name = "oaas-sdk2-py"
-version = "0.3.0"
+version = "0.3.1"
 description = ""
 requires-python = ">=3.11"
 readme = "README.md"
@@ -18,6 +18,7 @@ dependencies = [
 
 [tool.uv.sources]
 oprc-py = { path = "oprc-py" }
+oaas-sdk2-py = { path = "." }
 
 [tool.uv]
 prerelease = "allow"
@@ -31,6 +32,7 @@ dev = [
     "pytest>=8.4.1",
     "pytest-xdist>=3.8.0",
     "pytest-asyncio>=0.24.0",
+    "oaas-sdk2-py>=0.3.1",
     "ipykernel"
 ]
 

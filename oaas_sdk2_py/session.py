@@ -108,6 +108,9 @@ class Session:
             partition_id=self.partition_id,
             object_id=obj_id,
         )
+        local_obj = self.remote_obj_dict.get(meta)
+        if local_obj:
+            return local_obj
         obj = cls_meta.cls(meta=meta, session=self)
         obj._remote = True
         self.remote_obj_dict[meta] = obj

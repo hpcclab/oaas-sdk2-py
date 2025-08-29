@@ -8,7 +8,7 @@ for the OaaS SDK simplified interface.
 import time
 from typing import Any, Optional, Type, TYPE_CHECKING
 
-from .errors import SerializationError, ValidationError, get_debug_context, DebugLevel
+from .errors import SerializationError, get_debug_context, DebugLevel
 from .performance import PerformanceMetrics
 from .serialization import UnifiedSerializer
 
