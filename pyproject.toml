@@ -1,6 +1,6 @@
 [project]
 name = "oaas-sdk2-py"
-version = "0.3.1"
+version = "0.3.2"
 description = ""
 requires-python = ">=3.11"
 readme = "README.md"
@@ -12,7 +12,7 @@ dependencies = [
     "pydantic-settings>=2.10.1",
     "pyyaml>=6.0.2",
     "tsidpy>=1.1.5",
-    "oprc-py>=0.2.1",
+    "oprc-py>=0.3.0",
 ]
 
 
@@ -32,7 +32,7 @@ dev = [
     "pytest>=8.4.1",
     "pytest-xdist>=3.8.0",
     "pytest-asyncio>=0.24.0",
-    "oaas-sdk2-py>=0.3.1",
+    "oaas-sdk2-py>=0.3.2",
     "ipykernel"
 ]
 

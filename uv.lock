@@ -300,7 +300,7 @@ wheels = [
 
 [[package]]
 name = "oaas-sdk2-py"
-version = "0.3.1"
+version = "0.3.2"
 source = { virtual = "." }
 dependencies = [
     { name = "oprc-py" },
