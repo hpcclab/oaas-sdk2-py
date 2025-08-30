@@ -14,6 +14,7 @@ from .simplified import (
     AutoSessionManager, # Automatic session lifecycle management
     LegacySessionAdapter, # Backward compatibility for Session API
     getter, setter,    # Accessor decorators
+    ref, ObjectRef,    # Identity-based references
     oaas,             # Global service instance
     create_object,     # Convenience function
     load_object,       # Convenience function
@@ -48,6 +49,8 @@ __all__ = [
     "LegacySessionAdapter",
     "getter",
     "setter",
+    "ref",
+    "ObjectRef",
     "oaas",
     "create_object",
     "load_object",

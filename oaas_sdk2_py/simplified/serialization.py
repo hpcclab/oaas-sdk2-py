@@ -12,9 +12,23 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Type, get_origin, get_args, Union, Tuple, Set
 from uuid import UUID
+import types as _types
 
 from .errors import SerializationError, ValidationError, get_debug_context, DebugLevel
 from .performance import PerformanceMetrics
+from .references import ObjectRef, ref
+
+try:
+    # Import here to detect service class type
+    from .objects import OaasObject
+except Exception:  # pragma: no cover - defensive
+    OaasObject = None  # type: ignore
+
+# Cache ObjectMetadata import once to avoid try/except in hot paths
+try:
+    from oprc_py import ObjectMetadata as _OM  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    _OM = None  # type: ignore
 
 
 class RpcSerializationError(Exception):
@@ -180,6 +194,61 @@ class UnifiedSerializer:
         debug_ctx = get_debug_context()
         
         try:
+            # Fast path: if the value itself is a service proxy or instance, always serialize by identity
+            if isinstance(value, ObjectRef):
+                m = value.metadata
+                ident = {"cls_id": m.cls_id, "partition_id": m.partition_id, "object_id": m.object_id}
+                data = json.dumps(ident).encode()
+                debug_ctx.log_serialization("serialize", "ObjectRef(value)", len(data))
+                return data
+            # Detect OaasObject instances via subclass or duck-typing on meta
+            if (
+                (OaasObject is not None and hasattr(value, '__class__') and isinstance(value, OaasObject))
+                or (_OM is not None and hasattr(value, 'meta') and isinstance(getattr(value, 'meta', None), _OM))
+            ):
+                m = getattr(value, 'meta')
+                ident = {"cls_id": m.cls_id, "partition_id": m.partition_id, "object_id": m.object_id}
+                data = json.dumps(ident).encode()
+                debug_ctx.log_serialization("serialize", "OaasObject(value)", len(data))
+                return data
+
+            # Identity-based serialization for service objects/proxies (including Optional/Union)
+            def _is_service_type_hint(t: Optional[Type]) -> bool:
+                if t is None:
+                    return False
+                origin = get_origin(t)
+                union_type = getattr(_types, 'UnionType', None)
+                if origin in (Union, union_type):
+                    # If any arg is a service class
+                    return any(
+                        isinstance(arg, type) and OaasObject is not None and issubclass(arg, OaasObject)
+                        for arg in get_args(t)
+                    )
+                return isinstance(t, type) and OaasObject is not None and issubclass(t, OaasObject)
+
+            if (
+                _is_service_type_hint(type_hint)
+                or isinstance(value, ObjectRef)
+                or (OaasObject is not None and hasattr(value, '__class__') and isinstance(value, OaasObject))
+                or (hasattr(value, 'meta') and hasattr(getattr(value, 'meta', None), 'cls_id') and hasattr(getattr(value, 'meta', None), 'object_id'))
+            ):
+                meta = None
+                if isinstance(value, ObjectRef):
+                    meta = value.metadata
+                elif OaasObject is not None and isinstance(value, OaasObject):
+                    meta = value.meta
+                # Do not attempt generic '.meta' access; only support OaasObject and ObjectRef explicitly
+                if meta is None and isinstance(value, dict) and 'cls_id' in value and 'object_id' in value:
+                    # Already an identity dict, pass through
+                    data = json.dumps(value).encode()
+                    debug_ctx.log_serialization("serialize", "ObjectRef(dict)", len(data))
+                    return data
+                if meta is not None:
+                    ident = {"cls_id": meta.cls_id, "partition_id": meta.partition_id, "object_id": meta.object_id}
+                    data = json.dumps(ident).encode()
+                    debug_ctx.log_serialization("serialize", "ObjectRef", len(data))
+                    return data
+
             if value is None:
                 debug_ctx.log_serialization("serialize", "None", 0)
                 return b""
@@ -259,6 +328,19 @@ class UnifiedSerializer:
                 debug_ctx.log_serialization("deserialize", "empty", 0)
                 return None
             
+            # Identity-based deserialization: service references
+            if OaasObject is not None and isinstance(type_hint, type) and issubclass(type_hint, OaasObject):
+                ident = json.loads(data.decode())
+                if not isinstance(ident, dict) or 'cls_id' not in ident or 'object_id' not in ident:
+                    raise SerializationError(
+                        f"Invalid identity payload for {type_hint.__name__}",
+                        error_code="IDENTITY_FORMAT_ERROR",
+                        details={'payload': ident}
+                    )
+                proxy = ref(ident['cls_id'], ident['object_id'], ident.get('partition_id', 0))
+                debug_ctx.log_serialization("deserialize", "ObjectRef", len(data))
+                return proxy
+
             # Handle basic types
             if type_hint in (int, float, str, bool):
                 value = json.loads(data.decode())
@@ -283,6 +365,22 @@ class UnifiedSerializer:
                 converted_value = self._convert_value(value, type_hint)
                 debug_ctx.log_serialization("deserialize", str(type_hint), len(data))
                 return converted_value
+
+            # Identity-based deserialization for Optional/Union service types
+            elif get_origin(type_hint) in (Union, getattr(_types, 'UnionType', None)) and any(
+                isinstance(arg, type) and (OaasObject is not None and issubclass(arg, OaasObject))
+                for arg in get_args(type_hint)
+            ):
+                ident = json.loads(data.decode())
+                if not isinstance(ident, dict) or 'cls_id' not in ident or 'object_id' not in ident:
+                    raise SerializationError(
+                        f"Invalid identity payload for {type_hint}",
+                        error_code="IDENTITY_FORMAT_ERROR",
+                        details={'payload': ident}
+                    )
+                proxy = ref(ident['cls_id'], ident['object_id'], ident.get('partition_id', 0))
+                debug_ctx.log_serialization("deserialize", "ObjectRef(Optional)", len(data))
+                return proxy
             
             # Handle Pydantic models
             elif hasattr(type_hint, 'model_validate_json'):
@@ -351,6 +449,45 @@ class UnifiedSerializer:
         debug_ctx = get_debug_context()
         
         try:
+            # Service reference normalization
+            if True:
+                try:
+                    origin = get_origin(target_type)
+                    union_type = getattr(_types, 'UnionType', None)
+                    def _is_service_class(c: Any) -> bool:
+                        try:
+                            return (
+                                (OaasObject is not None and isinstance(c, type) and issubclass(c, OaasObject))
+                                or (isinstance(c, type) and hasattr(c, '_oaas_service_name'))
+                            )
+                        except Exception:
+                            return False
+                    is_service_direct = isinstance(target_type, type) and _is_service_class(target_type)
+                    is_service_optional = origin in (Union, union_type) and any(_is_service_class(arg) for arg in get_args(target_type))
+                    if is_service_direct or is_service_optional:
+                        # Accept instance, ObjectRef, ObjectMetadata, tuple, dict
+                        if isinstance(value, ObjectRef):
+                            return value
+                        if value is None:
+                            return None
+                        # For Optional/Union[T], avoid isinstance on typing; check via as_ref or meta
+                        if hasattr(value, 'as_ref'):
+                            return value.as_ref() if hasattr(value, 'as_ref') else value
+                        if _OM is not None and hasattr(value, 'meta') and isinstance(getattr(value, 'meta', None), _OM):
+                            m = getattr(value, 'meta')
+                            return ref(m.cls_id, m.object_id, getattr(m, 'partition_id', 0))
+                        if _OM is not None and isinstance(value, _OM):
+                            return ref(value.cls_id, value.object_id, value.partition_id)
+                        if isinstance(value, tuple) and len(value) == 3 and isinstance(value[0], str):
+                            return ref(value[0], value[2], value[1])
+                        if isinstance(value, dict) and 'cls_id' in value and 'object_id' in value:
+                            return ref(value['cls_id'], value['object_id'], value.get('partition_id', 0))
+                        # Fallback unchanged; validation left to caller
+                        return value
+                except Exception:
+                    # Do not fail conversion pipeline for refs; fall through
+                    pass
+
             # Handle None values first
             if value is None:
                 return None

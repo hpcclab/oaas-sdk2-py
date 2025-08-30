@@ -23,7 +23,7 @@ The OaaS SDK provides a simplified interface through the global `oaas` object an
 ### Module Import
 
 ```python
-from oaas_sdk2_py import oaas, OaasObject, OaasConfig
+from oaas_sdk2_py import oaas, OaasObject, OaasConfig, ref, ObjectRef  # identity-based references
 ```
 
 ### Global Configuration
@@ -137,6 +137,7 @@ Notes:
 - Accessors are metadata-driven; they do not get exported as RPC functions.
 - They work alongside normal `@oaas.method` methods.
 - In local/mock mode, state semantics follow in-memory behavior.
+- Accessors are callable through ObjectRef proxies; getters read directly from storage, setters write through to storage.
 
 When to choose accessors vs methods
 
@@ -189,6 +190,12 @@ def initialize(self, value: int):
     self.value = value
 ```
 
+Behavior and usage:
+- Constructors are regular methods decorated for clarity and metrics; they are not auto-invoked by `create()`.
+- Call them explicitly after `create()` on the instance, e.g., `obj = MyService.create(); await obj.initialize(42)`.
+- They can be invoked at any time to re-initialize or adjust state; typical usage is immediately after creation.
+- They are exported like normal methods during registration.
+
 ---
 
 ## Base Classes
@@ -211,6 +218,7 @@ Instance Methods:
 - `commit_async() -> Awaitable[None]`
 - `start_instance_agent(loop=None) -> Awaitable[str]`
 - `stop_instance_agent() -> Awaitable[None]`
+- `as_ref() -> ObjectRef` — return an identity-based proxy to this object for remote calls and direct accessor IO.
 
 State Management:
 
@@ -275,8 +283,8 @@ Supported types include:
 - Structured: Pydantic `BaseModel`, and custom classes with serializable attributes
 
 Method parameter rules:
-- Recommended: a single parameter (plus `self`). For multiple inputs, use a Pydantic model or a dict.
-- Advanced: you may add a second parameter of type `InvocationRequest` or `ObjectInvocationRequest` to access request metadata/options in addition to the main model/param.
+- Current framework supports a single parameter (in addition to `self`). If you need multiple inputs today, wrap them in a Pydantic model or a dict. A second parameter may be used for `InvocationRequest`/`ObjectInvocationRequest` to access metadata.
+- A proposal to support true multi-argument methods/constructors is drafted under `docs/proposals/multi_argument_rpc_and_constructor_proposal.md`.
 
 Examples:
 ```python
@@ -326,6 +334,49 @@ obj = serializer.deserialize(b, dict)
 # Type conversion
 n = serializer.convert_value("123", int)  # 123
 ```
+
+### Service references (identity-based)
+
+Fields annotated with a service type (e.g., `Profile`) or `Optional[Profile]` are serialized by identity, not by value. This enables persistent object references across services.
+
+Accepted assignment forms for a service-typed field:
+- a live instance of the service (auto-converted to identity)
+- a proxy from `as_ref()`
+- an identity via `ref(cls_id, object_id, partition_id=0)`
+- a tuple `(cls_id, partition_id, object_id)`
+- a dict `{ "cls_id": str, "object_id": int, "partition_id": int }`
+
+Creating and using refs:
+```python
+from typing import Optional
+from oaas_sdk2_py import oaas, OaasObject, ref
+
+@oaas.service("Profile", package="ref")
+class Profile(OaasObject):
+    email: str
+    @oaas.getter("email")
+    async def get_email(self) -> str: ...
+
+@oaas.service("User", package="ref")
+class User(OaasObject):
+    profile: Optional[Profile] = None  # identity-based reference
+
+    @oaas.method()
+    async def read_profile_email(self) -> Optional[str]:
+        return None if self.profile is None else await self.profile.get_email()
+
+prof = Profile.create(); prof.email = "a@example.com"
+user = User.create()
+user.profile = prof           # instance → identity
+user.profile = prof.as_ref()  # explicit proxy
+user.profile = ref(prof.meta.cls_id, prof.object_id, prof.meta.partition_id)  # identity helper
+```
+
+Proxy behavior (ObjectRef):
+- For normal `@oaas.method` methods, calls are forwarded via RPC.
+- For accessors (`@oaas.getter/@oaas.setter`), calls perform direct persisted reads/writes through the data manager.
+- Proxies compare equal and hash by identity `(cls_id, partition_id, object_id)`.
+- Optional/Union annotations (e.g., `Optional[Profile]` or `Profile | None`) are fully supported for state and params.
 
 ---
 

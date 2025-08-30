@@ -65,6 +65,12 @@ class OaasObject:
         """Get the object ID from metadata."""
         return self.meta.object_id
 
+    # --- Reference helpers -------------------------------------------------
+    def as_ref(self) -> 'OaasObject':
+        """Return an identity-based proxy to this object."""
+        from .references import ObjectRef
+        return ObjectRef(self.meta)
+
     async def set_data_async(self, index: int, data: bytes):
         """
         Set data at the specified index asynchronously.

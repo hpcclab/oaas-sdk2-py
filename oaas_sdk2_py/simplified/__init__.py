@@ -53,6 +53,7 @@ from .session_manager import (
 from .state_descriptor import StateDescriptor
 
 from .objects import OaasObject
+from .references import ref, ObjectRef
 
 from .decorators import (
     EnhancedFunctionDecorator, ConstructorDecorator, EnhancedMethodDecorator
@@ -98,5 +99,7 @@ __all__ = [
     'EnhancedFunctionDecorator', 'ConstructorDecorator', 'EnhancedMethodDecorator',
     
     # Convenience functions
-    'create_object', 'load_object'
+    'create_object', 'load_object',
+    # References
+    'ref', 'ObjectRef'
 ]

@@ -20,6 +20,7 @@ def setup_oaas():
 @oaas.service("TestService", package="test")
 class TestService(OaasObject):
     """Test service for agent management testing."""
+    __test__ = False  # prevent pytest from collecting this service class as a test
     
     counter: int = 0
     

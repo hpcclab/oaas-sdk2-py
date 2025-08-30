@@ -533,3 +533,37 @@ class DataProcessor(OaasObject):
 - Write comprehensive tests with mock mode enabled.
 
 This updated tutorial aligns with the current SDK implementation (config fields, method parameter rules, env vars, and APIs) and fixes earlier inconsistencies (e.g., synchronous `delete()`, avoiding multiple scalar params).
+
+### Identity-based references (refs)
+
+Services can hold references to other services using identity rather than embedding values. Declare fields with the service type (or Optional[Service]) and assign either:
+
+- an instance (auto-converted to a reference)
+- a proxy from `as_ref()`
+- an identity via `ref(cls_id, object_id, partition_id)`
+- a tuple `(cls_id, partition_id, object_id)` or dict `{cls_id, object_id, partition_id}`
+
+Example:
+
+```python
+from typing import Optional
+from oaas_sdk2_py import oaas, OaasObject, ref
+
+@oaas.service("Profile", package="ref")
+class Profile(OaasObject):
+    email: str
+    @oaas.getter("email")
+    async def get_email(self) -> str: ...
+
+@oaas.service("User", package="ref")
+class User(OaasObject):
+    profile: Optional[Profile] = None
+    @oaas.method()
+    async def read_profile_email(self) -> Optional[str]:
+        return None if self.profile is None else await self.profile.get_email()
+
+prof = Profile.create(); prof.email = "a@example.com"
+user = User.create(); user.profile = prof  # or prof.as_ref(), or ref(...)
+```
+
+Accessors on refs are supported: `await prof.as_ref().get_email()` and `await prof.as_ref().set_email("...")`.
