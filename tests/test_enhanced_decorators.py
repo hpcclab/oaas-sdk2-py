@@ -51,11 +51,13 @@ from oaas_sdk2_py.simplified import (
 
 # Test models
 class TestRequest(BaseModel):
+    __test__ = False
     value: int = 0
     data: str = ""
     timestamp: datetime = datetime.now()
 
 class TestResponse(BaseModel):
+    __test__ = False
     result: int = 0
     message: str = ""
     processed_at: datetime = datetime.now()

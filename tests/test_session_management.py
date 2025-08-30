@@ -49,16 +49,19 @@ from oaas_sdk2_py import (
 # =============================================================================
 
 class TestRequest(BaseModel):
+    __test__ = False
     """Test request model"""
     value: int = 0
     data: str = ""
     
 class TestResponse(BaseModel):
+    __test__ = False
     """Test response model"""
     result: int = 0
     message: str = ""
 
 class TestCounter:
+    __test__ = False
     """Thread-safe counter for testing"""
     def __init__(self):
         self._value = 0

@@ -3,6 +3,7 @@ from oaas_sdk2_py import Oparaca, BaseObject
 
 
 class TestResultModel(BaseModel):
+    __test__ = False  # prevent pytest from collecting as a test class
     success: bool
     message: str
     data: dict = {}
