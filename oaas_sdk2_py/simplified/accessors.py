@@ -35,7 +35,7 @@ class AccessorSpec:
 
 
 def getter(field: str | None = None, *, projection: List[str] | None = None):
-    """Decorator to mark an async method as a read-only accessor for a field."""
+    """Decorator to mark a method (sync or async) as a read-only accessor for a field."""
 
     def decorator(fn):
         setattr(fn, "_oaas_accessor", True)
@@ -54,7 +54,7 @@ def getter(field: str | None = None, *, projection: List[str] | None = None):
 
 
 def setter(field: str | None = None):
-    """Decorator to mark an async method as a write accessor for a field."""
+    """Decorator to mark a method (sync or async) as a write accessor for a field."""
 
     def decorator(fn):
         setattr(fn, "_oaas_accessor", True)
@@ -194,12 +194,13 @@ def build_accessor_wrapper(
     kind: AccessorKind = config["kind"]
     projection: Optional[List[str]] = config.get("projection")
 
-    _ensure_async_signature(kind, fn)
     _validate_projection(projection)
 
     field_name = _infer_field_name(cls, method_name, kind, config.get("field"))
     field_type = _resolve_field_type(cls, field_name)
     uses_descriptor, storage_index = _resolve_storage(cls, field_name)
+
+    is_async = inspect.iscoroutinefunction(fn)
 
     if kind is AccessorKind.GETTER:
         sig = _validate_getter_signature(fn, field_type)
@@ -207,29 +208,45 @@ def build_accessor_wrapper(
         param_type = None
         returns_value = True
 
-        async def wrapper(obj_self):
-            if uses_descriptor:
-                value = getattr(obj_self, field_name)
-            else:
-                # Raw storage fallback requires index
-                if storage_index is None:
-                    raise TypeError(
-                        f"No storage mapping for field '{field_name}' on {cls.__name__}"
-                    )
-                # Prefer async get if available
-                if hasattr(obj_self, "get_data_async") and inspect.iscoroutinefunction(
-                    getattr(obj_self, "get_data_async")
-                ):
-                    raw = await obj_self.get_data_async(storage_index)
+        if is_async:
+            async def wrapper(obj_self):
+                if uses_descriptor:
+                    value = getattr(obj_self, field_name)
                 else:
+                    if storage_index is None:
+                        raise TypeError(
+                            f"No storage mapping for field '{field_name}' on {cls.__name__}"
+                        )
+                    if hasattr(obj_self, "get_data_async") and inspect.iscoroutinefunction(
+                        getattr(obj_self, "get_data_async")
+                    ):
+                        raw = await obj_self.get_data_async(storage_index)
+                    else:
+                        raw = obj_self.get_data(storage_index)
+                    if raw is None:
+                        value = None
+                    else:
+                        from .serialization import UnifiedSerializer
+                        serializer = UnifiedSerializer()
+                        value = serializer.deserialize(raw, field_type)
+                return _apply_projection(value, projection)
+        else:
+            def wrapper(obj_self):
+                if uses_descriptor:
+                    value = getattr(obj_self, field_name)
+                else:
+                    if storage_index is None:
+                        raise TypeError(
+                            f"No storage mapping for field '{field_name}' on {cls.__name__}"
+                        )
                     raw = obj_self.get_data(storage_index)
-                if raw is None:
-                    value = None
-                else:
-                    from .serialization import UnifiedSerializer
-                    serializer = UnifiedSerializer()
-                    value = serializer.deserialize(raw, field_type)
-            return _apply_projection(value, projection)
+                    if raw is None:
+                        value = None
+                    else:
+                        from .serialization import UnifiedSerializer
+                        serializer = UnifiedSerializer()
+                        value = serializer.deserialize(raw, field_type)
+                return _apply_projection(value, projection)
 
         # Set up wrapper metadata for potential future RPC use
         wrapper.__name__ = method_name
@@ -256,30 +273,47 @@ def build_accessor_wrapper(
         return_type = sig.return_annotation if sig.return_annotation is not inspect._empty else None
         returns_value = return_type is not None and return_type is not type(None)  # noqa: E721
 
-        async def wrapper(obj_self, value):
-            if uses_descriptor:
-                setattr(obj_self, field_name, value)
-                if returns_value:
-                    return getattr(obj_self, field_name)
-                return None
-            else:
-                if storage_index is None:
-                    raise TypeError(
-                        f"No storage mapping for field '{field_name}' on {cls.__name__}"
-                    )
-                from .serialization import UnifiedSerializer
-                serializer = UnifiedSerializer()
-                # Convert and serialize
-                converted = serializer.convert_value(value, field_type)
-                raw = serializer.serialize(converted, field_type)
-                # Prefer async set if available
-                if hasattr(obj_self, "set_data_async") and inspect.iscoroutinefunction(
-                    getattr(obj_self, "set_data_async")
-                ):
-                    await obj_self.set_data_async(storage_index, raw)
+        if is_async:
+            async def wrapper(obj_self, value):
+                if uses_descriptor:
+                    setattr(obj_self, field_name, value)
+                    if returns_value:
+                        return getattr(obj_self, field_name)
+                    return None
                 else:
+                    if storage_index is None:
+                        raise TypeError(
+                            f"No storage mapping for field '{field_name}' on {cls.__name__}"
+                        )
+                    from .serialization import UnifiedSerializer
+                    serializer = UnifiedSerializer()
+                    converted = serializer.convert_value(value, field_type)
+                    raw = serializer.serialize(converted, field_type)
+                    if hasattr(obj_self, "set_data_async") and inspect.iscoroutinefunction(
+                        getattr(obj_self, "set_data_async")
+                    ):
+                        await obj_self.set_data_async(storage_index, raw)
+                    else:
+                        obj_self.set_data(storage_index, raw)
+                    return converted if returns_value else None
+        else:
+            def wrapper(obj_self, value):
+                if uses_descriptor:
+                    setattr(obj_self, field_name, value)
+                    if returns_value:
+                        return getattr(obj_self, field_name)
+                    return None
+                else:
+                    if storage_index is None:
+                        raise TypeError(
+                            f"No storage mapping for field '{field_name}' on {cls.__name__}"
+                        )
+                    from .serialization import UnifiedSerializer
+                    serializer = UnifiedSerializer()
+                    converted = serializer.convert_value(value, field_type)
+                    raw = serializer.serialize(converted, field_type)
                     obj_self.set_data(storage_index, raw)
-                return converted if returns_value else None
+                    return converted if returns_value else None
 
         # Set up wrapper metadata for potential future RPC use
         wrapper.__name__ = method_name

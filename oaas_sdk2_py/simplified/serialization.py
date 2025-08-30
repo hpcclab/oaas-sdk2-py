@@ -24,6 +24,12 @@ try:
 except Exception:  # pragma: no cover - defensive
     OaasObject = None  # type: ignore
 
+# Cache ObjectMetadata import once to avoid try/except in hot paths
+try:
+    from oprc_py import ObjectMetadata as _OM  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    _OM = None  # type: ignore
+
 
 class RpcSerializationError(Exception):
     """Enhanced RPC serialization error with detailed context."""
@@ -196,10 +202,6 @@ class UnifiedSerializer:
                 debug_ctx.log_serialization("serialize", "ObjectRef(value)", len(data))
                 return data
             # Detect OaasObject instances via subclass or duck-typing on meta
-            try:
-                from oprc_py import ObjectMetadata as _OM
-            except Exception:
-                _OM = None  # type: ignore
             if (
                 (OaasObject is not None and hasattr(value, '__class__') and isinstance(value, OaasObject))
                 or (_OM is not None and hasattr(value, 'meta') and isinstance(getattr(value, 'meta', None), _OM))
@@ -464,7 +466,6 @@ class UnifiedSerializer:
                     is_service_optional = origin in (Union, union_type) and any(_is_service_class(arg) for arg in get_args(target_type))
                     if is_service_direct or is_service_optional:
                         # Accept instance, ObjectRef, ObjectMetadata, tuple, dict
-                        from oprc_py import ObjectMetadata
                         if isinstance(value, ObjectRef):
                             return value
                         if value is None:
@@ -472,10 +473,10 @@ class UnifiedSerializer:
                         # For Optional/Union[T], avoid isinstance on typing; check via as_ref or meta
                         if hasattr(value, 'as_ref'):
                             return value.as_ref() if hasattr(value, 'as_ref') else value
-                        if hasattr(value, 'meta') and isinstance(getattr(value, 'meta', None), ObjectMetadata):
+                        if _OM is not None and hasattr(value, 'meta') and isinstance(getattr(value, 'meta', None), _OM):
                             m = getattr(value, 'meta')
                             return ref(m.cls_id, m.object_id, getattr(m, 'partition_id', 0))
-                        if isinstance(value, ObjectMetadata):
+                        if _OM is not None and isinstance(value, _OM):
                             return ref(value.cls_id, value.object_id, value.partition_id)
                         if isinstance(value, tuple) and len(value) == 3 and isinstance(value[0], str):
                             return ref(value[0], value[2], value[1])

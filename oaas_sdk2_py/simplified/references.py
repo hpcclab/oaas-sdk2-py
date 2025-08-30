@@ -78,9 +78,12 @@ class ObjectRef:
                     from .serialization import UnifiedSerializer
                     auto = OaasService._get_auto_session_manager()
                     session = auto.get_session(self._metadata.partition_id)
-                    obj: oprc_py.ObjectData | None = await session.data_manager.get_obj_async(
-                        self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
-                    )
+                    try:
+                        obj: oprc_py.ObjectData | None = await session.data_manager.get_obj_async(
+                            self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
+                        )
+                    except KeyError:
+                        obj = None
                     if obj is None:
                         return None
                     idx = accessor_spec.storage_index
@@ -106,9 +109,12 @@ class ObjectRef:
                     if idx is None:
                         raise AttributeError(f"Setter '{name}' missing storage index on service '{self._metadata.cls_id}'")
                     # Fetch existing entries, update idx
-                    existing: oprc_py.ObjectData | None = await session.data_manager.get_obj_async(
-                        self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
-                    )
+                    try:
+                        existing: oprc_py.ObjectData | None = await session.data_manager.get_obj_async(
+                            self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
+                        )
+                    except KeyError:
+                        existing = None
                     entries = dict(existing.entries) if existing is not None else {}
                     serializer = UnifiedSerializer()
                     # Use param type when available, else fallback to return_type or leave as-is
