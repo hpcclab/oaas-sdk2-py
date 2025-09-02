@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, Optional, Type, Union, TYPE_CHECKING
 
 from .config import OaasConfig
 from .decorators import EnhancedFunctionDecorator, ConstructorDecorator, EnhancedMethodDecorator
-from .accessors import collect_accessor_members, build_accessor_wrapper, AccessorKind
+from .accessors import collect_accessor_members, build_accessor_wrapper
 from .errors import DecoratorError, ServerError, AgentError, get_debug_context, DebugLevel
 from .performance import PerformanceMetrics, get_performance_metrics, reset_performance_metrics
 from .session_manager import AutoSessionManager, LegacySessionAdapter

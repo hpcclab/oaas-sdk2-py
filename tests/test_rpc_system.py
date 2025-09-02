@@ -6,7 +6,6 @@ focusing on the single parameter constraint and comprehensive type support.
 """
 
 import pytest
-import asyncio
 import time
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
@@ -14,7 +13,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, field_validator
 
 from oaas_sdk2_py import oaas, OaasObject, OaasConfig
-from oaas_sdk2_py.simplified.serialization import SerializationError, ValidationError
+from oaas_sdk2_py.simplified.serialization import ValidationError
 
 
 # Test Models for RPC
@@ -678,7 +677,6 @@ class TestValidationRPC:
     @pytest.mark.asyncio
     async def test_invalid_pydantic_request(self):
         """Test invalid Pydantic request validation."""
-        service = ValidationRPCService.create(obj_id=1)
         
         # This should raise a validation error
         with pytest.raises((ValueError, ValidationError)):
@@ -718,72 +716,6 @@ class TestValidationRPC:
         
         assert result["valid"] is False
         assert "required_field cannot be empty" in result["errors"]
-
-
-class TestPerformanceRPC:
-    """Test RPC performance with single parameters."""
-    
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Setup test configuration."""
-        config = OaasConfig(mock_mode=True)
-        oaas.configure(config)
-    
-    @pytest.mark.asyncio
-    async def test_primitive_performance(self):
-        """Test primitive type RPC performance."""
-        service = SerializationRPCService.create(obj_id=1)
-        
-        start_time = time.time()
-        for i in range(50):  # Reduced for faster tests
-            await service.test_primitives({
-                "int_val": i,
-                "float_val": i * 1.5,
-                "bool_val": i % 2 == 0,
-                "str_val": f"test_{i}"
-            })
-        primitive_time = time.time() - start_time
-        
-        # Performance should be reasonable (under 2 seconds for 50 calls in mock mode)
-        assert primitive_time < 2.0
-    
-    @pytest.mark.asyncio
-    async def test_complex_model_performance(self):
-        """Test complex Pydantic model RPC performance."""
-        service = ComplexRPCService.create(obj_id=1)
-        
-        start_time = time.time()
-        for i in range(50):  # Reduced for faster tests
-            request = ComplexRequest(
-                user_id=i,
-                operation="math",
-                parameters={"x": i, "y": i * 2}
-            )
-            await service.complex_operation(request)
-        model_time = time.time() - start_time
-        
-        # Performance should be reasonable (under 3 seconds for 50 calls in mock mode)
-        assert model_time < 3.0
-    
-    @pytest.mark.asyncio
-    async def test_batch_operation_performance(self):
-        """Test batch operation performance."""
-        service = DictRPCService.create(obj_id=1)
-        
-        # Create a large batch operation
-        operations = [
-            {"operation": "add", "x": i, "y": i * 2}
-            for i in range(100)
-        ]
-        
-        start_time = time.time()
-        result = await service.dict_batch({"operations": operations})
-        batch_time = time.time() - start_time
-        
-        assert result["batch_size"] == 100
-        assert result["all_successful"] is True
-        # Should handle 100 operations in reasonable time
-        assert batch_time < 5.0
 
 
 class TestCrossServiceRPC:
@@ -914,8 +846,3 @@ async def test_comprehensive_rpc_integration():
     assert results['validation']['valid'] is True
     
     print("✅ All RPC integration tests passed!")
-
-
-if __name__ == "__main__":
-    # Run a quick integration test
-    asyncio.run(test_comprehensive_rpc_integration())

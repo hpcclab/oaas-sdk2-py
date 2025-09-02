@@ -323,6 +323,12 @@ class Session:
                 partition_id=meta.partition_id,
                 obj_id=meta.object_id,
             )
+            # Evict from caches to avoid returning stale instances
+            try:
+                self.remote_obj_dict.pop(meta, None)
+                self.local_obj_dict.pop(meta, None)
+            except Exception:
+                pass
             
     def commit(self):
         """
@@ -360,5 +366,11 @@ class Session:
                 cls_id=meta.cls_id,
                 partition_id=meta.partition_id,
                 obj_id=meta.object_id,
-            )      
+            )
+            # Evict from caches to avoid returning stale instances
+            try:
+                self.remote_obj_dict.pop(meta, None)
+                self.local_obj_dict.pop(meta, None)
+            except Exception:
+                pass      
             

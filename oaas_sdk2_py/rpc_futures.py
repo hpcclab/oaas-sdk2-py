@@ -7,8 +7,7 @@ including batch execution, timeouts, and coordination.
 
 import asyncio
 import time
-from typing import Any, List, Optional, Dict, Union, Awaitable
-from concurrent.futures import Future
+from typing import Any, List, Optional, Dict, Awaitable
 import logging
 
 import oprc_py
@@ -224,7 +223,7 @@ class RpcBatch:
                     future._completed = True
                     return future, result
                     
-        except Exception as e:
+        except Exception as _:
             # Cancel all tasks on error
             for _, task in tasks:
                 if not task.done():

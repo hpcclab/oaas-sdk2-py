@@ -69,12 +69,12 @@ async def test_primitive_types(setup_oaas):
     # Test bool
     result = await service.test_bool(True)
     print(f"✓ bool parameter: not True = {result} (type: {type(result)})")
-    assert result == False
+    assert not result
     assert isinstance(result, bool)
     
     result = await service.test_bool(False)
     print(f"✓ bool parameter: not False = {result} (type: {type(result)})")
-    assert result == True
+    assert result
     assert isinstance(result, bool)
     
     # Test list
@@ -90,7 +90,7 @@ async def test_primitive_types(setup_oaas):
     assert isinstance(result, dict)
     assert result['multiplier'] == 6
     assert result['result'] == 252  # 6 * 42
-    assert result['is_even'] == True
+    assert result['is_even']
     assert result['factors'] == [1, 2, 3, 6]
     
     print(f"  - multiplier: {result['multiplier']} (type: {type(result['multiplier'])})")

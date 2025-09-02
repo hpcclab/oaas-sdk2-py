@@ -350,10 +350,19 @@ class OaasObject:
 
     def delete(self):
         """Delete this object from the session."""
+        # Prefer the class metadata captured at registration/creation
+        cls_meta = getattr(self.__class__, '_oaas_cls_meta', None)
+        if cls_meta is None:
+            # Fallback: construct a lightweight object with cls_id attribute
+            class _ClsMetaShim:
+                def __init__(self, cls_id: str):
+                    self.cls_id = cls_id
+            cls_meta = _ClsMetaShim(self.meta.cls_id)
+
         self.session.delete_object(
-            self.meta.cls_id,
-            self.meta.partition_id,
+            cls_meta,
             self.meta.object_id,
+            self.meta.partition_id,
         )
         if self._auto_commit:
             self.commit()
