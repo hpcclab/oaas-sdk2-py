@@ -1,0 +1,44 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+processors:
+  batch:
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 128
+    check_interval: 5s
+  resource:
+    attributes:
+      - action: upsert
+        key: service.namespace
+        value: oaas
+exporters:
+  logging:
+    loglevel: info
+  otlp:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
+      instance: true
+service:
+  extensions: []
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp, logging]
+    logs:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [loki, logging]
+    metrics:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [logging]

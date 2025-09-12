@@ -1,7 +1,6 @@
 use oprc_invoke::proxy::ObjectProxy;
 use pyo3::{exceptions::PyRuntimeError, Py, PyResult, Python};
-#[cfg(feature = "telemetry")]
-use tracing::{instrument, Instrument};
+use crate::telemetry;
 
 use crate::model::{InvocationRequest, InvocationResponse, ObjectInvocationRequest};
 
@@ -45,13 +44,7 @@ impl RpcManager {
 
     py.detach(move || {
             runtime.block_on(async move {
-                #[cfg(feature = "telemetry")]
-                let fut = async { proxy.invoke_fn_with_req(&proto_req).await };
-                #[cfg(feature = "telemetry")]
-                let fut = fut.instrument(tracing::info_span!("rpc.invoke_fn"));
-                #[cfg(not(feature = "telemetry"))]
-                let fut = async { proxy.invoke_fn_with_req(&proto_req).await };
-                fut.await
+                telemetry::instrument(async { proxy.invoke_fn_with_req(&proto_req).await }, "rpc.invoke_fn").await
             })
         })
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))
@@ -73,10 +66,7 @@ impl RpcManager {
             let req = req.borrow();
             req.into_proto()
         });
-    #[cfg(feature = "telemetry")]
-    let result = self.proxy.invoke_fn_with_req(&proto_req).instrument(tracing::info_span!("rpc.invoke_fn_async")).await;
-    #[cfg(not(feature = "telemetry"))]
-    let result = self.proxy.invoke_fn_with_req(&proto_req).await;
+    let result = telemetry::instrument(self.proxy.invoke_fn_with_req(&proto_req), "rpc.invoke_fn_async").await;
         result
             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
             .map(|resp| InvocationResponse::from(resp))
@@ -107,13 +97,7 @@ impl RpcManager {
 
     py.detach(move || {
             runtime.block_on(async move {
-                #[cfg(feature = "telemetry")]
-                let fut = async { proxy.invoke_obj_with_req(&proto_req).await };
-                #[cfg(feature = "telemetry")]
-                let fut = fut.instrument(tracing::info_span!("rpc.invoke_obj"));
-                #[cfg(not(feature = "telemetry"))]
-                let fut = async { proxy.invoke_obj_with_req(&proto_req).await };
-                fut.await
+                telemetry::instrument(async { proxy.invoke_obj_with_req(&proto_req).await }, "rpc.invoke_obj").await
             })
         })
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))
@@ -138,10 +122,7 @@ impl RpcManager {
             let req = req.borrow();
             req.into_proto()
         });
-    #[cfg(feature = "telemetry")]
-    let result = self.proxy.invoke_obj_with_req(&proto_req).instrument(tracing::info_span!("rpc.invoke_obj_async")).await;
-    #[cfg(not(feature = "telemetry"))]
-    let result = self.proxy.invoke_obj_with_req(&proto_req).await;
+    let result = telemetry::instrument(self.proxy.invoke_obj_with_req(&proto_req), "rpc.invoke_obj_async").await;
         result
             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
             .map(|resp| InvocationResponse::from(resp))

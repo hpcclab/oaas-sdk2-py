@@ -5,8 +5,9 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{Mutex, oneshot};
 use zenoh::query::{Query, Queryable};
+use std::sync::OnceLock;
 
 use crate::{
     data::DataManager,
@@ -19,7 +20,7 @@ use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
     prelude::*,
 };
-use pyo3_async_runtimes::{tokio::get_runtime, TaskLocals};
+use pyo3_async_runtimes::{TaskLocals, tokio::get_runtime};
 use tokio::runtime::Builder;
 use tonic::transport::Server;
 
@@ -27,13 +28,47 @@ use tonic::transport::Server;
 #[pyclass]
 /// Represents the OaasEngine, which manages data, RPC, and Zenoh sessions.
 pub struct OaasEngine {
-    #[pyo3(get)]
-    data_manager: Py<DataManager>,
-    #[pyo3(get)]
-    rpc_manager: Py<RpcManager>,
-    session: zenoh::Session,
-    shutdown_sender: Option<oneshot::Sender<()>>, // Add a shutdown sender
+    // Lazily created components
+    data_manager: Option<Py<DataManager>>,
+    rpc_manager: Option<Py<RpcManager>>,
+    session: OnceLock<zenoh::Session>,
+    shutdown_sender: Option<oneshot::Sender<()>>, // shutdown sender for gRPC server
     queryable_table: Arc<Mutex<HashMap<String, Queryable<Receiver<Query>>>>>,
+}
+
+// Internal (non-Python exposed) helper methods
+impl OaasEngine {
+    fn ensure_session(&self) -> PyResult<&zenoh::Session> {
+        if let Some(s) = self.session.get() { return Ok(s); }
+        let conf = oprc_zenoh::OprcZenohConfig::init_from_env()
+            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
+        let runtime = get_runtime();
+        let new_session = runtime.block_on(async move {
+            zenoh::open(conf.create_zenoh()).await.map_err(|e| {
+                PyErr::new::<PyRuntimeError, _>(format!("Failed to open zenoh session: {}", e))
+            })
+        })?;
+        let _ = self.session.set(new_session);
+        Ok(self.session.get().expect("session just initialized"))
+    }
+
+    fn ensure_data_manager(&mut self) -> PyResult<()> {
+        if self.data_manager.is_none() {
+            let session = self.ensure_session()?.clone();
+            let dm = Python::attach(|py| Py::new(py, DataManager::new(session)))?;
+            self.data_manager = Some(dm);
+        }
+        Ok(())
+    }
+
+    fn ensure_rpc_manager(&mut self) -> PyResult<()> {
+        if self.rpc_manager.is_none() {
+            let session = self.ensure_session()?.clone();
+            let rm = Python::attach(|py| Py::new(py, RpcManager::new(session)))?;
+            self.rpc_manager = Some(rm);
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pymethods)]
@@ -46,23 +81,28 @@ impl OaasEngine {
         let mut builder = Builder::new_multi_thread();
         builder.enable_all();
         pyo3_async_runtimes::tokio::init(builder);
-        let runtime = get_runtime();
-        let conf = oprc_zenoh::OprcZenohConfig::init_from_env()
-            .map_err(|e| PyErr::new::<PyTypeError, _>(e.to_string()))?;
-        let session = runtime.block_on(async move {
-            zenoh::open(conf.create_zenoh()).await.map_err(|e| {
-                PyErr::new::<PyRuntimeError, _>(format!("Failed to open zenoh session: {}", e))
-            })
-        })?;
-    let data_manager = Python::attach(|py| Py::new(py, DataManager::new(session.clone())))?;
-    let rpc_manager = Python::attach(|py| Py::new(py, RpcManager::new(session.clone())))?;
+        // If telemetry was initialized early without a runtime, upgrade to batch now.
+        crate::telemetry::upgrade_batch_if_runtime();
         Ok(OaasEngine {
-            data_manager,
-            rpc_manager,
-            session,
+            data_manager: None,
+            rpc_manager: None,
+            session: OnceLock::new(),
             shutdown_sender: None,
             queryable_table: Arc::new(Mutex::new(HashMap::new())),
         })
+    }
+    
+    // Exposed getters lazily initialize underlying components.
+    #[getter]
+    fn data_manager<'py>(&'py mut self, py: Python<'py>) -> PyResult<Py<DataManager>> {
+        self.ensure_data_manager()?;
+        Ok(self.data_manager.as_ref().unwrap().clone_ref(py))
+    }
+
+    #[getter]
+    fn rpc_manager<'py>(&'py mut self, py: Python<'py>) -> PyResult<Py<RpcManager>> {
+        self.ensure_rpc_manager()?;
+        Ok(self.rpc_manager.as_ref().unwrap().clone_ref(py))
     }
 
     /// Starts a gRPC server on the specified port.
@@ -134,22 +174,21 @@ impl OaasEngine {
         event_loop: Py<PyAny>,
         callback: Py<PyAny>,
     ) -> PyResult<()> {
-    let handler = Python::attach(|py| {
+        let handler = Python::attach(|py| {
             let l = event_loop.into_bound(py);
             let task_locals = TaskLocals::new(l);
             let service = AsyncInvocationHandler::new(callback, task_locals);
             service
         });
 
-        let z_session = self.session.clone();
+    let z_session = self.ensure_session()?.clone();
         let ke = key_expr.clone();
         let z_handler = InvocationZenohHandler::new("".to_string(), Arc::new(handler));
         let runtime = get_runtime();
         let conf = oprc_zenoh::util::ManagedConfig::new(ke, 1, 65536);
         let q = runtime
             .spawn(async move {
-                oprc_zenoh::util::declare_managed_queryable(&z_session, conf, z_handler)
-                    .await
+                oprc_zenoh::util::declare_managed_queryable(&z_session, conf, z_handler).await
             })
             .await
             .map_err(|e| {

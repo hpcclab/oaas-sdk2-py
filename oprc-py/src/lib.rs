@@ -5,7 +5,7 @@ mod model;
 mod data;
 mod rpc;
 mod obj;
-mod telemetry;
+pub mod telemetry;
 use engine::OaasEngine;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -39,14 +39,19 @@ fn oprc_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Telemetry helpers
     #[pyfunction]
     fn init_telemetry_py(service_name: Option<String>, service_version: Option<String>) {
-        telemetry::init_telemetry(service_name, service_version);
+        telemetry::init(service_name, service_version);
     }
     #[pyfunction]
     fn forward_log_py(level: u32, message: String, module: Option<String>, line: Option<u32>, thread: Option<String>) {
         telemetry::forward_log(level, message, module, line, thread);
     }
+    #[pyfunction]
+    fn shutdown_telemetry_py() {
+        telemetry::shutdown();
+    }
     m.add_function(wrap_pyfunction!(init_telemetry_py, m)?)?;
     m.add_function(wrap_pyfunction!(forward_log_py, m)?)?;
+    m.add_function(wrap_pyfunction!(shutdown_telemetry_py, m)?)?;
     m.add_class::<OaasEngine>()?;
     m.add_class::<data::DataManager>()?;
     m.add_class::<rpc::RpcManager>()?;

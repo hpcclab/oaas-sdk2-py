@@ -4,6 +4,12 @@ from .session import Session # noqa: F401
 from .obj import BaseObject # noqa: F401
 from .model import ClsMeta, FuncMeta  # noqa: F401
 from oprc_py import ObjectInvocationRequest, InvocationRequest, InvocationResponse  # noqa: F401
+import os as _os
+
+try:
+    from . import telemetry as _telemetry_mod  # noqa: F401
+except Exception:  # pragma: no cover
+    _telemetry_mod = None
 
 # New Simplified API - Phase 1 Week 1 Foundation
 from .simplified import (
@@ -61,3 +67,15 @@ __all__ = [
     "disable_auto_commit",
     "set_auto_commit_interval"
 ]
+
+# Auto-enable telemetry if environment hints are present and module available.
+if _telemetry_mod is not None:
+    if any(k in _os.environ for k in (
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_SERVICE_NAME",
+        "OTEL_TRACES_SAMPLER"
+    )):
+        try:
+            _telemetry_mod.enable(service_name=_os.environ.get("OTEL_SERVICE_NAME"))
+        except Exception:
+            pass

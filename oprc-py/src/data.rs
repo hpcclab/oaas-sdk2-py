@@ -1,7 +1,6 @@
+use crate::telemetry;
 use oprc_pb::ObjMeta;
-use pyo3::{exceptions::PyRuntimeError, IntoPyObjectExt, Py, PyAny, PyResult, Python};
-#[cfg(feature = "telemetry")]
-use tracing::Instrument;
+use pyo3::{IntoPyObjectExt, Py, PyAny, PyResult, Python, exceptions::PyRuntimeError};
 pub(crate) use zenoh::Session;
 
 use crate::obj::ObjectData;
@@ -40,34 +39,35 @@ impl DataManager {
     ///
     /// A `PyResult` containing the Python representation of the object if found,
     /// or `None` if the object does not exist.
-    pub fn get_obj(&self, py: Python<'_>, cls_id: String, partition_id: u32, obj_id: u64) -> PyResult<Py<PyAny>> {
+    pub fn get_obj(
+        &self,
+        py: Python<'_>,
+        cls_id: String,
+        partition_id: u32,
+        obj_id: u64,
+    ) -> PyResult<Py<PyAny>> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
 
-    let res = py.detach( || {
+        let res = py.detach(|| {
             runtime.block_on(async move {
-                #[cfg(feature = "telemetry")]
-                let fut = async move {
-                    proxy
-                        .get_obj(&ObjMeta {
-                            cls_id: cls_id.to_string(),
-                            partition_id,
-                            object_id: obj_id,
-                        })
-                        .await
-                        .map_err(|e| PyRuntimeError::new_err(e.to_string()))
-                };
-                #[cfg(feature = "telemetry")]
-                let fut = fut.instrument(tracing::info_span!("data.get_obj"));
-                #[cfg(not(feature = "telemetry"))]
-                let fut = async move { proxy
-                        .get_obj(&ObjMeta { cls_id: cls_id.to_string(), partition_id, object_id: obj_id })
-                        .await
-                        .map_err(|e| PyRuntimeError::new_err(e.to_string())) };
-                fut.await
-        })
+                telemetry::instrument(
+                    async move {
+                        proxy
+                            .get_obj(&ObjMeta {
+                                cls_id: cls_id.to_string(),
+                                partition_id,
+                                object_id: obj_id,
+                            })
+                            .await
+                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+                    },
+                    "data.get_obj",
+                )
+                .await
+            })
         });
-            
+
         let obj_opt = res?;
         if let Some(obj_val) = obj_opt {
             Ok(ObjectData::from(obj_val).into_py_any(py)?)
@@ -96,19 +96,18 @@ impl DataManager {
     ) -> PyResult<Py<PyAny>> {
         let proxy = self.proxy.clone();
 
-        #[cfg(feature = "telemetry")]
-        let res = proxy
-            .get_obj(&ObjMeta { cls_id: cls_id.to_string(), partition_id, object_id: obj_id })
-            .instrument(tracing::info_span!("data.get_obj_async"))
-            .await
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()));
-        #[cfg(not(feature = "telemetry"))]
-        let res = proxy
-            .get_obj(&ObjMeta { cls_id: cls_id.to_string(), partition_id, object_id: obj_id })
-            .await
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()));
+        let res = telemetry::instrument(
+            proxy.get_obj(&ObjMeta {
+                cls_id: cls_id.to_string(),
+                partition_id,
+                object_id: obj_id,
+            }),
+            "data.get_obj_async",
+        )
+        .await
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()));
 
-    Python::attach(|py| {
+        Python::attach(|py| {
             let obj = res?;
             if let Some(obj) = obj {
                 Ok(ObjectData::from(obj).into_py_any(py)?)
@@ -130,21 +129,24 @@ impl DataManager {
     pub fn set_obj(&self, py: Python<'_>, obj: Py<ObjectData>) -> PyResult<()> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
-        
+
         let proto = {
             let obj_borrowed = obj.borrow(py);
             obj_borrowed.into_proto()
         };
 
-    py.detach( || {
+        py.detach(|| {
             runtime.block_on(async move {
-                #[cfg(feature = "telemetry")]
-                let fut = async move { proxy.set_obj(proto).await.map_err(|e| PyRuntimeError::new_err(e.to_string())) };
-                #[cfg(feature = "telemetry")]
-                let fut = fut.instrument(tracing::info_span!("data.set_obj"));
-                #[cfg(not(feature = "telemetry"))]
-                let fut = async move { proxy.set_obj(proto).await.map_err(|e| PyRuntimeError::new_err(e.to_string())) };
-                fut.await
+                telemetry::instrument(
+                    async move {
+                        proxy
+                            .set_obj(proto)
+                            .await
+                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+                    },
+                    "data.set_obj",
+                )
+                .await
             })
         })?;
         Ok(())
@@ -160,24 +162,15 @@ impl DataManager {
     ///
     /// A `PyResult` indicating success or failure.
     pub async fn set_obj_async(&self, obj: Py<ObjectData>) -> PyResult<()> {
-    let proto = Python::attach(|py| {
+        let proto = Python::attach(|py| {
             let obj = obj.borrow(py);
             obj.into_proto()
         });
-        #[cfg(feature = "telemetry")]
-        self.proxy
-            .set_obj(proto)
-            .instrument(tracing::info_span!("data.set_obj_async"))
-            .await
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-        #[cfg(not(feature = "telemetry"))]
-        self.proxy
-            .set_obj(proto)
+        telemetry::instrument(self.proxy.set_obj(proto), "data.set_obj_async")
             .await
             .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
         Ok(())
     }
-
 
     /// Deletes an object by its class ID, partition ID, and object ID. (Synchronous)
     ///
@@ -190,25 +183,32 @@ impl DataManager {
     /// # Returns
     ///
     /// A `PyResult` indicating success or failure.
-    pub fn del_obj(&self, py: Python<'_>, cls_id: String, partition_id: u32, obj_id: u64) -> PyResult<()> {
+    pub fn del_obj(
+        &self,
+        py: Python<'_>,
+        cls_id: String,
+        partition_id: u32,
+        obj_id: u64,
+    ) -> PyResult<()> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
 
-    py.detach( || {
+        py.detach(|| {
             runtime.block_on(async move {
-                #[cfg(feature = "telemetry")]
-                let fut = async move { proxy
-                    .del_obj(&ObjMeta { cls_id: cls_id.to_string(), partition_id, object_id: obj_id })
-                    .await
-                    .map_err(|e| PyRuntimeError::new_err(e.to_string())) };
-                #[cfg(feature = "telemetry")]
-                let fut = fut.instrument(tracing::info_span!("data.del_obj"));
-                #[cfg(not(feature = "telemetry"))]
-                let fut = async move { proxy
-                    .del_obj(&ObjMeta { cls_id: cls_id.to_string(), partition_id, object_id: obj_id })
-                    .await
-                    .map_err(|e| PyRuntimeError::new_err(e.to_string())) };
-                fut.await
+                telemetry::instrument(
+                    async move {
+                        proxy
+                            .del_obj(&ObjMeta {
+                                cls_id: cls_id.to_string(),
+                                partition_id,
+                                object_id: obj_id,
+                            })
+                            .await
+                            .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+                    },
+                    "data.del_obj",
+                )
+                .await
             })
         })?;
         Ok(())
@@ -225,18 +225,22 @@ impl DataManager {
     /// # Returns
     ///
     /// A `PyResult` indicating success or failure.
-    pub async fn del_obj_async(&self, cls_id: String, partition_id: u32, obj_id: u64) -> PyResult<()> {
-        #[cfg(feature = "telemetry")]
-        self.proxy
-            .del_obj(&ObjMeta { cls_id: cls_id.to_string(), partition_id, object_id: obj_id })
-            .instrument(tracing::info_span!("data.del_obj_async"))
-            .await
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-        #[cfg(not(feature = "telemetry"))]
-        self.proxy
-            .del_obj(&ObjMeta { cls_id: cls_id.to_string(), partition_id, object_id: obj_id })
-            .await
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    pub async fn del_obj_async(
+        &self,
+        cls_id: String,
+        partition_id: u32,
+        obj_id: u64,
+    ) -> PyResult<()> {
+        telemetry::instrument(
+            self.proxy.del_obj(&ObjMeta {
+                cls_id: cls_id.to_string(),
+                partition_id,
+                object_id: obj_id,
+            }),
+            "data.del_obj_async",
+        )
+        .await
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
         Ok(())
     }
 }

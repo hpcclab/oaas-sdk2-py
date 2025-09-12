@@ -32,9 +32,9 @@ tonic = "0.14"
 tracing = { version = "0.1", features=["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-opentelemetry = { version = "0.31", optional = true }
-opentelemetry = { version = "0.30", optional = true }
+opentelemetry = { version = "0.30", optional = true , features = ["trace", "logs"]}
 opentelemetry_sdk = { version = "0.30", features=["rt-tokio"], optional = true }
-opentelemetry-otlp = { version = "0.30", features=["http-proto","reqwest-client"], optional = true }
+opentelemetry-otlp = { version = "0.30", features=["http-proto","reqwest-client", "grpc-tonic"], optional = true }
 opentelemetry-semantic-conventions = { version = "0.30", optional = true }
 zenoh = {version = "1.5"}
 zenoh-config = {version = "1.5"}

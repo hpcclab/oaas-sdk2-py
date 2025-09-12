@@ -8,6 +8,7 @@ from .handler import AsyncInvocationHandler, SyncInvocationHandler
 from .model import ClsMeta
 from .repo import MetadataRepo
 from .session import Session
+from . import telemetry as _telemetry_mod
 
 
 
@@ -35,13 +36,18 @@ class Oparaca:
         self.default_pkg = default_pkg
         self.mock_mode = mock_mode
         self.engine = engine if engine else oprc_py.OaasEngine()
+        # Managers now lazy; placeholders for mock mode
+        self._rpc_manager = None
+        self._data_manager = None
         if mock_mode:
-            self.rpc_manager = LocalRpcManager()
-            self.data_manager = LocalDataManager()
-        else:
-            self.rpc_manager = self.engine.rpc_manager
-            self.data_manager = self.engine.data_manager    
+            self._rpc_manager = LocalRpcManager()
+            self._data_manager = LocalDataManager()
         self.async_mode = async_mode
+        # Retry deferred telemetry initialization now that runtime exists
+        try:
+            _telemetry_mod.retry_if_needed(service_name=self.config.telemetry_service_name, service_version=self.config.telemetry_service_version)
+        except Exception:
+            pass
         
         # Auto session manager will be set externally by OaasService
         self._auto_session_manager = None
@@ -55,6 +61,23 @@ class Oparaca:
             meta_repo=self.meta_repo,
             engine=self.engine,
         )
+
+    @property
+    def rpc_manager(self):
+        if self.mock_mode:
+            return self._rpc_manager
+        if self._rpc_manager is None:
+            # Triggers lazy creation in Rust engine getter
+            self._rpc_manager = self.engine.rpc_manager
+        return self._rpc_manager
+
+    @property
+    def data_manager(self):
+        if self.mock_mode:
+            return self._data_manager
+        if self._data_manager is None:
+            self._data_manager = self.engine.data_manager
+        return self._data_manager
             
         
     def new_cls(self, name: Optional[str] = None, pkg: Optional[str] = None) -> ClsMeta:

@@ -69,6 +69,8 @@ Function `telemetry::init(config: TelemetryConfig)` (called from Python enable A
 |------|---------------|-------|
 | `engine.rs` | Root span per engine run / request dispatch | Name: `engine.dispatch` |
 | `rpc.rs` | Child span per RPC call | Name: `rpc.call` attributes (method, cls_id, object_id) |
+Implementation Note (updated): A unified `telemetry` module now exposes `telemetry::instrument(fut, span_name)` which wraps a future with a span when the `telemetry` feature is compiled, and is a no-op otherwise. This removes scattered `#[cfg(feature="telemetry")]` blocks and centralizes the feature gate. Python log forwarding uses `telemetry::forward_log` behind the same module, and initialization occurs through `telemetry::init`.
+
 | `handler/*` | Span around handler execution | Error status mapping |
 | `model.rs` / `obj.rs` | Serialization size metrics | Histogram `rpc_payload_bytes` |
 | `data.rs` | Storage interactions metrics | `storage_op_latency_ms` |

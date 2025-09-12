@@ -61,10 +61,61 @@ services:
       LOG_LEVEL: DEBUG
       RUST_LOG: info
       APP_DIR: /app/helloworld
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: hello-fn
     volumes:
       - ./examples/helloworld:/app/helloworld
     
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: jaeger
+    restart: unless-stopped
+    # environment:
+    #   - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"      # Jaeger UI
+      - "14250:14250"
+      - "14268:14268"
+      - "14270:14270"
+      - "6831:6831/udp"
+      # - "4317:4317"   
+
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: loki
+    command: ["-config.file=/etc/loki/config.yml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./deploy/loki-config.yml:/etc/loki/config.yml:ro
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.104.0
+    container_name: otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"  # OTLP gRPC ingest
+      - "4318:4318"  # OTLP HTTP ingest
+    volumes:
+      - ./deploy/otel-collector-config.yml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - jaeger
+      - loki
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+
 volumes:
-  poetry-cache:
-  envs:
+  loki-data: {}
+  grafana-data: {}
