@@ -149,7 +149,7 @@ async fn invoke_fn_async(
     callback: &Py<PyAny>,
     req: oprc_pb::InvocationRequest,
 ) -> PyResult<oprc_pb::InvocationResponse> {
-    let res = Python::with_gil(|py| {
+    let res = Python::attach(|py| {
         let req = crate::model::InvocationRequest::from(req);
         let args = PyTuple::new(py, [req])?;
         let any = into_future_with_locals(
@@ -161,7 +161,7 @@ async fn invoke_fn_async(
         any
     });
     let res = res?.await.map(|any| {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             any.extract::<PyRef<crate::model::InvocationResponse>>(py)
                 .map(|r| r.deref().into())
         })
@@ -174,7 +174,7 @@ async fn invoke_obj_async(
     callback: &Py<PyAny>,
     req: oprc_pb::ObjectInvocationRequest,
 ) -> PyResult<oprc_pb::InvocationResponse> {
-    let res = Python::with_gil(|py| {
+    let res = Python::attach(|py| {
         let req = crate::model::ObjectInvocationRequest::from(req);
         let args = PyTuple::new(py, [req])?;
         let any = into_future_with_locals(
@@ -186,7 +186,7 @@ async fn invoke_obj_async(
         any
     });
     let res = res?.await.map(|any| {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             any.extract::<PyRef<crate::model::InvocationResponse>>(py)
                 .map(|r| r.deref().into())
         })

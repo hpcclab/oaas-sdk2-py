@@ -29,7 +29,7 @@ exclude = ["protos"]
 [dependency-groups]
 dev = [
     "psutil>=7.0.0",
-    "pytest>=8.4.1",
+    "pytest>=8.4.2",
     "pytest-xdist>=3.8.0",
     "pytest-asyncio>=0.24.0",
     "oaas-sdk2-py>=0.3.3",

@@ -147,7 +147,7 @@ async fn invoke_obj(
     req: oprc_pb::ObjectInvocationRequest,
 ) -> PyResult<oprc_pb::InvocationResponse> {
     
-    let res = Python::with_gil(|py| {
+    let res = Python::attach(|py| {
         let req = crate::model::ObjectInvocationRequest::from(req);
         let args = PyTuple::new(py, [req])?;
         let any = callback.call_method1(py, intern!(py, "invoke_obj"), args)?;
@@ -164,7 +164,7 @@ async fn invoke_fn(
     callback: &Py<PyAny>,
     req: oprc_pb::InvocationRequest,
 ) -> PyResult<oprc_pb::InvocationResponse> {
-    let res = Python::with_gil(|py| {
+    let res = Python::attach(|py| {
         let req = crate::model::InvocationRequest::from(req);
         let args = PyTuple::new(py, [req])?;
         let any = callback.call_method1(py, intern!(py, "invoke_fn"), args)?;

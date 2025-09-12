@@ -26,8 +26,7 @@ class MetadataRepo:
             if pkg_name not in output:
                 output[pkg_name] = {
                     "name": pkg_name,
-                    "version": None,
-                    "disabled": False,
+                    "version": "1.0",
                     "metadata": {"tags": []},
                     "classes": [],
                     "functions": [],

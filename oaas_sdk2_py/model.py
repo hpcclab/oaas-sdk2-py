@@ -515,8 +515,7 @@ class ClsMeta:
         cls_entry = {
             "key": self.name,
             "description": getattr(getattr(self, 'cls', None), "__doc__", None) or "",
-            "function_bindings": fb_list,
-            "disabled": False,
+            "function_bindings": fb_list
         }
 
         # Accessors are not part of proposal's function_bindings, skip exporting separate accessors

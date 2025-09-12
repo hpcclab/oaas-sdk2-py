@@ -54,8 +54,8 @@ impl OaasEngine {
                 PyErr::new::<PyRuntimeError, _>(format!("Failed to open zenoh session: {}", e))
             })
         })?;
-        let data_manager = Python::with_gil(|py| Py::new(py, DataManager::new(session.clone())))?;
-        let rpc_manager = Python::with_gil(|py| Py::new(py, RpcManager::new(session.clone())))?;
+    let data_manager = Python::attach(|py| Py::new(py, DataManager::new(session.clone())))?;
+    let rpc_manager = Python::attach(|py| Py::new(py, RpcManager::new(session.clone())))?;
         Ok(OaasEngine {
             data_manager,
             rpc_manager,
@@ -81,10 +81,10 @@ impl OaasEngine {
         let (shutdown_sender, shutdown_receiver) = oneshot::channel(); // Create a shutdown channel
         self.shutdown_sender = Some(shutdown_sender); // Store the sender for later use
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let l = event_loop.into_bound(py);
             let task_locals = TaskLocals::new(l);
-            py.allow_threads(|| {
+            py.detach(|| {
                 let service = AsyncInvocationHandler::new(callback, task_locals);
                 let runtime = get_runtime();
                 runtime.spawn(async move {
@@ -107,8 +107,8 @@ impl OaasEngine {
         let (shutdown_sender, shutdown_receiver) = oneshot::channel(); // Create a shutdown channel
         self.shutdown_sender = Some(shutdown_sender); // Store the sender for later use
 
-        Python::with_gil(|py| {
-            py.allow_threads(|| {
+        Python::attach(|py| {
+            py.detach(|| {
                 let service = SyncInvocationHandler::new(callback);
                 let runtime = get_runtime();
                 runtime.spawn(async move {
@@ -134,7 +134,7 @@ impl OaasEngine {
         event_loop: Py<PyAny>,
         callback: Py<PyAny>,
     ) -> PyResult<()> {
-        let handler = Python::with_gil(|py| {
+    let handler = Python::attach(|py| {
             let l = event_loop.into_bound(py);
             let task_locals = TaskLocals::new(l);
             let service = AsyncInvocationHandler::new(callback, task_locals);
