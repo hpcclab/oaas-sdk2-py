@@ -1,6 +1,6 @@
 [project]
 name = "oaas-sdk2-py"
-version = "0.3.3"
+version = "0.3.4"
 description = ""
 requires-python = ">=3.11"
 readme = "README.md"
@@ -31,7 +31,7 @@ dev = [
     "psutil>=7.0.0",
     "pytest>=8.4.2",
     "pytest-xdist>=3.8.0",
-    "pytest-asyncio>=0.24.0",
+    "pytest-asyncio>=1.2.0",
     "oaas-sdk2-py>=0.3.3",
     "ipykernel"
 ]
