@@ -5,6 +5,7 @@ Tests the enhanced RPC system with the unified serialization system,
 focusing on the single parameter constraint and comprehensive type support.
 """
 
+import unittest
 import pytest
 import time
 from typing import Dict, List, Optional, Any, Union

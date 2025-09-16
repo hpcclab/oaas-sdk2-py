@@ -47,7 +47,7 @@ async def test_server_management(setup_oaas):
     # Start server
     try:
         oaas.start_server(port=8081)  # Use different port to avoid conflicts
-        print(f"Server started successfully")
+        print("Server started successfully")
         print(f"Server running after start: {oaas.is_server_running()}")
         
         # Get server info

@@ -82,7 +82,10 @@ class AutoSessionManager:
             Created object with auto-commit enabled
         """
         session = self.get_session(partition_id)
-        obj = session.create_object(cls_meta, obj_id=obj_id, local=local or self.oparaca.mock_mode)
+        # Default to local objects in mock mode to execute methods locally
+        # and return native results even without return annotations.
+        effective_local = bool(local) if local is not None else bool(self.oparaca.mock_mode)
+        obj = session.create_object(cls_meta, obj_id=obj_id, local=effective_local)
         
         # Enable auto-commit for the object
         obj._auto_commit = True

@@ -3,6 +3,7 @@ from collections.abc import Callable
 import inspect
 import json
 from typing import Optional, Any
+import builtins
 
 from oprc_py.oprc_py import (
     InvocationRequest,
@@ -230,24 +231,40 @@ class ClsMeta:
                     if obj_self.remote:
                         if stateless:
                             req = self._extract_request(
-                                obj_self, fn_name, args, kwargs, stateless
+                                obj_self, fn_name, args, kwargs, stateless, sig
                             )
                             resp = await obj_self.session.fn_rpc_async(req)
                         else:
                             req = self._extract_request(
-                                obj_self, fn_name, args, kwargs, stateless
+                                obj_self, fn_name, args, kwargs, stateless, sig
                             )
                             resp = await obj_self.session.obj_rpc_async(req)
-                        if issubclass(sig.return_annotation, BaseModel):
-                            return sig.return_annotation.model_validate_json(
-                                resp.payload, strict=strict
-                            )
-                        elif sig.return_annotation is bytes:
+                        # Raise on non-OK status
+                        if resp.status != int(InvocationResponseCode.Okay):
+                            try:
+                                details = json.loads(resp.payload.decode()) if resp.payload else {}
+                            except Exception:
+                                details = {'error_message': resp.payload.decode(errors='ignore')}
+                            err_type = details.get('error_type') or 'Exception'
+                            err_msg = details.get('error_message') or details.get('last_error') or str(details)
+                            exc_cls = getattr(builtins, err_type, Exception)
+                            raise exc_cls(err_msg)
+                        # Map payload to annotated return type using UnifiedSerializer
+                        ret_anno = sig.return_annotation
+                        if ret_anno is inspect._empty or ret_anno is None:
+                            return None
+                        try:
+                            if inspect.isclass(ret_anno) and issubclass(ret_anno, BaseModel):
+                                return ret_anno.model_validate_json(resp.payload, strict=strict)
+                        except Exception:
+                            pass
+                        if ret_anno is bytes:
                             return resp.payload
-                        elif sig.return_annotation is str:
+                        if ret_anno is str:
                             return resp.payload.decode()
-                        else:
-                            return resp
+                        from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+                        _ser = UnifiedSerializer()
+                        return _ser.deserialize(resp.payload, ret_anno)
                     else:
                         return await function(obj_self, *args, **kwargs)
 
@@ -281,24 +298,40 @@ class ClsMeta:
                     if obj_self.remote:
                         if stateless:
                             req = self._extract_request(
-                                obj_self, fn_name, args, kwargs, stateless
+                                obj_self, fn_name, args, kwargs, stateless, sig
                             )
                             resp = obj_self.session.fn_rpc(req)
                         else:
                             req = self._extract_request(
-                                obj_self, fn_name, args, kwargs, stateless
+                                obj_self, fn_name, args, kwargs, stateless, sig
                             )
                             resp = obj_self.session.obj_rpc(req)
-                        if issubclass(sig.return_annotation, BaseModel):
-                            return sig.return_annotation.model_validate_json(
-                                resp.payload, strict=strict
-                            )
-                        elif sig.return_annotation is bytes:
+                        # Raise on non-OK status
+                        if resp.status != int(InvocationResponseCode.Okay):
+                            try:
+                                details = json.loads(resp.payload.decode()) if resp.payload else {}
+                            except Exception:
+                                details = {'error_message': resp.payload.decode(errors='ignore')}
+                            err_type = details.get('error_type') or 'Exception'
+                            err_msg = details.get('error_message') or details.get('last_error') or str(details)
+                            exc_cls = getattr(builtins, err_type, Exception)
+                            raise exc_cls(err_msg)
+                        # Map payload to annotated return type using UnifiedSerializer
+                        ret_anno = sig.return_annotation
+                        if ret_anno is inspect._empty or ret_anno is None:
+                            return None
+                        try:
+                            if inspect.isclass(ret_anno) and issubclass(ret_anno, BaseModel):
+                                return ret_anno.model_validate_json(resp.payload, strict=strict)
+                        except Exception:
+                            pass
+                        if ret_anno is bytes:
                             return resp.payload
-                        elif sig.return_annotation is str:
+                        if ret_anno is str:
                             return resp.payload.decode()
-                        else:
-                            return resp
+                        from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+                        _ser = UnifiedSerializer()
+                        return _ser.deserialize(resp.payload, ret_anno)
                     else:
                         return function(obj_self, *args, **kwargs)
 
@@ -317,17 +350,47 @@ class ClsMeta:
         return decorator
 
     def _extract_request(
-        self, obj_self, fn_name, args, kwargs, stateless
+        self, obj_self, fn_name, args, kwargs, stateless, sig: inspect.Signature
     ) -> InvocationRequest | ObjectInvocationRequest | None:
-        """Extract or create a request object from function arguments."""
+        """Extract or create a request object from function arguments.
+
+        Enhanced to serialize the first user parameter using the method's
+        type hint via UnifiedSerializer, supporting primitives and dicts.
+        """
         # Try to find an existing request object
         req = self._find_request_object(args, kwargs)
         if req is not None:
             return req
 
-        # Try to find a BaseModel to create a request
-        model = self._find_base_model(args, kwargs)
-        return self._create_request_from_model(obj_self, fn_name, model, stateless)
+        payload: bytes | None = None
+        # Determine the first user parameter (beyond self)
+        if len(sig.parameters) >= 2:
+            second = list(sig.parameters.values())[1]
+            param_name = second.name
+            param_type = second.annotation
+            # Pull value from args/kwargs
+            if len(args) >= 1:
+                arg_val = args[0]
+            elif param_name in kwargs:
+                arg_val = kwargs[param_name]
+            else:
+                arg_val = None
+            # If still none, fallback to BaseModel scan for backward compatibility
+            if arg_val is None:
+                arg_val = self._find_base_model(args, kwargs)
+            # Serialize if we have a value
+            if arg_val is not None:
+                from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+                serializer = UnifiedSerializer()
+                if param_type is inspect._empty:
+                    payload = serializer.serialize(arg_val, None)
+                else:
+                    payload = serializer.serialize(arg_val, param_type)
+        # Create appropriate request
+        if stateless:
+            return obj_self.create_request(fn_name, payload=payload)
+        else:
+            return obj_self.create_obj_request(fn_name, payload=payload)
 
     def _find_request_object(
         self, args, kwargs

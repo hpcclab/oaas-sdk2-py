@@ -98,11 +98,15 @@ class OaasObject:
             return self._state[index]
         if self._full_loaded:
             return None
-        obj: oprc_py.ObjectData | None = await self.session.data_manager.get_obj_async(
-            self.meta.cls_id,
-            self.meta.partition_id,
-            self.meta.object_id,
-        )
+        obj: oprc_py.ObjectData | None
+        try:
+            obj = await self.session.data_manager.get_obj_async(
+                self.meta.cls_id,
+                self.meta.partition_id,
+                self.meta.object_id,
+            )
+        except KeyError:
+            obj = None
         if obj is None:
             return None
         self._obj = obj
@@ -124,11 +128,15 @@ class OaasObject:
             return self._state[index]
         if self._full_loaded:
             return None
-        obj: oprc_py.ObjectData | None = self.session.data_manager.get_obj(
-            self.meta.cls_id,
-            self.meta.partition_id,
-            self.meta.object_id,
-        )
+        obj: oprc_py.ObjectData | None
+        try:
+            obj = self.session.data_manager.get_obj(
+                self.meta.cls_id,
+                self.meta.partition_id,
+                self.meta.object_id,
+            )
+        except KeyError:
+            obj = None
         if obj is None:
             return None
         self._obj = obj
@@ -495,9 +503,12 @@ class OaasObject:
         # Get or create the global oaas instance
         global_oaas = OaasService._get_global_oaas()
         
-        # Default to local=True in mock mode for better testing
+        # Default to local in mock mode, remote otherwise, unless explicitly overridden
         if local is None:
-            local = global_oaas.mock_mode
+            try:
+                local = bool(global_oaas.mock_mode)
+            except Exception:
+                local = False
         
         # Get class metadata
         cls_meta = getattr(cls, '_oaas_cls_meta', None)

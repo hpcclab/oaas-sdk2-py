@@ -35,7 +35,11 @@ class Oparaca:
         self.meta_repo = meta_repo if meta_repo else MetadataRepo()
         self.default_pkg = default_pkg
         self.mock_mode = mock_mode
-        self.engine = engine if engine else oprc_py.OaasEngine()
+        # In mock mode, avoid creating a real engine (which may start Zenoh)
+        if mock_mode:
+            self.engine = None
+        else:
+            self.engine = engine if engine else oprc_py.OaasEngine()
         # Managers now lazy; placeholders for mock mode
         self._rpc_manager = None
         self._data_manager = None
@@ -68,6 +72,8 @@ class Oparaca:
             return self._rpc_manager
         if self._rpc_manager is None:
             # Triggers lazy creation in Rust engine getter
+            if self.engine is None:
+                raise RuntimeError("Engine is not available in mock mode")
             self._rpc_manager = self.engine.rpc_manager
         return self._rpc_manager
 
@@ -76,6 +82,8 @@ class Oparaca:
         if self.mock_mode:
             return self._data_manager
         if self._data_manager is None:
+            if self.engine is None:
+                raise RuntimeError("Engine is not available in mock mode")
             self._data_manager = self.engine.data_manager
         return self._data_manager
             
@@ -107,6 +115,9 @@ class Oparaca:
             )
 
     def start_grpc_server(self, loop=None, port=8080):
+        if self.mock_mode:
+            # No-op in mock mode: simulate server started
+            return
         if self.async_mode:
             self.engine.serve_grpc_server_async(port, loop, AsyncInvocationHandler(self))
         else:
@@ -114,7 +125,8 @@ class Oparaca:
             
             
     def stop_server(self):
-        self.engine.stop_server()
+        if self.engine:
+            self.engine.stop_server()
 
     async def run_agent(
         self,
@@ -127,6 +139,9 @@ class Oparaca:
             parition_id = self.default_partition_id
         for fn_id, fn_meta in cls_meta.func_dict.items():
             if fn_meta.serve_with_agent:
+                if self.mock_mode or self.engine is None:
+                    # No-op in mock mode: simulate agent started
+                    continue
                 if fn_meta.stateless:
                     key = f"oprc/{cls_meta.pkg}.{cls_meta.name}/{parition_id}/invokes/{fn_id}"
                 else:
@@ -140,6 +155,9 @@ class Oparaca:
             partition_id = self.default_partition_id
         for fn_id, fn_meta in cls_meta.func_dict.items():
             if fn_meta.serve_with_agent:
+                if self.mock_mode or self.engine is None:
+                    # No-op in mock mode: simulate agent stopped
+                    continue
                 if fn_meta.stateless:
                     key = f"oprc/{cls_meta.pkg}.{cls_meta.name}/{partition_id}/invokes/{fn_id}"
                 else:

@@ -6,7 +6,7 @@ for the OaaS SDK simplified interface.
 """
 
 import time
-from typing import Any, Optional, Type, TYPE_CHECKING
+from typing import Any, Optional, Type, TYPE_CHECKING, get_origin, get_args
 
 from .errors import SerializationError, get_debug_context, DebugLevel
 from .performance import PerformanceMetrics
@@ -116,13 +116,29 @@ class StateDescriptor:
                 self.metrics.record_call(duration, success=False)
             
             # Re-raise as SerializationError with context
+            def _format_type_hint(t: Type) -> str:
+                try:
+                    origin = get_origin(t)
+                    if origin is None:
+                        return getattr(t, "__name__", str(t))
+                    args = get_args(t)
+                    if args:
+                        inner = ", ".join(_format_type_hint(a) for a in args)
+                        return f"{getattr(origin, '__name__', str(origin))}[{inner}]"
+                    return getattr(origin, "__name__", str(origin))
+                except Exception:
+                    return str(t)
+
+            field_type_str = _format_type_hint(self.type_hint)
+            value_type_str = type(value).__name__
+
             raise SerializationError(
-                f"Failed to set state field '{self.name}' of type {self.type_hint.__name__}",
+                f"Failed to set state field '{self.name}' of type {field_type_str}",
                 error_code="STATE_SET_ERROR",
                 details={
                     'field_name': self.name,
-                    'field_type': self.type_hint.__name__,
-                    'value_type': type(value).__name__,
+                    'field_type': field_type_str,
+                    'value_type': value_type_str,
                     'value': str(value)[:100],  # Truncate for safety
                     'index': self.index
                 }

@@ -7,10 +7,11 @@ across the entire SDK.
 """
 
 import json
+import base64
 import pickle
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type, get_origin, get_args, Union, Tuple, Set
+from typing import Any, Dict, List, Optional, Type, get_origin, get_args, Union
 from uuid import UUID
 import types as _types
 
@@ -355,7 +356,7 @@ class UnifiedSerializer:
                 return value
             
             # Handle bytes
-            elif type_hint == bytes:
+            elif type_hint is bytes:
                 debug_ctx.log_serialization("deserialize", "bytes", len(data))
                 return data
             
@@ -408,7 +409,7 @@ class UnifiedSerializer:
                     converted_value = self._convert_value(json_value, type_hint)
                     debug_ctx.log_serialization("deserialize", "Union", len(data))
                     return converted_value
-                except:
+                except Exception:
                     # Fallback to pickle
                     value = pickle.loads(data)
                     debug_ctx.log_serialization("deserialize", "Union-pickle", len(data))
@@ -449,6 +450,10 @@ class UnifiedSerializer:
         debug_ctx = get_debug_context()
         
         try:
+            # Any: allow tagged conversions (e.g., bytes in JSON)
+            from typing import Any as _TypingAny
+            if target_type is _TypingAny:
+                return self._convert_any(value)
             # Service reference normalization
             if True:
                 try:
@@ -508,7 +513,7 @@ class UnifiedSerializer:
                     ) from e
             
             # Handle bytes
-            elif target_type == bytes:
+            elif target_type is bytes:
                 if isinstance(value, bytes):
                     return value
                 elif isinstance(value, str):
@@ -597,7 +602,7 @@ class UnifiedSerializer:
                         return datetime.fromisoformat(value)
                     except ValueError as e:
                         raise ValidationError(
-                            f"Invalid datetime format",
+                            "Invalid datetime format",
                             error_code="DATETIME_FORMAT_ERROR",
                             details={'value': value}
                         ) from e
@@ -611,7 +616,7 @@ class UnifiedSerializer:
                         return UUID(value)
                     except ValueError as e:
                         raise ValidationError(
-                            f"Invalid UUID format",
+                            "Invalid UUID format",
                             error_code="UUID_FORMAT_ERROR",
                             details={'value': value}
                         ) from e
@@ -679,7 +684,7 @@ class UnifiedSerializer:
         for i, item in enumerate(value_list):
             try:
                 if element_type == Any:
-                    converted_list.append(item)
+                    converted_list.append(self._convert_any(item))
                 elif isinstance(item, element_type):
                     converted_list.append(item)
                 else:
@@ -714,7 +719,7 @@ class UnifiedSerializer:
                 
                 # Convert value
                 if value_type == Any:
-                    converted_value = v
+                    converted_value = self._convert_any(v)
                 elif isinstance(v, value_type):
                     converted_value = v
                 else:
@@ -764,12 +769,23 @@ class UnifiedSerializer:
             return obj.isoformat()
         elif isinstance(obj, UUID):
             return str(obj)
+        elif isinstance(obj, (bytes, bytearray, memoryview)):
+            return {"__oaas_bytes__": True, "data": base64.b64encode(bytes(obj)).decode()}
         elif hasattr(obj, 'model_dump'):
             return obj.model_dump()
         elif hasattr(obj, '__dict__'):
             return obj.__dict__
         else:
             return str(obj)
+
+    def _convert_any(self, value: Any) -> Any:
+        """Best-effort conversion for typing.Any targets (e.g., decode tagged bytes)."""
+        try:
+            if isinstance(value, dict) and value.get("__oaas_bytes__") is True and isinstance(value.get("data"), str):
+                return base64.b64decode(value["data"])  # bytes
+            return value
+        except Exception:
+            return value
     
     def get_performance_metrics(self) -> RpcPerformanceMetrics:
         """Get performance metrics for the serializer."""
