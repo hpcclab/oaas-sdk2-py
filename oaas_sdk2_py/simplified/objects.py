@@ -503,12 +503,9 @@ class OaasObject:
         # Get or create the global oaas instance
         global_oaas = OaasService._get_global_oaas()
         
-        # Default to local in mock mode, remote otherwise, unless explicitly overridden
+        # Remote by default in all modes unless explicitly overridden
         if local is None:
-            try:
-                local = bool(global_oaas.mock_mode)
-            except Exception:
-                local = False
+            local = False
         
         # Get class metadata
         cls_meta = getattr(cls, '_oaas_cls_meta', None)

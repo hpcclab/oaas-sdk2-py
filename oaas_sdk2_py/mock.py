@@ -73,15 +73,35 @@ class LocalRpcManager:
     session: "Session"
 
     async def invoke_fn_async(self, req: InvocationRequest) -> InvocationResponse:
-        return await self.session.invoke_local_async(req)
+        resp = await self.session.invoke_local_async(req)
+        try:
+            await self.session.commit_async()
+        except Exception:
+            pass
+        return resp
     
     
     def invoke_fn(self, req: InvocationRequest) -> InvocationResponse:
-        return self.session.invoke_local(req)
+        resp = self.session.invoke_local(req)
+        try:
+            self.session.commit()
+        except Exception:
+            pass
+        return resp
 
     async def invoke_obj_async(self, req: ObjectInvocationRequest) -> InvocationResponse:
-        return await self.session.invoke_local_async(req)
+        resp = await self.session.invoke_local_async(req)
+        try:
+            await self.session.commit_async()
+        except Exception:
+            pass
+        return resp
     
     
     def invoke_obj(self, req: ObjectInvocationRequest) -> InvocationResponse:
-        return self.session.invoke_local(req)
+        resp = self.session.invoke_local(req)
+        try:
+            self.session.commit()
+        except Exception:
+            pass
+        return resp

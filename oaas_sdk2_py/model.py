@@ -247,12 +247,42 @@ class ClsMeta:
                                 details = {'error_message': resp.payload.decode(errors='ignore')}
                             err_type = details.get('error_type') or 'Exception'
                             err_msg = details.get('error_message') or details.get('last_error') or str(details)
-                            exc_cls = getattr(builtins, err_type, Exception)
+                            # Resolve to SDK-specific exception when possible
+                            exc_cls = None
+                            try:
+                                from oaas_sdk2_py.simplified import errors as _sdk_errors  # type: ignore
+                                exc_cls = getattr(_sdk_errors, err_type, None)
+                            except Exception:
+                                exc_cls = None
+                            if exc_cls is None:
+                                exc_cls = getattr(builtins, err_type, Exception)
                             raise exc_cls(err_msg)
                         # Map payload to annotated return type using UnifiedSerializer
                         ret_anno = sig.return_annotation
                         if ret_anno is inspect._empty or ret_anno is None:
-                            return None
+                            # Best-effort decode for unannotated returns: provide attribute-style access
+                            if not resp.payload:
+                                return None
+                            try:
+                                from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+                                _ser = UnifiedSerializer()
+                                val = _ser.deserialize(resp.payload, Any)
+                            except Exception:
+                                try:
+                                    val = json.loads(resp.payload.decode())
+                                except Exception:
+                                    return None
+                            try:
+                                from types import SimpleNamespace
+                                def _to_attr(x):
+                                    if isinstance(x, dict):
+                                        return SimpleNamespace(**{k: _to_attr(v) for k, v in x.items()})
+                                    if isinstance(x, list):
+                                        return [ _to_attr(i) for i in x ]
+                                    return x
+                                return _to_attr(val)
+                            except Exception:
+                                return val
                         try:
                             if inspect.isclass(ret_anno) and issubclass(ret_anno, BaseModel):
                                 return ret_anno.model_validate_json(resp.payload, strict=strict)
@@ -314,12 +344,42 @@ class ClsMeta:
                                 details = {'error_message': resp.payload.decode(errors='ignore')}
                             err_type = details.get('error_type') or 'Exception'
                             err_msg = details.get('error_message') or details.get('last_error') or str(details)
-                            exc_cls = getattr(builtins, err_type, Exception)
+                            # Resolve to SDK-specific exception when possible
+                            exc_cls = None
+                            try:
+                                from oaas_sdk2_py.simplified import errors as _sdk_errors  # type: ignore
+                                exc_cls = getattr(_sdk_errors, err_type, None)
+                            except Exception:
+                                exc_cls = None
+                            if exc_cls is None:
+                                exc_cls = getattr(builtins, err_type, Exception)
                             raise exc_cls(err_msg)
                         # Map payload to annotated return type using UnifiedSerializer
                         ret_anno = sig.return_annotation
                         if ret_anno is inspect._empty or ret_anno is None:
-                            return None
+                            # Best-effort decode for unannotated returns: provide attribute-style access
+                            if not resp.payload:
+                                return None
+                            try:
+                                from oaas_sdk2_py.simplified.serialization import UnifiedSerializer
+                                _ser = UnifiedSerializer()
+                                val = _ser.deserialize(resp.payload, Any)
+                            except Exception:
+                                try:
+                                    val = json.loads(resp.payload.decode())
+                                except Exception:
+                                    return None
+                            try:
+                                from types import SimpleNamespace
+                                def _to_attr(x):
+                                    if isinstance(x, dict):
+                                        return SimpleNamespace(**{k: _to_attr(v) for k, v in x.items()})
+                                    if isinstance(x, list):
+                                        return [ _to_attr(i) for i in x ]
+                                    return x
+                                return _to_attr(val)
+                            except Exception:
+                                return val
                         try:
                             if inspect.isclass(ret_anno) and issubclass(ret_anno, BaseModel):
                                 return ret_anno.model_validate_json(resp.payload, strict=strict)
