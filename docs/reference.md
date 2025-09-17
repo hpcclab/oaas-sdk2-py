@@ -89,7 +89,7 @@ async def background_task(self) -> bool:
 
 ### @oaas.getter and @oaas.setter (Accessor Methods)
 
-Accessors provide typed read/write methods bound to persisted fields. They are async, validated at registration, and behave like normal methods for callers. Accessors are not exported as standalone RPC functions; they remain methods on the service class and do not appear in the package "functions" list.
+Accessors provide typed read/write methods bound to persisted fields. They can be async or sync, are validated at registration, and behave like normal methods for callers. Accessors are not exported as standalone RPC functions; they remain methods on the service class and do not appear in the package "functions" list.
 
 Why: avoid redundant RPC for pure data access. A method incurs an RPC call that then reads/writes state and returns; an accessor performs the data operation directly.
 
@@ -98,8 +98,8 @@ Signatures:
 - `@oaas.setter(field: str | None = None)`
 
 Contracts:
-- Getter: async; only `self`; must have a return annotation matching the field type (or projected sub-type). No side effects.
-- Setter: async; `self` plus a single `value` parameter; parameter type must match the field type. Returns updated value or `None` if annotated as `None`.
+- Getter: async or sync; only `self`; must have a return annotation matching the field type (or projected sub-type). No side effects.
+- Setter: async or sync; `self` plus a single `value` parameter; parameter type must match the field type. Returns updated value or `None` if annotated as `None`.
 
 Field inference:
 - Getter: `get_<field>` → `<field>`; else method name equals field name.
@@ -139,6 +139,10 @@ Notes:
 - In local/mock mode, state semantics follow in-memory behavior.
 - Accessors are callable through ObjectRef proxies; getters read directly from storage, setters write through to storage.
 
+Implementation details:
+- The original method body is ignored at runtime; a generated wrapper performs the persisted IO based on the field type and optional projection.
+- Both async and sync accessor definitions are supported; remote `ObjectRef` proxies provide matching async/sync call styles based on runtime async mode.
+
 When to choose accessors vs methods
 
 Prefer accessors for simple persisted reads/writes:
@@ -177,6 +181,23 @@ Registers a stateless callable on the class that does not require instance state
 def ping() -> str:
     return "pong"
 ```
+
+### @oaas.package
+
+Decorator: `@oaas.package(name: str, version: str | None = None, author: str | None = None, description: str | None = None, tags: list[str] | None = None, dependencies: list[str] | None = None)`
+
+Attach package metadata to a service class for export.
+
+```python
+@oaas.package(name="example", version="0.1.0", author="you", tags=["demo"]) 
+@oaas.service("MyService", package="example")
+class MyService(OaasObject):
+    ...
+```
+
+Export metadata:
+- `oaas.print_pkg()` returns the package spec (YAML by default).
+- CLI-style: see `oaas.run_or_gen()` below.
 
 ### @oaas.constructor
 
@@ -392,6 +413,11 @@ Functions (methods on the global `oaas` object):
 - `oaas.is_server_running() -> bool`
 - `oaas.get_server_info() -> Dict[str, Any]`
 - `oaas.restart_server(port: int | None = None, loop=None, async_mode: bool | None = None) -> None`
+
+Convenience entry-point:
+- `oaas.run_or_gen()`
+    - No args: starts the server. Uses `HTTP_PORT` env var (default `8080`).
+    - `gen [--out FILE] [--stdout] [--format yaml|json]`: prints package spec.
 
 ### Agent Management
 

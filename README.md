@@ -27,7 +27,7 @@ pip install oaas-sdk2-py
 ```
 Or, if you are using `uv`:
 ```bash
-# For adding/installing packages with uv, the command is 'uv pip install'
+# Add to your project using uv
 uv add oaas-sdk2-py
 ```
 
@@ -81,12 +81,10 @@ class Greeter(OaasObject):
 
     # Accessor methods (not exported as RPC functions)
     @oaas.getter()
-    async def get_counter(self) -> int:
-        ...
+    async def get_counter(self) -> int: ...
 
     @oaas.setter()
-    async def set_counter(self, value: int) -> int:
-        ...
+    async def set_counter(self, value: int) -> int: ...
 
 # Usage
 async def main():
@@ -106,7 +104,7 @@ async def main():
 ### Server & Agent Management
 
 ```python
-# Start gRPC server (for external access)
+# Start gRPC server (for external access). Uses HTTP_PORT if set
 oaas.start_server(port=8080)
 
 # Start agent (for background processing)
@@ -120,6 +118,8 @@ print(f"Agents: {oaas.list_agents()}")
 await oaas.stop_agent(agent_id)
 oaas.stop_server()
 ```
+
+To generate/export your package spec without running a server, either call `oaas.print_pkg()` in-process or use the entry `oaas.run_or_gen()` (used by examples) with `gen` flags.
 
 
 ## API Overview
@@ -217,12 +217,10 @@ class Counter(OaasObject):
 
     # Accessors for the state fields
     @oaas.getter()
-    async def get_count(self) -> int:
-        ...
+    async def get_count(self) -> int: ...
 
     @oaas.setter()
-    async def set_count(self, value: int) -> int:
-        ...
+    async def set_count(self, value: int) -> int: ...
 
     @oaas.getter("history")
     async def get_history(self) -> list:
@@ -313,7 +311,7 @@ async def run_server():
     config = OaasConfig(async_mode=True, mock_mode=False)
     oaas.configure(config)
     
-    oaas.start_server(port=8080)
+    oaas.start_server(port=8080)  # or set HTTP_PORT env var
     print("🚀 Server running on port 8080")
     
     try:
