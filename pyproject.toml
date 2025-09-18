@@ -43,6 +43,13 @@ addopts = "-v --tb=short"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "unit: fast, isolated tests (mock-only)",
+    "integration: multi-component flows in mock mode",
+    "server: requires real server/agent lifecycle (skipped by default)",
+    "slow: longer-running tests",
+    "mock_only: relies on mock mode explicitly",
+]
 
 # Uncomment for debug logging
 # log_cli = true

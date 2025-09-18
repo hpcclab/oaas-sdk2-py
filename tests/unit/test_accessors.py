@@ -79,4 +79,3 @@ async def test_projection_getter_over_structured_state():
 	await obj.set_profile({"address": {"city": "Tokyo", "zip": "100-0001"}})
 	city = await obj.get_city()
 	assert city == "Tokyo"
-

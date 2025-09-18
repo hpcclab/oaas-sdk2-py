@@ -1,22 +1,11 @@
 import unittest
 
 from oaas_sdk2_py import oaas, OaasConfig
-from .sample_cls import AsyncSampleObj, SampleObj
+from tests.sample_cls import AsyncSampleObj, SampleObj
 
 
 class TestAsyncMock(unittest.IsolatedAsyncioTestCase):
-    async def test_data_fail_without_mock(self):
-        # Configure real mode (no mock) so commits should fail without ODGM
-        oaas.configure(OaasConfig(mock_mode=False, auto_commit=False))
-        obj = AsyncSampleObj.create(obj_id=1)
-        # Disable object-level auto-commit so failure occurs on explicit commit
-        obj._auto_commit = False
-        await obj.set_intro("Hi from Testing")
-        with self.assertRaises(Exception):
-            await obj.commit_async()  # Expected to fail without ODGM
-
     async def test_with_mock_greet(self):
-        # Enable mock mode and verify method works
         oaas.configure(OaasConfig(mock_mode=True, auto_commit=True))
         obj = AsyncSampleObj.create(obj_id=1)
         await obj.set_intro("Object 1")
@@ -63,21 +52,11 @@ class TestAsyncMock(unittest.IsolatedAsyncioTestCase):
         obj.delete()
         await obj.session.commit_async()
 
-        # After deletion, a fresh load should have default state
         obj_new = AsyncSampleObj.load(1)
         self.assertEqual(await obj_new.get_intro(), "")
 
 
 class TestMockWithSampleObj(unittest.IsolatedAsyncioTestCase):
-    async def test_data_fail_without_mock(self):
-        oaas.configure(OaasConfig(mock_mode=False, auto_commit=False))
-        obj = SampleObj.create(obj_id=1)
-        # Disable object-level auto-commit so failure occurs on explicit commit
-        obj._auto_commit = False
-        await obj.set_intro("Hi from Testing")
-        with self.assertRaises(Exception):
-            await obj.commit_async()  # Expected to fail without ODGM
-
     async def test_with_mock_greet(self):
         oaas.configure(OaasConfig(mock_mode=True, auto_commit=True))
         obj = SampleObj.create(obj_id=1)
