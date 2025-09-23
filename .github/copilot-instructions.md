@@ -4,7 +4,7 @@ Purpose: help AI agents be productive in this codebase by capturing the architec
 
 ## Architecture at a glance
 - Two layers coexist:
-  - Legacy API: `Oparaca`, `Session`, `BaseObject` (see `oaas_sdk2_py/engine.py`, `session.py`, `obj.py`). Still supported and used by some tests.
+  - Legacy API: `Oparaca`, `Session` (see `oaas_sdk2_py/engine.py`, `session.py`). The old `BaseObject` has been removed; use `OaasObject` instead.
   - Simplified API: global `oaas` service registry with decorators and auto state mgmt (see `oaas_sdk2_py/simplified/**`). Prefer this for new code.
 - Data plane and RPC:
   - Backed by Rust crate `oprc-py` (PyO3), exposing `DataManager` and `RpcManager` used by `Oparaca`.
@@ -56,7 +56,7 @@ Purpose: help AI agents be productive in this codebase by capturing the architec
 
 ## Key files and directories
 - Simplified API: `oaas_sdk2_py/simplified/{service.py,objects.py,decorators.py,accessors.py,state_descriptor.py,session_manager.py,config.py}`
-- Legacy bridge/engine: `oaas_sdk2_py/{engine.py,handler.py,session.py,obj.py,model.py,repo.py,mock.py}`
+- Legacy bridge/engine: `oaas_sdk2_py/{engine.py,handler.py,session.py,model.py,repo.py,mock.py}`
 - CI/release and runner image: `.github/workflows/{CI.yml,runner-image.yml}`
 - Runtime container: `deploy/{Dockerfile,oaas-run.sh}`
 - Compose topology for local ODGM/router/app: `docker-compose.yml`

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from oaas_sdk2_py.engine import BaseObject
+    from oaas_sdk2_py.simplified.objects import OaasObject
     from oaas_sdk2_py.simplified.accessors import AccessorSpec  
 
 
@@ -216,7 +216,7 @@ class ClsMeta:
             if inspect.iscoroutinefunction(function):
                 
                 @functools.wraps(function)
-                async def async_wrapper(obj_self: "BaseObject", *args, **kwargs):
+                async def async_wrapper(obj_self: "OaasObject", *args, **kwargs):
                     """
                     Wrapper function that handles remote/local method invocation.
 
@@ -313,7 +313,7 @@ class ClsMeta:
 
             else:
                 @functools.wraps(function)
-                def sync_wrapper(obj_self: "BaseObject", *args, **kwargs):
+                def sync_wrapper(obj_self: "OaasObject", *args, **kwargs):
                     """
                     Wrapper function that handles remote/local method invocation.
 
@@ -483,7 +483,7 @@ class ClsMeta:
         return None
 
     def _create_request_from_model(
-        self, obj_self: "BaseObject", fn_name: str, model: BaseModel, stateless: bool
+    self, obj_self: "OaasObject", fn_name: str, model: BaseModel, stateless: bool
     ):
         """Create appropriate request object from a BaseModel."""
         if model is None:

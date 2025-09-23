@@ -1,7 +1,6 @@
 # Legacy API - maintained for backward compatibility
 from .engine import Oparaca  # noqa: F401
 from .session import Session # noqa: F401
-from .obj import BaseObject # noqa: F401
 from .model import ClsMeta, FuncMeta  # noqa: F401
 from oprc_py import ObjectInvocationRequest, InvocationRequest, InvocationResponse  # noqa: F401
 import os as _os
@@ -39,7 +38,6 @@ __all__ = [
     # Legacy API
     "Oparaca",
     "Session",
-    "BaseObject",
     "ClsMeta",
     "FuncMeta",
     "ObjectInvocationRequest",
@@ -79,3 +77,12 @@ if _telemetry_mod is not None:
             _telemetry_mod.enable(service_name=_os.environ.get("OTEL_SERVICE_NAME"))
         except Exception:
             pass
+
+# Helpful error for removed legacy symbol
+def __getattr__(name: str):  # pragma: no cover - simple runtime guard
+    if name == "BaseObject":
+        raise AttributeError(
+            "BaseObject has been removed from oaas_sdk2_py. "
+            "Use OaasObject from oaas_sdk2_py.simplified.objects instead."
+        )
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

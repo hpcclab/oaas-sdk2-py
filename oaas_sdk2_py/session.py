@@ -11,7 +11,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .obj import BaseObject
+    from .simplified.objects import OaasObject
     from .model import ClsMeta
     from .repo import MetadataRepo
 
@@ -35,8 +35,8 @@ class Session:
         local_only: Flag indicating if all objects should be local only
     """
 
-    local_obj_dict: Dict["ObjectMetadata", "BaseObject"]
-    remote_obj_dict: Dict["ObjectMetadata", "BaseObject"]
+    local_obj_dict: Dict["ObjectMetadata", "OaasObject"]
+    remote_obj_dict: Dict["ObjectMetadata", "OaasObject"]
     delete_obj_set: set["ObjectMetadata"]
 
     def __init__(
@@ -81,7 +81,7 @@ class Session:
             partition_id=self.partition_id,
             object_id=obj_id,
         )
-        obj: BaseObject = cls_meta.cls(meta=meta, session=self)
+        obj: OaasObject = cls_meta.cls(meta=meta, session=self)
         obj._full_loaded = True
         obj._dirty = False
         obj._obj = oprc_py.ObjectData(meta=meta)
