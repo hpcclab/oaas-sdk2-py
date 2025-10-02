@@ -4,7 +4,7 @@ import string
 from pydantic import BaseModel
 from tsidpy import TSID
 
-from oaas_sdk2_py.simplified import oaas, OaasObject, OaasConfig
+from oaas_sdk2_py import oaas, OaasObject, OaasConfig
 
 
 class GreetCreator(BaseModel):

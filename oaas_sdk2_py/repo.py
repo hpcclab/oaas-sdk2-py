@@ -57,6 +57,22 @@ class MetadataRepo:
             except Exception:
                 pass
             cls.export_pkg(output[pkg_name])
+            # Auto-prefill a deployment skeleton for each class if not already provided
+            try:
+                deployments = output[pkg_name].get('deployments', [])
+                existing_keys = {d.get('key') for d in deployments if isinstance(d, dict)}
+                if cls.name not in existing_keys:
+                    deployments.append({
+                        'key': cls.name,               # Deployment key (defaults to class name)
+                        'package_name': pkg_name,      # Owning package
+                        'class_key': cls.name,         # Class key reference
+                        'target_envs': [],             # Fill with environment identifiers, e.g. ['oaas-1']
+                        'odgm': {}                     # Runtime/platform specific overrides
+                    })
+                output[pkg_name]['deployments'] = deployments
+            except Exception:
+                # Non-fatal; skip if any issue building deployment prefill
+                pass
         return output
 
     def print_pkg(self) -> str:

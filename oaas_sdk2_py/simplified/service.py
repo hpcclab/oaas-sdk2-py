@@ -965,8 +965,34 @@ class OaasService:
             if fmt == "json":
                 import json
                 content = "".join(json.dumps(p, indent=2) + "\n---\n" for p in pkgs.values())
+                # JSON mode: skip adding YAML-style commented deployment guidance
             else:
+                # Default YAML export of current repo (without auto deployments injected)
                 content = repo.print_pkg()
+                # Always append commented deployment skeletons for each class so user can copy/edit.
+                # We DO NOT add functional deployment entries, only comments, and we do not list function overrides.
+                placeholder_lines = [
+                    "# -----------------------------------------------------------------------------",
+                    "# Deployment placeholders (uncomment & edit as needed)",
+                    "# -----------------------------------------------------------------------------",
+                    "# deployments:",
+                ]
+                for pkg_name, pkg_spec in pkgs.items():
+                    for cls in pkg_spec.get('classes', []):
+                        cls_key = cls.get('key')
+                        placeholder_lines.extend([
+                            f"#   - key: {cls_key}",
+                            f"#     package_name: {pkg_name}",
+                            f"#     class_key: {cls_key}",
+                            "#     target_envs:",
+                            "#       - oaas-env",  # sample environment
+                            "#     odgm: {}",  # runtime overrides placeholder
+                            "#",  # separator
+                        ])
+                if placeholder_lines and placeholder_lines[-1] == '#':
+                    placeholder_lines = placeholder_lines[:-1]
+                placeholder_lines.append("# -----------------------------------------------------------------------------")
+                content += "\n" + "\n".join(placeholder_lines) + "\n"
 
             if to_stdout or not out_path:
                 print(content)
