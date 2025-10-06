@@ -1,7 +1,7 @@
 ## Multi-stage image to install oaas-sdk2-py from source (including Rust ext)
 
 # --- Builder: compiles Rust extension and installs into a virtualenv ---
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -40,7 +40,7 @@ RUN set -eux; \
 
 
 # --- Runtime: slim Python with only the venv and entrypoint ---
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
