@@ -38,8 +38,8 @@ impl InvocationRequest {
 
 impl InvocationRequest {
     /// Converts this `InvocationRequest` into its protobuf representation.
-    pub fn into_proto(&self) -> oprc_pb::InvocationRequest {
-        oprc_pb::InvocationRequest {
+    pub fn into_proto(&self) -> oprc_grpc::InvocationRequest {
+        oprc_grpc::InvocationRequest {
             partition_id: self.partition_id,
             cls_id: self.cls_id.clone(),
             fn_id: self.fn_id.clone(),
@@ -49,10 +49,10 @@ impl InvocationRequest {
     }
 }
 
-impl Into<oprc_pb::InvocationRequest> for InvocationRequest {
+impl Into<oprc_grpc::InvocationRequest> for InvocationRequest {
     /// Converts this `InvocationRequest` into its protobuf representation.
-    fn into(self) -> oprc_pb::InvocationRequest {
-        oprc_pb::InvocationRequest {
+    fn into(self) -> oprc_grpc::InvocationRequest {
+        oprc_grpc::InvocationRequest {
             partition_id: self.partition_id,
             cls_id: self.cls_id,
             fn_id: self.fn_id,
@@ -62,9 +62,9 @@ impl Into<oprc_pb::InvocationRequest> for InvocationRequest {
     }
 }
 
-impl From<oprc_pb::InvocationRequest> for InvocationRequest {
+impl From<oprc_grpc::InvocationRequest> for InvocationRequest {
     /// Creates an `InvocationRequest` from its protobuf representation.
-    fn from(value: oprc_pb::InvocationRequest) -> Self {
+    fn from(value: oprc_grpc::InvocationRequest) -> Self {
         InvocationRequest {
             partition_id: value.partition_id,
             cls_id: value.cls_id,
@@ -97,9 +97,9 @@ pub struct InvocationResponse {
     invocation_id: String,
 }
 
-impl From<oprc_pb::InvocationResponse> for InvocationResponse {
+impl From<oprc_grpc::InvocationResponse> for InvocationResponse {
     /// Creates an `InvocationResponse` from its protobuf representation.
-    fn from(value: oprc_pb::InvocationResponse) -> Self {
+    fn from(value: oprc_grpc::InvocationResponse) -> Self {
         Self {
             payload: value.payload.unwrap_or_default(),
             status: value.status,
@@ -109,10 +109,10 @@ impl From<oprc_pb::InvocationResponse> for InvocationResponse {
     }
 }
 
-impl From<InvocationResponse> for oprc_pb::InvocationResponse {
+impl From<InvocationResponse> for oprc_grpc::InvocationResponse {
     /// Converts this `InvocationResponse` into its protobuf representation.
     fn from(value: InvocationResponse) -> Self {
-        oprc_pb::InvocationResponse {
+    oprc_grpc::InvocationResponse {
             payload: Some(value.payload),
             status: value.status,
             headers: value.header,
@@ -121,10 +121,10 @@ impl From<InvocationResponse> for oprc_pb::InvocationResponse {
     }
 }
 
-impl From<&InvocationResponse> for oprc_pb::InvocationResponse {
+impl From<&InvocationResponse> for oprc_grpc::InvocationResponse {
     /// Converts a reference to `InvocationResponse` into its protobuf representation.
     fn from(value: &InvocationResponse) -> Self {
-        oprc_pb::InvocationResponse {
+    oprc_grpc::InvocationResponse {
             payload: Some(value.payload.to_owned()),
             status: value.status,
             headers: value.header.to_owned(),
@@ -165,7 +165,8 @@ pub struct ObjectInvocationRequest {
     partition_id: u32,
     cls_id: String,
     fn_id: String,
-    object_id: u64,
+    object_id: Option<u64>,
+    object_id_str: Option<String>,
     options: HashMap<String, String>,
     payload: Vec<u8>,
 }
@@ -174,35 +175,41 @@ pub struct ObjectInvocationRequest {
 #[pyo3::pymethods]
 impl ObjectInvocationRequest {
     #[new]
-    #[pyo3(signature = (cls_id, fn_id, object_id, partition_id=0,  options=HashMap::new(), payload=vec![]))]
+    #[pyo3(signature = (cls_id, fn_id, object_id=None, partition_id=0,  options=HashMap::new(), payload=vec![], object_id_str=None))]
     /// Creates a new `ObjectInvocationRequest`.
     pub fn new(
         cls_id: String,
         fn_id: String,
-        object_id: u64,
+        object_id: Option<u64>,
         partition_id: u32,
         options: HashMap<String, String>,
         payload: Vec<u8>,
+        object_id_str: Option<String>,
     ) -> Self {
         ObjectInvocationRequest {
             partition_id,
             cls_id,
             fn_id,
             object_id,
+            object_id_str,
             options,
             payload,
         }
     }
 }
 
-impl From<oprc_pb::ObjectInvocationRequest> for ObjectInvocationRequest {
+impl From<oprc_grpc::ObjectInvocationRequest> for ObjectInvocationRequest {
     /// Creates an `ObjectInvocationRequest` from its protobuf representation.
-    fn from(value: oprc_pb::ObjectInvocationRequest) -> Self {
+    fn from(value: oprc_grpc::ObjectInvocationRequest) -> Self {
         ObjectInvocationRequest {
             partition_id: value.partition_id,
             cls_id: value.cls_id,
             fn_id: value.fn_id,
-            object_id: value.object_id,
+            object_id: match (value.object_id, value.object_id_str.as_ref()) {
+                (0, Some(_)) => None,
+                (id, _) => Some(id),
+            },
+            object_id_str: value.object_id_str,
             options: value.options,
             payload: value.payload,
         }
@@ -211,12 +218,13 @@ impl From<oprc_pb::ObjectInvocationRequest> for ObjectInvocationRequest {
 
 impl ObjectInvocationRequest {
     /// Converts this `ObjectInvocationRequest` into its protobuf representation.
-    pub fn into_proto(&self) -> oprc_pb::ObjectInvocationRequest {
-        oprc_pb::ObjectInvocationRequest {
+    pub fn into_proto(&self) -> oprc_grpc::ObjectInvocationRequest {
+        oprc_grpc::ObjectInvocationRequest {
             partition_id: self.partition_id,
             cls_id: self.cls_id.clone(),
             fn_id: self.fn_id.clone(),
-            object_id: self.object_id,
+            object_id: self.object_id.unwrap_or_default(),
+            object_id_str: self.object_id_str.clone(),
             options: self.options.clone(),
             payload: self.payload.clone(),
         }

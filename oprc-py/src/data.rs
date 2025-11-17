@@ -1,5 +1,6 @@
 use crate::telemetry;
-use oprc_pb::ObjMeta;
+// Protocol crate renamed: oprc_pb -> oprc_grpc
+use oprc_grpc::ObjMeta;
 use pyo3::{IntoPyObjectExt, Py, PyAny, PyResult, Python, exceptions::PyRuntimeError};
 pub(crate) use zenoh::Session;
 
@@ -53,12 +54,13 @@ impl DataManager {
             runtime.block_on(async move {
                 telemetry::instrument(
                     async move {
-                        proxy
-                            .get_obj(&ObjMeta {
-                                cls_id: cls_id.to_string(),
-                                partition_id,
-                                object_id: obj_id,
-                            })
+                            proxy
+                                .get_obj(&ObjMeta {
+                                    cls_id: cls_id.to_string(),
+                                    partition_id,
+                                    object_id: obj_id,
+                                    object_id_str: Some(obj_id.to_string()),
+                                })
                             .await
                             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
                     },
@@ -97,11 +99,12 @@ impl DataManager {
         let proxy = self.proxy.clone();
 
         let res = telemetry::instrument(
-            proxy.get_obj(&ObjMeta {
-                cls_id: cls_id.to_string(),
-                partition_id,
-                object_id: obj_id,
-            }),
+                proxy.get_obj(&ObjMeta {
+                    cls_id: cls_id.to_string(),
+                    partition_id,
+                    object_id: obj_id,
+                    object_id_str: Some(obj_id.to_string()),
+                }),
             "data.get_obj_async",
         )
         .await
@@ -197,12 +200,13 @@ impl DataManager {
             runtime.block_on(async move {
                 telemetry::instrument(
                     async move {
-                        proxy
-                            .del_obj(&ObjMeta {
-                                cls_id: cls_id.to_string(),
-                                partition_id,
-                                object_id: obj_id,
-                            })
+                            proxy
+                                .del_obj(&ObjMeta {
+                                    cls_id: cls_id.to_string(),
+                                    partition_id,
+                                    object_id: obj_id,
+                                    object_id_str: Some(obj_id.to_string()),
+                                })
                             .await
                             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
                     },
@@ -236,6 +240,7 @@ impl DataManager {
                 cls_id: cls_id.to_string(),
                 partition_id,
                 object_id: obj_id,
+                object_id_str: Some(obj_id.to_string()),
             }),
             "data.del_obj_async",
         )

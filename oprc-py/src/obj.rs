@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use oprc_pb::{ObjMeta, ValType};
+// Protocol crate renamed: oprc_pb -> oprc_grpc
+use oprc_grpc::{ObjMeta, ValType};
 use pyo3::Bound;
 
 
@@ -14,20 +15,21 @@ pub struct ObjectMetadata {
     partition_id: u32,
 }
 
-impl Into<oprc_pb::ObjMeta> for &ObjectMetadata {
+impl Into<oprc_grpc::ObjMeta> for &ObjectMetadata {
     /// Converts a reference to `ObjectMetadata` into its protobuf representation.
-    fn into(self) -> oprc_pb::ObjMeta {
+    fn into(self) -> oprc_grpc::ObjMeta {
         ObjMeta {
             object_id: self.object_id,
+            object_id_str: Some(self.object_id.to_string()),
             cls_id: self.cls_id.clone(),
             partition_id: self.partition_id,
         }
     }
 }
 
-impl From<oprc_pb::ObjMeta> for ObjectMetadata {
+impl From<oprc_grpc::ObjMeta> for ObjectMetadata {
     /// Creates an `ObjectMetadata` from its protobuf representation.
-    fn from(value: oprc_pb::ObjMeta) -> Self {
+    fn from(value: oprc_grpc::ObjMeta) -> Self {
         ObjectMetadata {
             object_id: value.object_id,
             cls_id: value.cls_id,
@@ -38,9 +40,10 @@ impl From<oprc_pb::ObjMeta> for ObjectMetadata {
 
 impl ObjectMetadata {
     /// Converts this `ObjectMetadata` into its protobuf representation.
-    pub fn into_proto(&self) -> oprc_pb::ObjMeta {
-        oprc_pb::ObjMeta {
+    pub fn into_proto(&self) -> oprc_grpc::ObjMeta {
+    oprc_grpc::ObjMeta {
             object_id: self.object_id,
+            object_id_str: Some(self.object_id.to_string()),
             cls_id: self.cls_id.clone(),
             partition_id: self.partition_id,
         }
@@ -78,9 +81,9 @@ pub struct ObjectData {
     pub(crate) event: Option<PyObjectEvent>,
 }
 
-impl From<oprc_pb::ObjData> for ObjectData {
+impl From<oprc_grpc::ObjData> for ObjectData {
     /// Creates an `ObjectData` from its protobuf representation.
-    fn from(value: oprc_pb::ObjData) -> Self {
+    fn from(value: oprc_grpc::ObjData) -> Self {
         ObjectData {
             meta: value
                 .metadata
@@ -98,8 +101,8 @@ impl From<oprc_pb::ObjData> for ObjectData {
 
 impl ObjectData {
     /// Converts this `ObjectData` into its protobuf representation.
-    pub fn into_proto(&self) -> oprc_pb::ObjData {
-        oprc_pb::ObjData {
+    pub fn into_proto(&self) -> oprc_grpc::ObjData {
+    oprc_grpc::ObjData {
             metadata: Some((&self.meta).into()),
             entries: self
                 .entries
@@ -107,13 +110,14 @@ impl ObjectData {
                 .map(|(k, v)| {
                     (
                         *k,
-                        oprc_pb::ValData {
+                        oprc_grpc::ValData {
                             data: v.to_owned(),
                             r#type: ValType::Byte as i32,
                         },
                     )
                 })
                 .collect(),
+            entries_str: std::collections::HashMap::new(),
             event: self.event.as_ref().map(|e| e.into_proto()),
         }
     }
@@ -139,9 +143,9 @@ impl ObjectData {
     }
 }
 
-impl Into<oprc_pb::ObjData> for &ObjectData {
+impl Into<oprc_grpc::ObjData> for &ObjectData {
     /// Converts a reference to `ObjectData` into its protobuf representation.
-    fn into(self) -> oprc_pb::ObjData {
+    fn into(self) -> oprc_grpc::ObjData {
         self.into_proto()
     }
 }
@@ -169,7 +173,7 @@ pub enum DataTriggerType {
 #[derive(Clone)]
 /// Represents an event associated with an object, wrapping the protobuf `ObjectEvent`.
 pub struct PyObjectEvent {
-    inner: oprc_pb::ObjectEvent,
+    inner: oprc_grpc::ObjectEvent,
 }
 
 
@@ -185,16 +189,16 @@ impl DataTriggerType {
 }
 
 
-impl From<oprc_pb::ObjectEvent> for PyObjectEvent {
+impl From<oprc_grpc::ObjectEvent> for PyObjectEvent {
     /// Creates a `PyObjectEvent` from its protobuf representation.
-    fn from(value: oprc_pb::ObjectEvent) -> Self {
+    fn from(value: oprc_grpc::ObjectEvent) -> Self {
         Self { inner: value }
     }
 }
 
 impl PyObjectEvent {
     /// Converts this `PyObjectEvent` into its protobuf representation.
-    pub fn into_proto(&self) -> oprc_pb::ObjectEvent {
+    pub fn into_proto(&self) -> oprc_grpc::ObjectEvent {
         self.inner.clone()
     }
 }
@@ -392,8 +396,8 @@ impl PyFuncTriggerEntry {
     }
 }
 
-impl From<oprc_pb::FuncTrigger> for PyFuncTriggerEntry {
-    fn from(value: oprc_pb::FuncTrigger) -> Self {
+impl From<oprc_grpc::FuncTrigger> for PyFuncTriggerEntry {
+    fn from(value: oprc_grpc::FuncTrigger) -> Self {
         Self {
             on_complete: value
                 .on_complete
@@ -445,8 +449,8 @@ impl PyDataTriggerEntry {
     }
 }
 
-impl From<oprc_pb::DataTrigger> for PyDataTriggerEntry {
-    fn from(value: oprc_pb::DataTrigger) -> Self {
+impl From<oprc_grpc::DataTrigger> for PyDataTriggerEntry {
+    fn from(value: oprc_grpc::DataTrigger) -> Self {
         Self {
             on_create: value
                 .on_create
@@ -472,19 +476,19 @@ impl From<oprc_pb::DataTrigger> for PyDataTriggerEntry {
 #[derive(Clone)]
 /// Represents a target for a trigger, wrapping the protobuf `TriggerTarget`.
 pub struct PyTriggerTarget {
-    inner: oprc_pb::TriggerTarget,
+    inner: oprc_grpc::TriggerTarget,
 }
 
-impl From<oprc_pb::TriggerTarget> for PyTriggerTarget {
+impl From<oprc_grpc::TriggerTarget> for PyTriggerTarget {
     /// Creates a `PyTriggerTarget` from its protobuf representation.
-    fn from(value: oprc_pb::TriggerTarget) -> Self {
+    fn from(value: oprc_grpc::TriggerTarget) -> Self {
         Self { inner: value }
     }
 }
 
 impl PyTriggerTarget {
     /// Converts this `PyTriggerTarget` into its protobuf representation.
-    pub fn into_proto(&self) -> oprc_pb::TriggerTarget {
+    pub fn into_proto(&self) -> oprc_grpc::TriggerTarget {
         self.inner.clone()
     }
 }
@@ -493,21 +497,24 @@ impl PyTriggerTarget {
 #[pyo3::pymethods]
 impl PyTriggerTarget {
     #[new]
-    #[pyo3(signature = (cls_id, partition_id,  fn_id, object_id=None, req_options=HashMap::new()))]
+    #[pyo3(signature = (cls_id, partition_id,  fn_id, object_id=None, req_options=HashMap::new(), object_id_str=None))]
     /// Creates a new `PyTriggerTarget`.
+    #[allow(deprecated)]
     pub fn new(
         cls_id: String,
         partition_id: u32,
         fn_id: String,
         object_id: Option<u64>,
         req_options: HashMap<String, String>,
+        object_id_str: Option<String>,
     ) -> Self {
         Self {
-            inner: oprc_pb::TriggerTarget {
+            inner: oprc_grpc::TriggerTarget {
                 cls_id,
                 partition_id,
                 fn_id,
-                object_id: object_id,
+                object_id,
+                object_id_str,
                 req_options,
             },
         }
@@ -556,14 +563,28 @@ impl PyTriggerTarget {
 
     #[getter]
     /// Gets the object ID of the trigger target, if any.
+    #[allow(deprecated)]
     pub fn get_object_id(&self) -> Option<u64> {
         self.inner.object_id
     }
 
     #[setter]
     /// Sets the object ID of the trigger target.
+    #[allow(deprecated)]
     pub fn set_object_id(&mut self, object_id: Option<u64>) {
         self.inner.object_id = object_id;
+    }
+
+    #[getter]
+    /// Gets the string object ID of the trigger target, if any.
+    pub fn get_object_id_str(&self) -> Option<String> {
+        self.inner.object_id_str.clone()
+    }
+
+    #[setter]
+    /// Sets the string object ID of the trigger target.
+    pub fn set_object_id_str(&mut self, object_id_str: Option<String>) {
+        self.inner.object_id_str = object_id_str;
     }
 
     #[getter]

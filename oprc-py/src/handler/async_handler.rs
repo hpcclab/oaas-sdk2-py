@@ -1,11 +1,11 @@
 use std::ops::Deref;
 
 use oprc_invoke::handler::InvocationExecutor;
-use oprc_pb::{
+use oprc_grpc::{
     oprc_function_server::OprcFunction, InvocationRequest, InvocationResponse,
     ObjectInvocationRequest, ResponseStatus,
 };
-use pyo3::{intern, types::PyTuple, Py, PyAny, PyRef, PyResult, Python};
+use pyo3::{intern, types::PyTuple, Py, PyAny, PyRef, PyResult, Python, PyErr};
 use pyo3_async_runtimes::{into_future_with_locals, TaskLocals};
 use tonic::{Request, Response, Status};
 use tracing::{debug, info};
@@ -89,8 +89,8 @@ impl OprcFunction for AsyncInvocationHandler {
 impl InvocationExecutor for AsyncInvocationHandler {
     async fn invoke_fn(
         &self,
-        invocation_request: oprc_pb::InvocationRequest,
-    ) -> Result<oprc_pb::InvocationResponse, oprc_invoke::OffloadError> {
+    invocation_request: oprc_grpc::InvocationRequest,
+    ) -> Result<oprc_grpc::InvocationResponse, oprc_invoke::OffloadError> {
         if tracing::enabled!(tracing::Level::DEBUG) {
             debug!("invoke_fn: {:?}", invocation_request);
         } else {
@@ -114,8 +114,8 @@ impl InvocationExecutor for AsyncInvocationHandler {
     }
     async fn invoke_obj(
         &self,
-        invocation_request: oprc_pb::ObjectInvocationRequest,
-    ) -> Result<oprc_pb::InvocationResponse, oprc_invoke::OffloadError> {
+    invocation_request: oprc_grpc::ObjectInvocationRequest,
+    ) -> Result<oprc_grpc::InvocationResponse, oprc_invoke::OffloadError> {
         if tracing::enabled!(tracing::Level::DEBUG) {
             debug!("invoke_obj: {:?}", invocation_request);
         } else {
@@ -147,49 +147,42 @@ impl InvocationExecutor for AsyncInvocationHandler {
 async fn invoke_fn_async(
     locals: &TaskLocals,
     callback: &Py<PyAny>,
-    req: oprc_pb::InvocationRequest,
-) -> PyResult<oprc_pb::InvocationResponse> {
-    let res = Python::attach(|py| {
-        let req = crate::model::InvocationRequest::from(req);
-        let args = PyTuple::new(py, [req])?;
-        let any = into_future_with_locals(
-            locals,
-            callback
+    req: oprc_grpc::InvocationRequest,
+) -> PyResult<oprc_grpc::InvocationResponse> {
+    // Acquire Python future within GIL, then await it, then extract response.
+        let fut = Python::attach(|py| {
+            let req_model = crate::model::InvocationRequest::from(req.clone());
+            let args = PyTuple::new(py, [req_model])?;
+            let py_future = callback
                 .call_method1(py, intern!(py, "invoke_fn"), args)?
-                .into_bound(py),
-        );
-        any
-    });
-    let res = res?.await.map(|any| {
-        Python::attach(|py| {
-            any.extract::<PyRef<crate::model::InvocationResponse>>(py)
-                .map(|r| r.deref().into())
-        })
-    })?;
-    res
+                .into_bound(py);
+            into_future_with_locals(locals, py_future)
+        })?;
+        let any = fut.await?;
+        let resp = Python::attach(|py| {
+            let resp_ref: PyRef<crate::model::InvocationResponse> = any.extract(py)?;
+            Ok::<oprc_grpc::InvocationResponse, PyErr>(resp_ref.deref().into())
+        })?;
+        Ok(resp)
 }
 
 async fn invoke_obj_async(
     locals: &TaskLocals,
     callback: &Py<PyAny>,
-    req: oprc_pb::ObjectInvocationRequest,
-) -> PyResult<oprc_pb::InvocationResponse> {
-    let res = Python::attach(|py| {
-        let req = crate::model::ObjectInvocationRequest::from(req);
-        let args = PyTuple::new(py, [req])?;
-        let any = into_future_with_locals(
-            locals,
-            callback
-                .call_method1(py, intern!(py, "invoke_obj"), args)?
-                .into_bound(py),
-        );
-        any
-    });
-    let res = res?.await.map(|any| {
-        Python::attach(|py| {
-            any.extract::<PyRef<crate::model::InvocationResponse>>(py)
-                .map(|r| r.deref().into())
-        })
+    req: oprc_grpc::ObjectInvocationRequest,
+) -> PyResult<oprc_grpc::InvocationResponse> {
+    let fut = Python::attach(|py| {
+        let req_model = crate::model::ObjectInvocationRequest::from(req.clone());
+        let args = PyTuple::new(py, [req_model])?;
+        let py_future = callback
+            .call_method1(py, intern!(py, "invoke_obj"), args)?
+            .into_bound(py);
+        into_future_with_locals(locals, py_future)
     })?;
-    res
+    let any = fut.await?;
+    let resp = Python::attach(|py| {
+        let resp_ref: PyRef<crate::model::InvocationResponse> = any.extract(py)?;
+        Ok::<oprc_grpc::InvocationResponse, PyErr>(resp_ref.deref().into())
+    })?;
+    Ok(resp)
 }
