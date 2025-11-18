@@ -6,6 +6,7 @@ from oprc_py import ObjectData, ObjectMetadata
 from oprc_py.oprc_py import FnTriggerType, DataTriggerType
 from oaas_sdk2_py.model import ClsMeta
 from oaas_sdk2_py.session import Session
+from .object_ids import meta_object_id
 
 
 class BaseObject:
@@ -32,8 +33,8 @@ class BaseObject:
         self._auto_commit = False
 
     @property
-    def object_id(self) -> int:
-        return self.meta.object_id
+    def object_id(self) -> str:
+        return meta_object_id(self.meta)
 
     async def set_data_async(self, index: int, data: bytes):
         self._state[index] = data
@@ -49,7 +50,7 @@ class BaseObject:
         obj: oprc_py.ObjectData | None = await self.session.data_manager.get_obj_async(
             self.meta.cls_id,
             self.meta.partition_id,
-            self.meta.object_id,
+            meta_object_id(self.meta),
         )
         if obj is None:
             return None
@@ -66,7 +67,7 @@ class BaseObject:
         obj: oprc_py.ObjectData | None = self.session.data_manager.get_obj(
             self.meta.cls_id,
             self.meta.partition_id,
-            self.meta.object_id,
+            meta_object_id(self.meta),
         )
         if obj is None:
             return None
@@ -87,7 +88,7 @@ class BaseObject:
         obj: oprc_py.ObjectData | None = self.session.data_manager.get_obj(
             self.meta.cls_id,
             self.meta.partition_id,
-            self.meta.object_id,
+            meta_object_id(self.meta),
         )
         if obj is None:
             raise ValueError("Object not found")
@@ -168,7 +169,8 @@ class BaseObject:
         trigger_target = oprc_py.PyTriggerTarget(
             cls_id=meta.cls_id,
             partition_id=meta.partition_id,
-            object_id=meta.object_id,
+            object_id=None,
+            object_id_str=meta_object_id(meta),
             fn_id=fn_meta.name,
             req_options={} if req_options is None else req_options,
         )
@@ -241,7 +243,7 @@ class BaseObject:
         o = oprc_py.ObjectInvocationRequest(
             cls_id=self.meta.cls_id,
             partition_id=self.meta.partition_id,
-            object_id=self.meta.object_id,
+            object_id_str=meta_object_id(self.meta),
             fn_id=fn_name,
             payload=payload,
         )
@@ -253,7 +255,7 @@ class BaseObject:
         self.session.delete_object(
             self.meta.cls_id,
             self.meta.partition_id,
-            self.meta.object_id,
+            meta_object_id(self.meta),
         )
         if self._auto_commit:
             self.commit()

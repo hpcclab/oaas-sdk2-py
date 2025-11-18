@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional
 
 import oprc_py
 from oprc_py import ObjectMetadata
+from ..object_ids import ensure_object_metadata_kwargs, meta_object_id
 from .accessors import AccessorKind, _apply_projection
 
 
@@ -35,15 +36,19 @@ class ObjectRef:
         if not isinstance(other, ObjectRef):
             return False
         a, b = self._metadata, other._metadata
-        return a.cls_id == b.cls_id and a.partition_id == b.partition_id and a.object_id == b.object_id
+        return (
+            a.cls_id == b.cls_id
+            and a.partition_id == b.partition_id
+            and meta_object_id(a) == meta_object_id(b)
+        )
 
     def __hash__(self) -> int:
         m = self._metadata
-        return hash((m.cls_id, m.partition_id, m.object_id))
+        return hash((m.cls_id, m.partition_id, meta_object_id(m)))
 
     def __str__(self) -> str:
         m = self._metadata
-        return f"ObjectRef({m.cls_id}#{m.object_id}@{m.partition_id})"
+        return f"ObjectRef({m.cls_id}#{meta_object_id(m)}@{m.partition_id})"
 
     def __repr__(self) -> str:
         return str(self)
@@ -83,7 +88,9 @@ class ObjectRef:
                         session = auto.get_session(self._metadata.partition_id)
                         try:
                             obj: oprc_py.ObjectData | None = await session.data_manager.get_obj_async(
-                                self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
+                                self._metadata.cls_id,
+                                self._metadata.partition_id,
+                                    meta_object_id(self._metadata),
                             )
                         except KeyError:
                             obj = None
@@ -108,7 +115,9 @@ class ObjectRef:
                         session = auto.get_session(self._metadata.partition_id)
                         try:
                             obj: oprc_py.ObjectData | None = session.data_manager.get_obj(
-                                self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
+                                self._metadata.cls_id,
+                                self._metadata.partition_id,
+                                    meta_object_id(self._metadata),
                             )
                         except KeyError:
                             obj = None
@@ -141,7 +150,9 @@ class ObjectRef:
                         # Fetch existing entries, update idx
                         try:
                             existing: oprc_py.ObjectData | None = await session.data_manager.get_obj_async(
-                                self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
+                                self._metadata.cls_id,
+                                self._metadata.partition_id,
+                                meta_object_id(self._metadata),
                             )
                         except KeyError:
                             existing = None
@@ -169,7 +180,9 @@ class ObjectRef:
                         # Fetch existing entries, update idx
                         try:
                             existing: oprc_py.ObjectData | None = session.data_manager.get_obj(
-                                self._metadata.cls_id, self._metadata.partition_id, self._metadata.object_id
+                                self._metadata.cls_id,
+                                self._metadata.partition_id,
+                                meta_object_id(self._metadata),
                             )
                         except KeyError:
                             existing = None
@@ -247,9 +260,10 @@ class ObjectRef:
                 else:
                     req = oprc_py.ObjectInvocationRequest(
                         cls_id=self._metadata.cls_id,
-                        partition_id=self._metadata.partition_id,
-                        object_id=self._metadata.object_id,
                         fn_id=name,
+                        partition_id=self._metadata.partition_id,
+                        object_id=None,
+                        object_id_str=meta_object_id(self._metadata),
                         payload=payload or b"",
                     )
                     resp = await session.obj_rpc_async(req)
@@ -270,9 +284,10 @@ class ObjectRef:
                 else:
                     req = oprc_py.ObjectInvocationRequest(
                         cls_id=self._metadata.cls_id,
-                        partition_id=self._metadata.partition_id,
-                        object_id=self._metadata.object_id,
                         fn_id=name,
+                        partition_id=self._metadata.partition_id,
+                        object_id=None,
+                        object_id_str=meta_object_id(self._metadata),
                         payload=payload or b"",
                     )
                     resp = session.obj_rpc(req)
@@ -280,7 +295,13 @@ class ObjectRef:
             return _caller_sync
 
 
-def ref(cls_id: str, object_id: int, partition_id: int = 0) -> ObjectRef:
+def ref(cls_id: str, object_id: str | int, partition_id: int = 0) -> ObjectRef:
     """Create an ObjectRef from identity components."""
-    meta = ObjectMetadata(cls_id=cls_id, partition_id=partition_id, object_id=object_id)
+    meta = ObjectMetadata(
+        **ensure_object_metadata_kwargs(
+            cls_id=cls_id,
+            partition_id=partition_id,
+            object_id=object_id,
+        )
+    )
     return ObjectRef(meta)

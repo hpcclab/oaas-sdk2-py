@@ -191,6 +191,48 @@ is_healthy = await device.is_healthy(75.0)    # Returns bool
 metrics = await device.monitor_continuously(5)  # Returns dict
 ```
 
+### Multi-object Workflow (examples/helloworld)
+
+The `examples/helloworld` package now ships a `ConversationWorkflow` service that wires
+together multiple objects (a `Greeter` and a `Record`) to demonstrate cross-object
+coordination:
+
+```python
+@oaas.service("ConversationWorkflow", package="example")
+class ConversationWorkflow(OaasObject):
+    greeter_id: str | None = None
+    record_id: str | None = None
+
+    @oaas.method()
+    async def configure(self, req: WorkflowSetup) -> WorkflowSetup:
+        greeter = Greeter.load(req.greeter_id)
+        record = Record.load(req.record_id)
+        self.greeter_id = greeter.object_id
+        self.record_id = record.object_id
+        return WorkflowSetup(greeter_id=self.greeter_id, record_id=self.record_id)
+
+    @oaas.method()
+    async def run_workflow(self, req: WorkflowInput) -> WorkflowResult:
+        greeter = Greeter.load(self.greeter_id)
+        record = Record.load(self.record_id)
+        if req.intro_override:
+            await greeter.change_intro(UpdateIntro(intro=req.intro_override))
+        greeting = await greeter.greet(Greet(name=req.person))
+        await record.log_entry(SaveRecordEntry(key=req.person, value=greeting.message))
+        return WorkflowResult(
+            greeter_id=greeter.object_id,
+            record_id=record.object_id,
+            greeting=greeting.message,
+            log_snapshot=await record.snapshot(),
+        )
+```
+
+Run it locally (mock mode) to see the orchestration in action:
+
+```powershell
+uv run python -m examples.helloworld gen
+```
+
 ### Counter Service with State
 
 ```python

@@ -45,10 +45,11 @@ impl DataManager {
         py: Python<'_>,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<Py<PyAny>> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
+        let obj_id_clone = obj_id.clone();
 
         let res = py.detach(|| {
             runtime.block_on(async move {
@@ -58,8 +59,8 @@ impl DataManager {
                                 .get_obj(&ObjMeta {
                                     cls_id: cls_id.to_string(),
                                     partition_id,
-                                    object_id: obj_id,
-                                    object_id_str: Some(obj_id.to_string()),
+                                    object_id: 0,
+                                    object_id_str: Some(obj_id_clone),
                                 })
                             .await
                             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
@@ -94,16 +95,17 @@ impl DataManager {
         &self,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<Py<PyAny>> {
         let proxy = self.proxy.clone();
+        let obj_id_clone = obj_id.clone();
 
         let res = telemetry::instrument(
                 proxy.get_obj(&ObjMeta {
                     cls_id: cls_id.to_string(),
                     partition_id,
-                    object_id: obj_id,
-                    object_id_str: Some(obj_id.to_string()),
+                    object_id: 0,
+                    object_id_str: Some(obj_id_clone),
                 }),
             "data.get_obj_async",
         )
@@ -191,10 +193,11 @@ impl DataManager {
         py: Python<'_>,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<()> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
+        let obj_id_clone = obj_id.clone();
 
         py.detach(|| {
             runtime.block_on(async move {
@@ -204,8 +207,8 @@ impl DataManager {
                                 .del_obj(&ObjMeta {
                                     cls_id: cls_id.to_string(),
                                     partition_id,
-                                    object_id: obj_id,
-                                    object_id_str: Some(obj_id.to_string()),
+                                    object_id: 0,
+                                    object_id_str: Some(obj_id_clone),
                                 })
                             .await
                             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
@@ -233,14 +236,14 @@ impl DataManager {
         &self,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<()> {
         telemetry::instrument(
             self.proxy.del_obj(&ObjMeta {
                 cls_id: cls_id.to_string(),
                 partition_id,
-                object_id: obj_id,
-                object_id_str: Some(obj_id.to_string()),
+                object_id: 0,
+                object_id_str: Some(obj_id),
             }),
             "data.del_obj_async",
         )

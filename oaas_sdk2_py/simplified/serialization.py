@@ -18,6 +18,7 @@ import types as _types
 from .errors import SerializationError, ValidationError, get_debug_context, DebugLevel
 from .performance import PerformanceMetrics
 from .references import ObjectRef, ref
+from ..object_ids import meta_object_id
 
 try:
     # Import here to detect service class type
@@ -198,7 +199,7 @@ class UnifiedSerializer:
             # Fast path: if the value itself is a service proxy or instance, always serialize by identity
             if isinstance(value, ObjectRef):
                 m = value.metadata
-                ident = {"cls_id": m.cls_id, "partition_id": m.partition_id, "object_id": m.object_id}
+                ident = {"cls_id": m.cls_id, "partition_id": m.partition_id, "object_id": meta_object_id(m)}
                 data = json.dumps(ident).encode()
                 debug_ctx.log_serialization("serialize", "ObjectRef(value)", len(data))
                 return data
@@ -208,7 +209,7 @@ class UnifiedSerializer:
                 or (_OM is not None and hasattr(value, 'meta') and isinstance(getattr(value, 'meta', None), _OM))
             ):
                 m = getattr(value, 'meta')
-                ident = {"cls_id": m.cls_id, "partition_id": m.partition_id, "object_id": m.object_id}
+                ident = {"cls_id": m.cls_id, "partition_id": m.partition_id, "object_id": meta_object_id(m)}
                 data = json.dumps(ident).encode()
                 debug_ctx.log_serialization("serialize", "OaasObject(value)", len(data))
                 return data
@@ -245,7 +246,7 @@ class UnifiedSerializer:
                     debug_ctx.log_serialization("serialize", "ObjectRef(dict)", len(data))
                     return data
                 if meta is not None:
-                    ident = {"cls_id": meta.cls_id, "partition_id": meta.partition_id, "object_id": meta.object_id}
+                    ident = {"cls_id": meta.cls_id, "partition_id": meta.partition_id, "object_id": meta_object_id(meta)}
                     data = json.dumps(ident).encode()
                     debug_ctx.log_serialization("serialize", "ObjectRef", len(data))
                     return data
@@ -480,9 +481,9 @@ class UnifiedSerializer:
                             return value.as_ref() if hasattr(value, 'as_ref') else value
                         if _OM is not None and hasattr(value, 'meta') and isinstance(getattr(value, 'meta', None), _OM):
                             m = getattr(value, 'meta')
-                            return ref(m.cls_id, m.object_id, getattr(m, 'partition_id', 0))
+                            return ref(m.cls_id, meta_object_id(m), getattr(m, 'partition_id', 0))
                         if _OM is not None and isinstance(value, _OM):
-                            return ref(value.cls_id, value.object_id, value.partition_id)
+                            return ref(value.cls_id, meta_object_id(value), value.partition_id)
                         if isinstance(value, tuple) and len(value) == 3 and isinstance(value[0], str):
                             return ref(value[0], value[2], value[1])
                         if isinstance(value, dict) and 'cls_id' in value and 'object_id' in value:

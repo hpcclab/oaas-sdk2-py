@@ -121,8 +121,12 @@ async def my_method(self, param: int) -> str:
 obj = MyService.create(local=True)
 
 # Remote object (distributed)
-obj = MyService.create(obj_id=123)
+obj = MyService.create(obj_id="user-123")  # IDs are canonical strings
 ```
+
+The helpers in `oaas_sdk2_py.object_ids` (such as `generate_object_id()` and
+`meta_object_id()`) keep identifiers normalized, so pass strings whenever you load or
+reference other objects (`Greeter.load("abc123")`, `ref(cls_id, object_id)`).
 
 ## Creating Your First OaaS Service
 

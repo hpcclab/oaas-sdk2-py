@@ -26,6 +26,18 @@ The OaaS SDK provides a simplified interface through the global `oaas` object an
 from oaas_sdk2_py import oaas, OaasObject, OaasConfig, ref, ObjectRef  # identity-based references
 ```
 
+Object identities are canonical **strings** throughout the SDK. Legacy integer inputs are
+accepted for backward compatibility, but everything passes through
+`oaas_sdk2_py.object_ids.normalize_object_id()` before touching storage or RPC calls.
+
+- `OaasObject.object_id` already exposes the normalized string.
+- Session helpers (`create_object`, `load_object`, `delete_object`) and RPC requests fill
+    the `object_id_str` field and omit the numeric slot.
+- Utility helpers such as `generate_object_id()`, `meta_object_id()`, and
+    `request_object_id()` live in `oaas_sdk2_py.object_ids` to keep custom code consistent.
+- Prefer `ref(cls_id, object_id, partition_id=0)` or `ObjectRef` proxies when sharing
+    identifiers between services; they automatically carry the canonical ID.
+
 ### Global Configuration
 
 Function: `oaas.configure(config: OaasConfig) -> None`

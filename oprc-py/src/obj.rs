@@ -10,7 +10,8 @@ use pyo3::Bound;
 #[derive(Clone, PartialEq, Eq, Hash, Default)]
 /// Represents the metadata of an object.
 pub struct ObjectMetadata {
-    object_id: u64,
+    object_id: Option<u64>,
+    object_id_str: Option<String>,
     cls_id: String,
     partition_id: u32,
 }
@@ -18,9 +19,15 @@ pub struct ObjectMetadata {
 impl Into<oprc_grpc::ObjMeta> for &ObjectMetadata {
     /// Converts a reference to `ObjectMetadata` into its protobuf representation.
     fn into(self) -> oprc_grpc::ObjMeta {
+        let numeric_id = self.object_id.unwrap_or_default();
+        let string_id = self
+            .object_id_str
+            .as_ref()
+            .cloned()
+            .or_else(|| self.object_id.map(|id| id.to_string()));
         ObjMeta {
-            object_id: self.object_id,
-            object_id_str: Some(self.object_id.to_string()),
+            object_id: numeric_id,
+            object_id_str: string_id,
             cls_id: self.cls_id.clone(),
             partition_id: self.partition_id,
         }
@@ -31,7 +38,8 @@ impl From<oprc_grpc::ObjMeta> for ObjectMetadata {
     /// Creates an `ObjectMetadata` from its protobuf representation.
     fn from(value: oprc_grpc::ObjMeta) -> Self {
         ObjectMetadata {
-            object_id: value.object_id,
+            object_id: if value.object_id == 0 { None } else { Some(value.object_id) },
+            object_id_str: value.object_id_str,
             cls_id: value.cls_id,
             partition_id: value.partition_id,
         }
@@ -42,8 +50,12 @@ impl ObjectMetadata {
     /// Converts this `ObjectMetadata` into its protobuf representation.
     pub fn into_proto(&self) -> oprc_grpc::ObjMeta {
     oprc_grpc::ObjMeta {
-            object_id: self.object_id,
-            object_id_str: Some(self.object_id.to_string()),
+            object_id: self.object_id.unwrap_or_default(),
+            object_id_str: self
+                .object_id_str
+                .as_ref()
+                .cloned()
+                .or_else(|| self.object_id.map(|id| id.to_string())),
             cls_id: self.cls_id.clone(),
             partition_id: self.partition_id,
         }
@@ -55,9 +67,16 @@ impl ObjectMetadata {
 impl ObjectMetadata {
     #[new]
     /// Creates a new `ObjectMetadata`.
-    pub fn new(cls_id: String, partition_id: u32, object_id: u64) -> Self {
+    #[pyo3(signature = (cls_id, partition_id, object_id=None, object_id_str=None))]
+    pub fn new(
+        cls_id: String,
+        partition_id: u32,
+        object_id: Option<u64>,
+        object_id_str: Option<String>,
+    ) -> Self {
         ObjectMetadata {
             object_id,
+            object_id_str,
             cls_id,
             partition_id,
         }
@@ -65,8 +84,11 @@ impl ObjectMetadata {
 
     pub fn __str__(&self) -> String {
         format!(
-            "ObjectMetadata {{ object_id: {}, cls_id: {}, partition_id: {} }}",
-            self.object_id, self.cls_id, self.partition_id
+            "ObjectMetadata {{ object_id: {:?}, object_id_str: {:?}, cls_id: {}, partition_id: {} }}",
+            self.object_id,
+            self.object_id_str,
+            self.cls_id,
+            self.partition_id
         )
     }
 }

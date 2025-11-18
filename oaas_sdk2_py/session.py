@@ -4,7 +4,6 @@ from typing import Dict
 import oprc_py
 
 from oprc_py.oprc_py import InvocationResponse, InvocationResponseCode
-from tsidpy import TSID
 from oprc_py import ObjectMetadata, RpcManager, DataManager
 import logging
 
@@ -14,6 +13,13 @@ if TYPE_CHECKING:
     from .obj import BaseObject
     from .model import ClsMeta
     from .repo import MetadataRepo
+
+from .object_ids import (
+    ensure_object_metadata_kwargs,
+    meta_object_id,
+    normalize_object_id,
+    request_object_id,
+)
 
 
 class Session:
@@ -59,7 +65,7 @@ class Session:
     def create_object(
         self,
         cls_meta: "ClsMeta",
-        obj_id: int = None,
+        obj_id: str | int | None = None,
         local: bool = False,
     ):
         """
@@ -73,13 +79,14 @@ class Session:
         Returns:
             The newly created object instance
         """
-        if obj_id is None:
-            obj_id = TSID.create().number
+        obj_id_str = normalize_object_id(obj_id)
         remote = not (local or self.local_only)
         meta = ObjectMetadata(
-            cls_id=cls_meta.cls_id,
-            partition_id=self.partition_id,
-            object_id=obj_id,
+            **ensure_object_metadata_kwargs(
+                cls_id=cls_meta.cls_id,
+                partition_id=self.partition_id,
+                object_id=obj_id_str,
+            )
         )
         obj: BaseObject = cls_meta.cls(meta=meta, session=self)
         obj._full_loaded = True
@@ -92,7 +99,7 @@ class Session:
             self.local_obj_dict[meta] = obj
         return obj
 
-    def load_object(self, cls_meta: "ClsMeta", obj_id: int):
+    def load_object(self, cls_meta: "ClsMeta", obj_id: str | int):
         """
         Loads an existing remote object by its ID.
 
@@ -103,10 +110,13 @@ class Session:
         Returns:
             The loaded object instance
         """
+        obj_id_str = normalize_object_id(obj_id)
         meta = ObjectMetadata(
-            cls_id=cls_meta.cls_id,
-            partition_id=self.partition_id,
-            object_id=obj_id,
+            **ensure_object_metadata_kwargs(
+                cls_id=cls_meta.cls_id,
+                partition_id=self.partition_id,
+                object_id=obj_id_str,
+            )
         )
         local_obj = self.remote_obj_dict.get(meta)
         if local_obj:
@@ -116,7 +126,7 @@ class Session:
         self.remote_obj_dict[meta] = obj
         return obj
 
-    def delete_object(self, cls_meta: "ClsMeta", obj_id: int, partition_id: int = None):
+    def delete_object(self, cls_meta: "ClsMeta", obj_id: str | int, partition_id: int = None):
         """
         Marks an object for deletion.
 
@@ -125,10 +135,13 @@ class Session:
             obj_id: ID of the object to delete
         """
         partition_id = partition_id if partition_id is not None else self.partition_id
+        obj_id_str = normalize_object_id(obj_id)
         meta = ObjectMetadata(
-            cls_id=cls_meta.cls_id,
-            partition_id=self.partition_id,
-            object_id=obj_id,
+            **ensure_object_metadata_kwargs(
+                cls_id=cls_meta.cls_id,
+                partition_id=self.partition_id,
+                object_id=obj_id_str,
+            )
         )
         self.delete_obj_set.add(meta)
 
@@ -229,7 +242,7 @@ class Session:
             resp = fn_meta.invoke_handler(obj, req)
 
         elif isinstance(req, oprc_py.ObjectInvocationRequest):
-            obj = self.load_object(cls_meta, obj_id=req.object_id)
+            obj = self.load_object(cls_meta, obj_id=request_object_id(req))
             resp = fn_meta.invoke_handler(obj, req)
         else:
             raise TypeError("Invalid request type")
@@ -276,7 +289,7 @@ class Session:
             return resp
 
         elif isinstance(req, oprc_py.ObjectInvocationRequest):
-            obj = self.load_object(cls_meta, obj_id=req.object_id)
+            obj = self.load_object(cls_meta, obj_id=request_object_id(req))
             resp = fn_meta.invoke_handler(obj, req)
             if inspect.iscoroutine(resp):
                 resp = await resp
@@ -299,14 +312,14 @@ class Session:
                 "check of committing [%s, %s, %s, %s]",
                 v.meta.cls_id,
                 v.meta.partition_id,
-                v.meta.object_id,
+                meta_object_id(v.meta),
                 v.dirty,
             )
             if v.dirty:
                 await self.data_manager.set_obj_async(
                     cls_id=v.meta.cls_id,
                     partition_id=v.meta.partition_id,
-                    object_id=v.meta.object_id,
+                    object_id=meta_object_id(v.meta),
                     data=v.state,
                 )
                 v._dirty = False
@@ -316,12 +329,12 @@ class Session:
                 "deleting [%s, %s, %s]",
                 meta.cls_id,
                 meta.partition_id,
-                meta.object_id,
+                meta_object_id(meta),
             )
             await self.data_manager.del_obj_async(
                 cls_id=meta.cls_id,
                 partition_id=meta.partition_id,
-                obj_id=meta.object_id,
+                obj_id=meta_object_id(meta),
             )
             # Evict from caches to avoid returning stale instances
             try:
@@ -343,14 +356,14 @@ class Session:
                 "check of committing [%s, %s, %s, %s]",
                 v.meta.cls_id,
                 v.meta.partition_id,
-                v.meta.object_id,
+                meta_object_id(v.meta),
                 v.dirty,
             )
             if v.dirty:
                 self.data_manager.set_obj(
                     cls_id=v.meta.cls_id,
                     partition_id=v.meta.partition_id,
-                    object_id=v.meta.object_id,
+                    object_id=meta_object_id(v.meta),
                     data=v.state,
                 )
                 v._dirty = False
@@ -360,12 +373,12 @@ class Session:
                 "deleting [%s, %s, %s]",
                 meta.cls_id,
                 meta.partition_id,
-                meta.object_id,
+                meta_object_id(meta),
             )
             self.data_manager.del_obj(
                 cls_id=meta.cls_id,
                 partition_id=meta.partition_id,
-                obj_id=meta.object_id,
+                obj_id=meta_object_id(meta),
             )
             # Evict from caches to avoid returning stale instances
             try:
