@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import pytest
 
-from oaas_sdk2_py import Oparaca, BaseObject
+from oaas_sdk2_py import Oparaca
 from oaas_sdk2_py.simplified import OaasObject, OaasConfig, oaas
 from pydantic import BaseModel
 
@@ -20,7 +20,7 @@ async def test_legacy_api_compat(setup_oaas):
     greeter_cls = oparaca.new_cls("LegacyGreeter", pkg="test")
 
     @greeter_cls
-    class LegacyGreeter(BaseObject):
+    class LegacyGreeter(OaasObject):
         @greeter_cls.func()
         async def greet(self, req: GreetRequest) -> GreetResponse:
             return GreetResponse(message=f"Hello, {req.name}!")
@@ -57,7 +57,7 @@ async def test_mixed_usage_compat(setup_oaas):
     legacy_cls = oparaca.new_cls("LegacyMixed", pkg="mixed")
 
     @legacy_cls
-    class LegacyMixed(BaseObject):
+    class LegacyMixed(OaasObject):
         @legacy_cls.func()
         async def legacy_method(self, req: GreetRequest) -> GreetResponse:
             return GreetResponse(message=f"Legacy: {req.name}")

@@ -1,4 +1,4 @@
-# OaaS SDK API Reference (Updated)
+# OaaS SDK API Reference
 
 ## Table of Contents
 1. [Simplified Interface](#simplified-interface)
@@ -225,21 +225,50 @@ Behavior and usage:
 
 Module: `oaas_sdk2_py.simplified.objects`
 
-Base class for all OaaS service objects with automatic state management.
+Base class for all OaaS service objects with automatic state management and a manual state API for advanced scenarios.
 
 Class Methods:
 - `create(obj_id: int | None = None, local: bool | None = None) -> Self`
-- `load(obj_id: int) -> Self`
-- `start_agent(obj_id: int | None = None, partition_id: int | None = None, loop=None) -> Awaitable[str]` (classmethod)
-- `stop_agent(obj_id: int | None = None) -> Awaitable[None]` (classmethod)
+- `load(obj_id: int, partition_id: int | None = None) -> Self`
+- `start_agent(obj_id: int | None = None, partition_id: int | None = None, loop=None) -> Awaitable[str]`
+- `stop_agent(obj_id: int | None = None) -> Awaitable[None]`
 
-Instance Methods:
-- `delete() -> None`
-- `commit() -> None`
-- `commit_async() -> Awaitable[None]`
-- `start_instance_agent(loop=None) -> Awaitable[str]`
-- `stop_instance_agent() -> Awaitable[None]`
-- `as_ref() -> ObjectRef` — return an identity-based proxy to this object for remote calls and direct accessor IO.
+Instance Properties:
+- `object_id: int` — unique identity of this instance.
+- `state: Dict[int, bytes]` — low-level entry cache (index → bytes).
+- `dirty: bool` — true when there are uncommitted changes.
+- `remote: bool` — internal flag indicating remote semantics.
+
+Identity and Agents:
+- `as_ref() -> ObjectRef` — identity-based proxy; forwards RPC and performs direct accessor IO.
+- `start_instance_agent(loop=None) -> Awaitable[str]` — start agent for this instance.
+- `stop_instance_agent() -> Awaitable[None]` — stop agent for this instance.
+
+Persistence:
+- `commit(force: bool = False) -> None` — persist state and triggers; clears `dirty`.
+- `commit_async(force: bool = False) -> Awaitable[None]` — async variant.
+- `delete() -> None` — delete this object via the active session.
+
+Manual State I/O (advanced):
+- `get_data(index: int) -> bytes | None` / `get_data_async(index: int) -> bytes | None` — load an entry; performs lazy object fetch on first miss.
+- `set_data(index: int, data: bytes) -> None` / `set_data_async(index: int, data: bytes) -> Awaitable[None]` — update entry and mark `dirty`.
+- `fetch(force: bool = False) -> None` — fetch full object into local cache; raises `ValueError` if not found.
+
+Triggers (events stored with the object):
+- `trigger(source, target_fn, event_type)` — add a trigger.
+- `suppress(source, target_fn, event_type)` — remove a trigger.
+- `manage_trigger(source, target_fn, event_type, add=True, req_options=None)` — core API used by `trigger/suppress`.
+    - `source`: data index (`int`) for data-trigger or a function with `_meta` for fn-trigger.
+    - `event_type`: `DataTriggerType` for data sources or `FnTriggerType` for function sources.
+
+RPC Helpers:
+- `create_request(fn_name, payload: bytes | None = None, options: Dict[str, str] | None = None) -> InvocationRequest`
+- `create_obj_request(fn_name, payload: bytes | None = None, options: Dict[str, str] | None = None) -> ObjectInvocationRequest`
+
+Session Bridge (compat helpers):
+- `create_object(cls_meta, obj_id: int | None = None, local: bool = False)`
+- `load_object(cls_meta, obj_id: int)`
+- `delete_object(cls_meta, obj_id: int, partition_id: int | None = None)`
 
 State Management:
 
@@ -499,25 +528,9 @@ Decorator/state metrics expose `PerformanceMetrics` with:
 
 Backwards-compatible classes remain available:
 
-- `Oparaca`, `Session`, `BaseObject` (alias of `OaasObject`), `ClsMeta`, `FuncMeta`
+- `Oparaca`, `Session`, `ClsMeta`, `FuncMeta`
 
-Example:
-```python
-from oaas_sdk2_py import Oparaca, BaseObject
-
-oaas_engine = Oparaca()
-cls_meta = oaas_engine.new_cls("Counter", pkg="example")
-
-@cls_meta
-class Counter(BaseObject):
-    @cls_meta.func()
-    async def increment(self, amount: int) -> int:
-        data = await self.get_data_async(0)
-        count = int(data.decode()) if data else 0
-        count += amount
-        await self.set_data_async(0, str(count).encode())
-        return count
-```
+Note: Prefer the simplified `OaasObject` API for new development; the legacy engine/session remain for backward compatibility.
 
 ---
 

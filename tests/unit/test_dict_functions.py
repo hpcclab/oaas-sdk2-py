@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from oaas_sdk2_py import Oparaca, BaseObject
+from oaas_sdk2_py import Oparaca, OaasObject
 
 
 class TestResultModel(BaseModel):
@@ -14,7 +14,7 @@ def test_dict_function_support():
     test_cls_meta = oaas.new_cls("DictTestClass")
 
     @test_cls_meta
-    class DictTestObj(BaseObject):
+    class DictTestObj(OaasObject):
         @test_cls_meta.func()
         def process_dict(self, data: dict) -> TestResultModel:
             return TestResultModel(
@@ -44,7 +44,7 @@ def test_async_dict_function_support():
     async_test_cls_meta = oaas.new_cls("AsyncDictTestClass")
 
     @async_test_cls_meta
-    class AsyncDictTestObj(BaseObject):
+    class AsyncDictTestObj(OaasObject):
         @async_test_cls_meta.func()
         async def process_dict_async(self, data: dict) -> TestResultModel:
             return TestResultModel(
@@ -76,7 +76,7 @@ def test_dict_function_caller_creation():
     test_cls_meta = oaas.new_cls("CallerTestClass")
 
     @test_cls_meta
-    class CallerTestObj(BaseObject):
+    class CallerTestObj(OaasObject):
         @test_cls_meta.func()
         def dict_func(self, data: dict) -> dict:
             return {"received": data}
