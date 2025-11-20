@@ -29,7 +29,7 @@ class TestEvent(unittest.TestCase):
         oaas.configure(OaasConfig(async_mode=True, mock_mode=True))
         obj1: SampleObj = SampleObj.create(obj_id=1)
         obj2: SampleObj = SampleObj.create(obj_id=2)
-        data_key = 5
+        data_key = "5"
         obj1.trigger(data_key, obj2.sample_fn, DataTriggerType.OnUpdate)
         self.assertTrue(obj1._obj.event is not None)
         data_triggers = obj1._obj.event.get_data_triggers()
@@ -61,7 +61,7 @@ class TestEvent(unittest.TestCase):
         oaas.configure(OaasConfig(async_mode=True, mock_mode=True))
         obj1: SampleObj = SampleObj.create(obj_id=1)
         obj2: SampleObj = SampleObj.create(obj_id=2)
-        data_key = 10
+        data_key = "10"
         obj1.trigger(data_key, obj2.sample_fn, DataTriggerType.OnUpdate)
         data_triggers = obj1._obj.event.get_data_triggers()
         self.assertEqual(len(data_triggers), 1)
@@ -77,7 +77,7 @@ class TestEvent(unittest.TestCase):
         obj1: SampleObj = SampleObj.create(obj_id=1)
         obj2: SampleObj = SampleObj.create(obj_id=2)
         obj3: SampleObj = SampleObj.create(obj_id=3)
-        data_key = 15
+        data_key = "15"
         obj1.trigger(data_key, obj2.sample_fn, DataTriggerType.OnCreate)
         obj1.trigger(data_key, obj2.greet, DataTriggerType.OnUpdate)
         obj1.trigger(data_key, obj3.sample_fn, DataTriggerType.OnDelete)

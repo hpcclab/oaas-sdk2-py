@@ -12,6 +12,8 @@ from oprc_py import ObjectData, ObjectMetadata
 from oprc_py.oprc_py import FnTriggerType, DataTriggerType
 from ..model import ClsMeta
 from ..session import Session
+from ..object_ids import meta_object_id
+from .errors import UnsupportedFeatureError
 from .state_descriptor import StateDescriptor
 
 if TYPE_CHECKING:
@@ -33,14 +35,13 @@ class OaasObject:
     # BaseObject attributes
     meta: ObjectMetadata
     session: Session
-    _state: dict[int, bytes]
+    _state: dict[str, bytes]
     _obj: ObjectData
     # TODO implement per entry dirty checking. Now it is all or nothing
     _dirty: bool
     
     # OaasObject attributes
     _state_fields: Dict[str, StateDescriptor] = {}
-    _state_index_counter: int = 0
     
     def __init__(self, meta: ObjectMetadata = None, session: Session = None):
         """
@@ -61,9 +62,9 @@ class OaasObject:
         self._auto_commit = False
     
     @property
-    def object_id(self) -> int:
-        """Get the object ID from metadata."""
-        return self.meta.object_id
+    def object_id(self) -> str:
+        """Get the canonical object ID from metadata."""
+        return meta_object_id(self.meta)
 
     # --- Reference helpers -------------------------------------------------
     def as_ref(self) -> 'OaasObject':
@@ -71,7 +72,7 @@ class OaasObject:
         from .references import ObjectRef
         return ObjectRef(self.meta)
 
-    async def set_data_async(self, index: int, data: bytes):
+    async def set_data_async(self, key: str, data: bytes):
         """
         Set data at the specified index asynchronously.
         
@@ -79,12 +80,12 @@ class OaasObject:
             index: Data entry index
             data: Data bytes to store
         """
-        self._state[index] = data
+        self._state[key] = data
         self._dirty = True
         if self._auto_commit:
             await self.commit_async()
 
-    async def get_data_async(self, index: int) -> bytes:
+    async def get_data_async(self, key: str) -> bytes:
         """
         Get data at the specified index asynchronously.
         
@@ -94,8 +95,8 @@ class OaasObject:
         Returns:
             Data bytes or None if not found
         """
-        if index in self._state:
-            return self._state[index]
+        if key in self._state:
+            return self._state[key]
         if self._full_loaded:
             return None
         obj: oprc_py.ObjectData | None
@@ -103,18 +104,17 @@ class OaasObject:
             obj = await self.session.data_manager.get_obj_async(
                 self.meta.cls_id,
                 self.meta.partition_id,
-                self.meta.object_id,
+                self.object_id,
             )
         except KeyError:
             obj = None
         if obj is None:
             return None
-        self._obj = obj
-        self._state = obj.entries
+        self._assign_object_data(obj)
         self._full_loaded = True
-        return self._state.get(index)
+        return self._state.get(key)
 
-    def get_data(self, index: int) -> bytes:
+    def get_data(self, key: str) -> bytes:
         """
         Get data at the specified index synchronously.
         
@@ -124,8 +124,8 @@ class OaasObject:
         Returns:
             Data bytes or None if not found
         """
-        if index in self._state:
-            return self._state[index]
+        if key in self._state:
+            return self._state[key]
         if self._full_loaded:
             return None
         obj: oprc_py.ObjectData | None
@@ -133,18 +133,17 @@ class OaasObject:
             obj = self.session.data_manager.get_obj(
                 self.meta.cls_id,
                 self.meta.partition_id,
-                self.meta.object_id,
+                self.object_id,
             )
         except KeyError:
             obj = None
         if obj is None:
             return None
-        self._obj = obj
-        self._state = obj.entries
+        self._assign_object_data(obj)
         self._full_loaded = True
-        return self._state.get(index)
+        return self._state.get(key)
 
-    def set_data(self, index: int, data: bytes):
+    def set_data(self, key: str, data: bytes):
         """
         Set data at the specified index synchronously.
         
@@ -152,7 +151,7 @@ class OaasObject:
             index: Data entry index
             data: Data bytes to store
         """
-        self._state[index] = data
+        self._state[key] = data
         self._dirty = True
         if self._auto_commit:
             self.commit()
@@ -169,12 +168,11 @@ class OaasObject:
         obj: oprc_py.ObjectData | None = self.session.data_manager.get_obj(
             self.meta.cls_id,
             self.meta.partition_id,
-            self.meta.object_id,
+            self.object_id,
         )
         if obj is None:
             raise ValueError("Object not found")
-        self._obj = obj
-        self._state = obj.entries
+        self._assign_object_data(obj)
         self._dirty = False
         self._full_loaded = True
 
@@ -250,12 +248,12 @@ class OaasObject:
         trigger_target = oprc_py.PyTriggerTarget(
             cls_id=meta.cls_id,
             partition_id=meta.partition_id,
-            object_id=meta.object_id,
             fn_id=fn_meta.name,
+            object_id=meta_object_id(meta),
             req_options={} if req_options is None else req_options,
         )
 
-        if isinstance(source, int):  # Data trigger
+        if isinstance(source, str):  # Data trigger
             if not isinstance(event_type, DataTriggerType):
                 raise ValueError(
                     "event_type must be an instance of DataTriggerType for data source"
@@ -283,7 +281,7 @@ class OaasObject:
             self._obj.event = event
         else:
             raise ValueError(
-                "Invalid source type. Must be an integer (data key) or a function with _meta attribute."
+                "Invalid source type. Must be a string data key or a function with _meta attribute."
             )
         self._dirty = True  # Mark object as dirty as event is part of ObjectData
         return out
@@ -294,7 +292,7 @@ class OaasObject:
         return self._dirty
 
     @property
-    def state(self) -> dict[int, bytes]:
+    def state(self) -> dict[str, bytes]:
         """Get the current state dictionary."""
         return self._state
 
@@ -348,7 +346,7 @@ class OaasObject:
         o = oprc_py.ObjectInvocationRequest(
             cls_id=self.meta.cls_id,
             partition_id=self.meta.partition_id,
-            object_id=self.meta.object_id,
+            object_id=self.object_id,
             fn_id=fn_name,
             payload=payload,
         )
@@ -357,19 +355,15 @@ class OaasObject:
         return o
 
     def delete(self):
-        """Delete this object from the session."""
-        # Prefer the class metadata captured at registration/creation
-        cls_meta = getattr(self.__class__, '_oaas_cls_meta', None)
+        """Mark this object for deletion within the current session."""
+        cls_meta = self.session.meta_repo.get_cls_meta(self.meta.cls_id)
         if cls_meta is None:
-            # Fallback: construct a lightweight object with cls_id attribute
-            class _ClsMetaShim:
-                def __init__(self, cls_id: str):
-                    self.cls_id = cls_id
-            cls_meta = _ClsMetaShim(self.meta.cls_id)
-
+            raise ValueError(
+                f"Class metadata '{self.meta.cls_id}' not registered; cannot delete object"
+            )
         self.session.delete_object(
             cls_meta,
-            self.meta.object_id,
+            self.object_id,
             self.meta.partition_id,
         )
         if self._auto_commit:
@@ -382,8 +376,9 @@ class OaasObject:
                 meta=self.meta,
                 entries=self._state,
                 event=self._obj.event if self._obj else None,  # Ensure event is included
+                legacy_entries=False,
             )
-            await self.session.data_manager.set_obj_async(obj_data)
+            await self.session.data_manager.set_obj_move_async(obj_data)
             self._dirty = False
 
     def commit(self, force: bool = False):
@@ -393,32 +388,23 @@ class OaasObject:
                 meta=self.meta,
                 entries=self._state,
                 event=self._obj.event if self._obj else None,  # Ensure event is included
+                legacy_entries=False,
             )
-            self.session.data_manager.set_obj(obj_data)
+            self.session.data_manager.set_obj_move(obj_data)
             self._dirty = False
 
     def create_object(
         self,
         cls_meta: ClsMeta,
-        obj_id: int = None,
+        obj_id: str | int | None = None,
         local: bool = False,
     ):
-        """
-        Create a new object instance.
-        
-        Args:
-            cls_meta: Class metadata
-            obj_id: Optional object ID
-            local: Whether to create locally
-            
-        Returns:
-            New object instance
-        """
+        """Create a new object instance through this object's session."""
         return self.session.create_object(
             cls_meta=cls_meta, obj_id=obj_id, local=local
         )
 
-    def load_object(self, cls_meta: ClsMeta, obj_id: int):
+    def load_object(self, cls_meta: ClsMeta, obj_id: str | int):
         """
         Load an existing object instance.
         
@@ -431,7 +417,7 @@ class OaasObject:
         """
         return self.session.load_object(cls_meta, obj_id)
 
-    def delete_object(self, cls_meta: ClsMeta, obj_id: int, partition_id: Optional[int] = None):
+    def delete_object(self, cls_meta: ClsMeta, obj_id: str | int, partition_id: Optional[int] = None):
         """
         Delete an object instance.
         
@@ -453,7 +439,6 @@ class OaasObject:
         
         # Initialize state management
         cls._state_fields = {}
-        cls._state_index_counter = 0
         
         # Get type hints for this class (not inherited ones)
         try:
@@ -473,16 +458,26 @@ class OaasObject:
                     name=name,
                     type_hint=type_hint,
                     default_value=default_value,
-                    index=cls._state_index_counter
+                    key=name,
                 )
                 
                 # Replace class attribute with descriptor
                 setattr(cls, name, descriptor)
                 cls._state_fields[name] = descriptor
-                cls._state_index_counter += 1
+    def _assign_object_data(self, obj: oprc_py.ObjectData) -> None:
+        if getattr(obj, "legacy_entries", False):
+            raise UnsupportedFeatureError(
+                "Connected runtime does not support string-based entries",
+                details={
+                    "object_id": self.object_id,
+                    "cls_id": self.meta.cls_id,
+                },
+            )
+        self._obj = obj
+        self._state = obj.entries
     
     @classmethod
-    def create(cls, obj_id: Optional[int] = None, local: bool = None) -> 'OaasObject':
+    def create(cls, obj_id: str | int | None = None, local: bool = None) -> 'OaasObject':
         """
         Create a new instance of this service with automatic session management.
         
@@ -530,7 +525,7 @@ class OaasObject:
         return obj
     
     @classmethod
-    def load(cls, obj_id: int, partition_id: Optional[int] = None) -> 'OaasObject':
+    def load(cls, obj_id: str | int, partition_id: Optional[int] = None) -> 'OaasObject':
         """
         Load an existing instance of this service.
         
@@ -568,7 +563,7 @@ class OaasObject:
     # =============================================================================
 
     @classmethod
-    async def start_agent(cls, obj_id: int = None, partition_id: int = None, 
+    async def start_agent(cls, obj_id: str | int | None = None, partition_id: int = None, 
                          loop: Any = None) -> str:
         """
         Start agent for this service class.
@@ -579,7 +574,7 @@ class OaasObject:
         return await OaasService.start_agent(cls, obj_id, partition_id, loop)
 
     @classmethod
-    async def stop_agent(cls, obj_id: int = None) -> None:
+    async def stop_agent(cls, obj_id: str | int | None = None) -> None:
         """
         Stop agent for this service class.
         

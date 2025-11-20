@@ -1,5 +1,6 @@
 use crate::telemetry;
-use oprc_pb::ObjMeta;
+// Protocol crate renamed: oprc_pb -> oprc_grpc
+use oprc_grpc::ObjMeta;
 use pyo3::{IntoPyObjectExt, Py, PyAny, PyResult, Python, exceptions::PyRuntimeError};
 pub(crate) use zenoh::Session;
 
@@ -44,21 +45,22 @@ impl DataManager {
         py: Python<'_>,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<Py<PyAny>> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
+        let obj_id_clone = obj_id.clone();
 
         let res = py.detach(|| {
             runtime.block_on(async move {
                 telemetry::instrument(
                     async move {
-                        proxy
-                            .get_obj(&ObjMeta {
-                                cls_id: cls_id.to_string(),
-                                partition_id,
-                                object_id: obj_id,
-                            })
+                            proxy
+                                .get_obj(&ObjMeta {
+                                    cls_id: cls_id.to_string(),
+                                    partition_id,
+                                    object_id: Some(obj_id_clone),
+                                })
                             .await
                             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
                     },
@@ -92,16 +94,17 @@ impl DataManager {
         &self,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<Py<PyAny>> {
         let proxy = self.proxy.clone();
+        let obj_id_clone = obj_id.clone();
 
         let res = telemetry::instrument(
-            proxy.get_obj(&ObjMeta {
-                cls_id: cls_id.to_string(),
-                partition_id,
-                object_id: obj_id,
-            }),
+                proxy.get_obj(&ObjMeta {
+                    cls_id: cls_id.to_string(),
+                    partition_id,
+                    object_id: Some(obj_id_clone),
+                }),
             "data.get_obj_async",
         )
         .await
@@ -119,6 +122,10 @@ impl DataManager {
 
     /// Sets (creates or updates) an object. (Synchronous)
     ///
+    /// This method moves the `entries` from the provided `ObjectData` to avoid
+    /// memory allocation (cloning). The `entries` map in the passed `obj` will be empty
+    /// after this call, and accessing it will raise an error.
+    ///
     /// # Arguments
     ///
     /// * `obj`: A Python `ObjectData` instance representing the object to be set.
@@ -126,13 +133,13 @@ impl DataManager {
     /// # Returns
     ///
     /// A `PyResult` indicating success or failure.
-    pub fn set_obj(&self, py: Python<'_>, obj: Py<ObjectData>) -> PyResult<()> {
+    pub fn set_obj_move(&self, py: Python<'_>, obj: Py<ObjectData>) -> PyResult<()> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
 
         let proto = {
-            let obj_borrowed = obj.borrow(py);
-            obj_borrowed.into_proto()
+            let mut obj_borrowed = obj.borrow_mut(py);
+            obj_borrowed.drain_to_proto()
         };
 
         py.detach(|| {
@@ -154,6 +161,10 @@ impl DataManager {
 
     /// Sets (creates or updates) an object. (Asynchronous)
     ///
+    /// This method moves the `entries` from the provided `ObjectData` to avoid
+    /// memory allocation (cloning). The `entries` map in the passed `obj` will be empty
+    /// after this call, and accessing it will raise an error.
+    ///
     /// # Arguments
     ///
     /// * `obj`: A Python `ObjectData` instance representing the object to be set.
@@ -161,10 +172,10 @@ impl DataManager {
     /// # Returns
     ///
     /// A `PyResult` indicating success or failure.
-    pub async fn set_obj_async(&self, obj: Py<ObjectData>) -> PyResult<()> {
+    pub async fn set_obj_move_async(&self, obj: Py<ObjectData>) -> PyResult<()> {
         let proto = Python::attach(|py| {
-            let obj = obj.borrow(py);
-            obj.into_proto()
+            let mut obj = obj.borrow_mut(py);
+            obj.drain_to_proto()
         });
         telemetry::instrument(self.proxy.set_obj(proto), "data.set_obj_async")
             .await
@@ -188,21 +199,22 @@ impl DataManager {
         py: Python<'_>,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<()> {
         let proxy = self.proxy.clone();
         let runtime = pyo3_async_runtimes::tokio::get_runtime();
+        let obj_id_clone = obj_id.clone();
 
         py.detach(|| {
             runtime.block_on(async move {
                 telemetry::instrument(
                     async move {
-                        proxy
-                            .del_obj(&ObjMeta {
-                                cls_id: cls_id.to_string(),
-                                partition_id,
-                                object_id: obj_id,
-                            })
+                            proxy
+                                .del_obj(&ObjMeta {
+                                    cls_id: cls_id.to_string(),
+                                    partition_id,
+                                    object_id: Some(obj_id_clone),
+                                })
                             .await
                             .map_err(|e| PyRuntimeError::new_err(e.to_string()))
                     },
@@ -229,13 +241,13 @@ impl DataManager {
         &self,
         cls_id: String,
         partition_id: u32,
-        obj_id: u64,
+        obj_id: String,
     ) -> PyResult<()> {
         telemetry::instrument(
             self.proxy.del_obj(&ObjMeta {
                 cls_id: cls_id.to_string(),
                 partition_id,
-                object_id: obj_id,
+                object_id: Some(obj_id),
             }),
             "data.del_obj_async",
         )

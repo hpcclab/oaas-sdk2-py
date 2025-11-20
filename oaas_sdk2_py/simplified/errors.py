@@ -87,6 +87,11 @@ class AgentError(OaasError):
     pass
 
 
+class UnsupportedFeatureError(OaasError):
+    """Raised when the connected server lacks a required capability."""
+    pass
+
+
 class DebugLevel(Enum):
     """Debug levels for OaaS SDK"""
     NONE = 0

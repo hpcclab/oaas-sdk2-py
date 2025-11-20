@@ -96,8 +96,9 @@ class StateMeta:
     setter: Callable
     getter: Callable
 
-    def __init__(self, index: int, name: Optional[str] = None):
-        self.index = index
+    def __init__(self, key: str, name: Optional[str] = None):
+        self.index = key  # Back-compat attribute name
+        self.key = key
         self.name = name
 
 
@@ -154,7 +155,7 @@ def parse_resp(resp, return_type_hint: Optional[type] = None) -> InvocationRespo
 
 class ClsMeta:
     func_dict: dict[str, FuncMeta]
-    state_dict: dict[int, StateMeta]
+    state_dict: dict[str, StateMeta]
     accessor_dict: dict[str, "AccessorSpec"]
 
     def __init__(

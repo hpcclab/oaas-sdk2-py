@@ -39,9 +39,13 @@ class DataManager:
         A `PyResult` containing the Python representation of the object if found,
         or `None` if the object does not exist.
         """
-    def set_obj(self, obj:ObjectData) -> None:
+    def set_obj_move(self, obj:ObjectData) -> None:
         r"""
         Sets (creates or updates) an object. (Synchronous)
+        
+        This method moves the `entries` from the provided `ObjectData` to avoid
+        memory allocation (cloning). The `entries` map in the passed `obj` will be empty
+        after this call, and accessing it will raise an error.
         
         # Arguments
         
@@ -51,9 +55,13 @@ class DataManager:
         
         A `PyResult` indicating success or failure.
         """
-    def set_obj_async(self, obj:ObjectData) -> None:
+    def set_obj_move_async(self, obj:ObjectData) -> None:
         r"""
         Sets (creates or updates) an object. (Asynchronous)
+        
+        This method moves the `entries` from the provided `ObjectData` to avoid
+        memory allocation (cloning). The `entries` map in the passed `obj` will be empty
+        after this call, and accessing it will raise an error.
         
         # Arguments
         
@@ -180,9 +188,10 @@ class ObjectData:
     Represents the data of an object, including its metadata, entries, and event.
     """
     meta: ObjectMetadata
-    entries: builtins.dict[builtins.int, builtins.list[builtins.int]]
+    entries: builtins.dict[builtins.str, builtins.list[builtins.int]]
     event: typing.Optional[PyObjectEvent]
-    def __new__(cls, meta:ObjectMetadata, entries:typing.Mapping[builtins.int, typing.Sequence[builtins.int]]={}, event:typing.Optional[PyObjectEvent]=None) -> ObjectData:
+    legacy_entries: builtins.bool
+    def __new__(cls, meta:ObjectMetadata, entries:typing.Mapping[builtins.str, typing.Sequence[builtins.int]]={}, event:typing.Optional[PyObjectEvent]=None, legacy_entries:builtins.bool=False) -> ObjectData:
         r"""
         Creates a new `ObjectData`.
         """
@@ -283,7 +292,7 @@ class PyObjectEvent:
         * `true` if the operation was successful (trigger added or removed)
         * `false` if the operation failed (trigger already exists or not found)
         """
-    def manage_data_trigger(self, source_key:builtins.int, trigger:PyTriggerTarget, event_type:DataTriggerType, add_action:builtins.bool) -> builtins.bool:
+    def manage_data_trigger(self, source_key:builtins.str, trigger:PyTriggerTarget, event_type:DataTriggerType, add_action:builtins.bool) -> builtins.bool:
         r"""
         Manages data triggers by adding or removing a trigger target for a specific data key and event type.
         
@@ -303,7 +312,7 @@ class PyObjectEvent:
         
         Returns a map where keys are source function IDs and values are `PyFuncTriggerEntry` objects.
         """
-    def get_data_triggers(self) -> builtins.dict[builtins.int, PyDataTriggerEntry]:
+    def get_data_triggers(self) -> builtins.dict[builtins.str, PyDataTriggerEntry]:
         r"""
         Gets the data triggers associated with this event.
         

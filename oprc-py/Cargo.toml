@@ -1,6 +1,6 @@
 [package]
 name = "oprc-py"
-version = "0.3.5"
+version = "0.4.1"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,23 +24,24 @@ async-trait = "0.1"
 envconfig = "0.11.0"
 flume = "0.11"
 prost = { version = "0.14.1" }
-pyo3 = {version = "0.26.0", features = ["extension-module", "experimental-async"]}
-pyo3-async-runtimes = { version = "0.26", features = ["attributes", "tokio-runtime"] }
-pyo3-stub-gen = {version = "0.13.1", optional = true}
-tokio = { version = "1.46", features = ["rt-multi-thread", "signal"] }
+pyo3 = {version = "0.27.1", features = ["extension-module", "experimental-async"]}
+pyo3-async-runtimes = { version = "0.27.0", features = ["attributes", "tokio-runtime"] }
+pyo3-stub-gen = {version = "0.17.1", optional = true}
+tokio = { version = "1.48", features = ["rt-multi-thread", "signal"] }
 tonic = "0.14"
 tracing = { version = "0.1", features=["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-opentelemetry = { version = "0.31", optional = true }
-opentelemetry = { version = "0.30", optional = true , features = ["trace", "logs"]}
-opentelemetry_sdk = { version = "0.30", features=["rt-tokio"], optional = true }
-opentelemetry-otlp = { version = "0.30", features=["http-proto","reqwest-client", "grpc-tonic"], optional = true }
-opentelemetry-semantic-conventions = { version = "0.30", optional = true }
-zenoh = {version = "1.5"}
-zenoh-config = {version = "1.5"}
+tracing-opentelemetry = { version = "0.32", optional = true }
+opentelemetry = { version = "0.31", optional = true , features = ["trace", "logs"]}
+opentelemetry_sdk = { version = "0.31", features=["rt-tokio"], optional = true }
+opentelemetry-otlp = { version = "0.31", features=["http-proto","reqwest-client", "grpc-tonic"], optional = true }
+opentelemetry-semantic-conventions = { version = "0.31", optional = true }
+zenoh = {version = "1.6.2"}
+zenoh-config = {version = "1.6.2"}
+# Move to string-ID compatible ODGM crates
 oprc-invoke = {git = "https://github.com/pawissanutt/oaas-rs", branch = "dev"}
 oprc-zenoh = {git = "https://github.com/pawissanutt/oaas-rs", branch = "dev"}
-oprc-pb = {git = "https://github.com/pawissanutt/oaas-rs", branch = "dev", features=["util"]}
+oprc-grpc = {git = "https://github.com/pawissanutt/oaas-rs", branch = "dev", features=["util"]} # will change to oprc-grpc in the next update.
 
 
 [[bin]]

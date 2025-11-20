@@ -35,44 +35,44 @@ class ComplexModel(BaseModel):
 
 class TestStateDescriptor:
     def test_basic_state_descriptor_creation(self):
-        d = StateDescriptor(name="test_field", type_hint=int, default_value=42, index=0)
+        d = StateDescriptor(name="test_field", type_hint=int, default_value=42, key="test_field")
         assert d.name == "test_field"
         assert d.type_hint is int
         assert d.default_value == 42
-        assert d.index == 0
+        assert d.index == "test_field"
         assert d.private_name == "_state_test_field"
 
     def test_state_descriptor_basic_types(self):
         class MockObject:
             def __init__(self):
                 self._data = {}
-            def get_data(self, index):
-                return self._data.get(index)
-            def set_data(self, index, value):
-                self._data[index] = value
+            def get_data(self, key):
+                return self._data.get(key)
+            def set_data(self, key, value):
+                self._data[key] = value
 
         obj = MockObject()
-        int_desc = StateDescriptor("count", int, 0, 0)
+        int_desc = StateDescriptor("count", int, 0, "count")
         assert int_desc.__get__(obj) == 0
         int_desc.__set__(obj, 42)
         assert int_desc.__get__(obj) == 42
 
-        str_desc = StateDescriptor("name", str, "", 1)
+        str_desc = StateDescriptor("name", str, "", "name")
         assert str_desc.__get__(obj) == ""
         str_desc.__set__(obj, "test")
         assert str_desc.__get__(obj) == "test"
 
-        bool_desc = StateDescriptor("active", bool, False, 2)
+        bool_desc = StateDescriptor("active", bool, False, "active")
         assert bool_desc.__get__(obj) is False
         bool_desc.__set__(obj, True)
         assert bool_desc.__get__(obj) is True
 
     def test_state_descriptor_serialization(self):
-        d = StateDescriptor("count", int, 0, 0)
+        d = StateDescriptor("count", int, 0, "count")
         assert d._deserialize(d._serialize(42)) == 42
 
     def test_state_descriptor_type_conversion(self):
-        d = StateDescriptor("count", int, 0, 0)
+        d = StateDescriptor("count", int, 0, "count")
         assert d._convert_value("42") == 42
         assert d._convert_value(42.5) == 42
         assert d._convert_value(True) == 1

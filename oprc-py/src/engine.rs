@@ -15,7 +15,8 @@ use crate::{
     rpc::RpcManager,
 };
 pub use envconfig::Envconfig;
-use oprc_pb::oprc_function_server::{OprcFunction, OprcFunctionServer};
+// Updated crate name from `oprc_pb` to `oprc_grpc` after protocol refactor
+use oprc_grpc::oprc_function_server::{OprcFunction, OprcFunctionServer};
 use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
     prelude::*,

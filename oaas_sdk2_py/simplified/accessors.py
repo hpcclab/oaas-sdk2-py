@@ -31,7 +31,7 @@ class AccessorSpec:
     return_type: Any | None
     defined_in: Type
     uses_descriptor: bool
-    storage_index: Optional[int]
+    storage_key: Optional[str]
 
 
 def getter(field: str | None = None, *, projection: List[str] | None = None):
@@ -129,13 +129,13 @@ def _validate_projection(projection: Optional[List[str]]):
         raise ValueError("projection must be a list[str] with non-empty segments")
 
 
-def _resolve_storage(cls: Type, field_name: str) -> Tuple[bool, Optional[int]]:
-    """Return (uses_descriptor, storage_index)."""
+def _resolve_storage(cls: Type, field_name: str) -> Tuple[bool, Optional[str]]:
+    """Return (uses_descriptor, storage_key)."""
     state_fields = getattr(cls, "_state_fields", None)
     if isinstance(state_fields, dict) and field_name in state_fields:
         descriptor = state_fields[field_name]
-        index = getattr(descriptor, "index", None)
-        return True, index
+        key = getattr(descriptor, "key", getattr(descriptor, "index", None))
+        return True, key
     # No descriptor mapping available for legacy classes
     return False, None
 
@@ -198,7 +198,7 @@ def build_accessor_wrapper(
 
     field_name = _infer_field_name(cls, method_name, kind, config.get("field"))
     field_type = _resolve_field_type(cls, field_name)
-    uses_descriptor, storage_index = _resolve_storage(cls, field_name)
+    uses_descriptor, storage_key = _resolve_storage(cls, field_name)
 
     is_async = inspect.iscoroutinefunction(fn)
 
@@ -213,16 +213,16 @@ def build_accessor_wrapper(
                 if uses_descriptor:
                     value = getattr(obj_self, field_name)
                 else:
-                    if storage_index is None:
+                    if storage_key is None:
                         raise TypeError(
                             f"No storage mapping for field '{field_name}' on {cls.__name__}"
                         )
                     if hasattr(obj_self, "get_data_async") and inspect.iscoroutinefunction(
                         getattr(obj_self, "get_data_async")
                     ):
-                        raw = await obj_self.get_data_async(storage_index)
+                        raw = await obj_self.get_data_async(storage_key)
                     else:
-                        raw = obj_self.get_data(storage_index)
+                        raw = obj_self.get_data(storage_key)
                     if raw is None:
                         value = None
                     else:
@@ -235,11 +235,11 @@ def build_accessor_wrapper(
                 if uses_descriptor:
                     value = getattr(obj_self, field_name)
                 else:
-                    if storage_index is None:
+                    if storage_key is None:
                         raise TypeError(
                             f"No storage mapping for field '{field_name}' on {cls.__name__}"
                         )
-                    raw = obj_self.get_data(storage_index)
+                    raw = obj_self.get_data(storage_key)
                     if raw is None:
                         value = None
                     else:
@@ -262,7 +262,7 @@ def build_accessor_wrapper(
             return_type=return_type,
             defined_in=cls,
             uses_descriptor=uses_descriptor,
-            storage_index=storage_index,
+            storage_key=storage_key,
         )
         return wrapper, spec
 
@@ -281,7 +281,7 @@ def build_accessor_wrapper(
                         return getattr(obj_self, field_name)
                     return None
                 else:
-                    if storage_index is None:
+                    if storage_key is None:
                         raise TypeError(
                             f"No storage mapping for field '{field_name}' on {cls.__name__}"
                         )
@@ -292,9 +292,9 @@ def build_accessor_wrapper(
                     if hasattr(obj_self, "set_data_async") and inspect.iscoroutinefunction(
                         getattr(obj_self, "set_data_async")
                     ):
-                        await obj_self.set_data_async(storage_index, raw)
+                        await obj_self.set_data_async(storage_key, raw)
                     else:
-                        obj_self.set_data(storage_index, raw)
+                        obj_self.set_data(storage_key, raw)
                     return converted if returns_value else None
         else:
             def wrapper(obj_self, value):
@@ -304,7 +304,7 @@ def build_accessor_wrapper(
                         return getattr(obj_self, field_name)
                     return None
                 else:
-                    if storage_index is None:
+                    if storage_key is None:
                         raise TypeError(
                             f"No storage mapping for field '{field_name}' on {cls.__name__}"
                         )
@@ -312,7 +312,7 @@ def build_accessor_wrapper(
                     serializer = UnifiedSerializer()
                     converted = serializer.convert_value(value, field_type)
                     raw = serializer.serialize(converted, field_type)
-                    obj_self.set_data(storage_index, raw)
+                    obj_self.set_data(storage_key, raw)
                     return converted if returns_value else None
 
         # Set up wrapper metadata for potential future RPC use
@@ -329,7 +329,7 @@ def build_accessor_wrapper(
             return_type=return_type,
             defined_in=cls,
             uses_descriptor=uses_descriptor,
-            storage_index=storage_index,
+            storage_key=storage_key,
         )
         return wrapper, spec
 
