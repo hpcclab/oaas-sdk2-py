@@ -20,7 +20,7 @@ permissions:
 
 env:
   WORKING_DIRECTORY: oprc-py
-  PROTOBUF_VERSION: 30.2
+  PROTOBUF_VERSION: 33.1
 
 jobs:
   linux:
@@ -71,7 +71,19 @@ jobs:
             which unzip
             PROTOC=protoc-${{ env.PROTOBUF_VERSION }}-linux-x86_64.zip
             if [ "$(arch)" == "i686" ]; then PROTOC=protoc-${{ env.PROTOBUF_VERSION }}-linux-x86_32.zip; fi
-            curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOBUF_VERSION }}/$PROTOC
+            # Download with retries and validation
+            for i in 1 2 3; do
+              curl -fSL --retry 3 --retry-delay 5 https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOBUF_VERSION }}/$PROTOC -o $PROTOC && break
+              echo "Download attempt $i failed, retrying..."
+              rm -f $PROTOC
+              sleep 2
+            done
+            # Verify the download is a valid zip file
+            if ! unzip -t $PROTOC > /dev/null 2>&1; then
+              echo "Error: Downloaded file is not a valid zip archive"
+              ls -lh $PROTOC
+              exit 1
+            fi
             unzip $PROTOC -d protoc3
             mv -v protoc3/bin/* /usr/local/bin/
             mv -v protoc3/include/* /usr/local/include/
