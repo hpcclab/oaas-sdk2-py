@@ -24,11 +24,13 @@ class StateDescriptor:
     type conversion, comprehensive error handling, and debugging support.
     """
     
-    def __init__(self, name: str, type_hint: Type, default_value: Any, index: int):
+    def __init__(self, name: str, type_hint: Type, default_value: Any, key: str):
         self.name = name
         self.type_hint = type_hint
         self.default_value = default_value
-        self.index = index
+        # Maintain the legacy "index" attribute for backward compatibility
+        self.key = str(key)
+        self.index = self.key
         self.private_name = f"_state_{name}"
         self.metrics = PerformanceMetrics()
         self.serializer = UnifiedSerializer()
@@ -48,7 +50,7 @@ class StateDescriptor:
                 return cached_value
                 
             # Load from persistent storage
-            raw_data = obj.get_data(self.index)
+            raw_data = obj.get_data(self.key)
             if raw_data is None:
                 value = self.default_value
                 debug_ctx.log(DebugLevel.TRACE, f"StateDescriptor using default value for {self.name}")
@@ -90,7 +92,7 @@ class StateDescriptor:
             
             # Persist to storage with error handling
             serialized_data = self.serializer.serialize(converted_value, self.type_hint)
-            obj.set_data(self.index, serialized_data)
+            obj.set_data(self.key, serialized_data)
             
             debug_ctx.log(DebugLevel.TRACE, f"StateDescriptor set {self.name} = {type(value).__name__}")
             
@@ -140,7 +142,7 @@ class StateDescriptor:
                     'field_type': field_type_str,
                     'value_type': value_type_str,
                     'value': str(value)[:100],  # Truncate for safety
-                    'index': self.index
+                    'key': self.key
                 }
             ) from e
         

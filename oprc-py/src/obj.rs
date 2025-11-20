@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 // Protocol crate renamed: oprc_pb -> oprc_grpc
 use oprc_grpc::{ObjMeta, ValType};
-use pyo3::Bound;
+use pyo3::{Bound, PyResult};
+use pyo3::exceptions::PyRuntimeError;
 
 
 #[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
@@ -10,8 +11,7 @@ use pyo3::Bound;
 #[derive(Clone, PartialEq, Eq, Hash, Default)]
 /// Represents the metadata of an object.
 pub struct ObjectMetadata {
-    object_id: Option<u64>,
-    object_id_str: Option<String>,
+    object_id: Option<String>,
     cls_id: String,
     partition_id: u32,
 }
@@ -19,15 +19,8 @@ pub struct ObjectMetadata {
 impl Into<oprc_grpc::ObjMeta> for &ObjectMetadata {
     /// Converts a reference to `ObjectMetadata` into its protobuf representation.
     fn into(self) -> oprc_grpc::ObjMeta {
-        let numeric_id = self.object_id.unwrap_or_default();
-        let string_id = self
-            .object_id_str
-            .as_ref()
-            .cloned()
-            .or_else(|| self.object_id.map(|id| id.to_string()));
         ObjMeta {
-            object_id: numeric_id,
-            object_id_str: string_id,
+            object_id: self.object_id.clone(),
             cls_id: self.cls_id.clone(),
             partition_id: self.partition_id,
         }
@@ -38,8 +31,7 @@ impl From<oprc_grpc::ObjMeta> for ObjectMetadata {
     /// Creates an `ObjectMetadata` from its protobuf representation.
     fn from(value: oprc_grpc::ObjMeta) -> Self {
         ObjectMetadata {
-            object_id: if value.object_id == 0 { None } else { Some(value.object_id) },
-            object_id_str: value.object_id_str,
+            object_id: value.object_id,
             cls_id: value.cls_id,
             partition_id: value.partition_id,
         }
@@ -50,12 +42,7 @@ impl ObjectMetadata {
     /// Converts this `ObjectMetadata` into its protobuf representation.
     pub fn into_proto(&self) -> oprc_grpc::ObjMeta {
     oprc_grpc::ObjMeta {
-            object_id: self.object_id.unwrap_or_default(),
-            object_id_str: self
-                .object_id_str
-                .as_ref()
-                .cloned()
-                .or_else(|| self.object_id.map(|id| id.to_string())),
+            object_id: self.object_id.clone(),
             cls_id: self.cls_id.clone(),
             partition_id: self.partition_id,
         }
@@ -67,16 +54,14 @@ impl ObjectMetadata {
 impl ObjectMetadata {
     #[new]
     /// Creates a new `ObjectMetadata`.
-    #[pyo3(signature = (cls_id, partition_id, object_id=None, object_id_str=None))]
+    #[pyo3(signature = (cls_id, partition_id, object_id=None))]
     pub fn new(
         cls_id: String,
         partition_id: u32,
-        object_id: Option<u64>,
-        object_id_str: Option<String>,
+        object_id: Option<String>,
     ) -> Self {
         ObjectMetadata {
             object_id,
-            object_id_str,
             cls_id,
             partition_id,
         }
@@ -84,9 +69,8 @@ impl ObjectMetadata {
 
     pub fn __str__(&self) -> String {
         format!(
-            "ObjectMetadata {{ object_id: {:?}, object_id_str: {:?}, cls_id: {}, partition_id: {} }}",
+            "ObjectMetadata {{ object_id: {:?}, cls_id: {}, partition_id: {} }}",
             self.object_id,
-            self.object_id_str,
             self.cls_id,
             self.partition_id
         )
@@ -94,29 +78,47 @@ impl ObjectMetadata {
 }
 
 #[cfg_attr(feature = "stub-gen", pyo3_stub_gen::derive::gen_stub_pyclass)]
-#[pyo3::pyclass(get_all, set_all)]
-
+#[pyo3::pyclass]
 /// Represents the data of an object, including its metadata, entries, and event.
 pub struct ObjectData {
     pub(crate) meta: ObjectMetadata,
-    pub(crate) entries: HashMap<u32, Vec<u8>>,
+    pub(crate) entries: HashMap<String, Vec<u8>>,
     pub(crate) event: Option<PyObjectEvent>,
+    pub(crate) legacy_entries: bool,
+    pub(crate) moved: bool,
 }
 
 impl From<oprc_grpc::ObjData> for ObjectData {
     /// Creates an `ObjectData` from its protobuf representation.
     fn from(value: oprc_grpc::ObjData) -> Self {
-        ObjectData {
-            meta: value
-                .metadata
-                .map(|m| ObjectMetadata::from(m))
-                .unwrap_or_default(),
-            entries: value
-                .entries
-                .into_iter()
-                .map(|(k, v)| (k, v.data))
-                .collect(),
-            event: value.event.map(PyObjectEvent::from),
+        if !value.entries.is_empty() {
+            ObjectData {
+                meta: value
+                    .metadata
+                    .map(|m| ObjectMetadata::from(m))
+                    .unwrap_or_default(),
+                entries: value
+                    .entries
+                    .into_iter()
+                    .map(|(k, v)| (k, v.data))
+                    .collect(),
+                event: value.event.map(PyObjectEvent::from),
+                legacy_entries: false,
+                moved: false,
+            }
+        } else {
+            // Optimization: Do not convert legacy entries if they are going to be rejected.
+            // We just mark it as legacy.
+            ObjectData {
+                meta: value
+                    .metadata
+                    .map(|m| ObjectMetadata::from(m))
+                    .unwrap_or_default(),
+                entries: HashMap::new(),
+                event: value.event.map(PyObjectEvent::from),
+                legacy_entries: false,
+                moved: false,
+            }
         }
     }
 }
@@ -131,7 +133,7 @@ impl ObjectData {
                 .iter()
                 .map(|(k, v)| {
                     (
-                        *k,
+                        k.to_owned(),
                         oprc_grpc::ValData {
                             data: v.to_owned(),
                             r#type: ValType::Byte as i32,
@@ -139,7 +141,29 @@ impl ObjectData {
                     )
                 })
                 .collect(),
-            entries_str: std::collections::HashMap::new(),
+            event: self.event.as_ref().map(|e| e.into_proto()),
+        }
+    }
+
+    /// Drains the data from this object and converts it into a protobuf object.
+    /// This avoids cloning the data.
+    pub fn drain_to_proto(&mut self) -> oprc_grpc::ObjData {
+        self.moved = true;
+        oprc_grpc::ObjData {
+            metadata: Some((&self.meta).into()),
+            entries: self
+                .entries
+                .drain()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        oprc_grpc::ValData {
+                            data: v,
+                            r#type: ValType::Byte as i32,
+                        },
+                    )
+                })
+                .collect(),
             event: self.event.as_ref().map(|e| e.into_proto()),
         }
     }
@@ -149,19 +173,76 @@ impl ObjectData {
 #[pyo3::pymethods]
 impl ObjectData {
     #[new]
-    #[pyo3(signature = (meta, entries=HashMap::new(), event=None))]
+    #[pyo3(signature = (meta, entries=HashMap::new(), event=None, legacy_entries=false))]
     /// Creates a new `ObjectData`.
-    pub fn new(meta: ObjectMetadata, entries: HashMap<u32, Vec<u8>>, event: Option<PyObjectEvent>) -> Self {
+    pub fn new(
+        meta: ObjectMetadata,
+        entries: HashMap<String, Vec<u8>>,
+        event: Option<PyObjectEvent>,
+        legacy_entries: bool,
+    ) -> Self {
         Self {
             meta,
             entries,
             event,
+            legacy_entries,
+            moved: false,
         }
     }
 
     /// Creates a clone of this `ObjectData`.
     pub fn copy(&self) -> Self {
-        Self { meta: self.meta.clone(), entries: self.entries.clone(), event: self.event.clone() }
+        Self {
+            meta: self.meta.clone(),
+            entries: self.entries.clone(),
+            event: self.event.clone(),
+            legacy_entries: self.legacy_entries,
+            moved: self.moved,
+        }
+    }
+
+    #[getter]
+    pub fn get_meta(&self) -> ObjectMetadata {
+        self.meta.clone()
+    }
+
+    #[setter]
+    pub fn set_meta(&mut self, value: ObjectMetadata) {
+        self.meta = value;
+    }
+
+    #[getter]
+    pub fn get_entries(&self) -> PyResult<HashMap<String, Vec<u8>>> {
+        if self.moved {
+            return Err(PyRuntimeError::new_err("ObjectData has been moved"));
+        }
+        Ok(self.entries.clone())
+    }
+
+    #[setter]
+    pub fn set_entries(&mut self, value: HashMap<String, Vec<u8>>) {
+        self.entries = value;
+        self.moved = false;
+    }
+
+    #[getter]
+    pub fn get_event(&self) -> Option<PyObjectEvent> {
+        self.event.clone()
+    }
+
+    #[setter]
+    pub fn set_event(&mut self, value: Option<PyObjectEvent>) {
+        self.event = value;
+    }
+
+    #[getter]
+    pub fn get_legacy_entries(&self) -> bool {
+        self.legacy_entries
+    }
+
+    #[setter]
+    pub fn set_legacy_entries(&mut self, value: bool) {
+        self.legacy_entries = value;
     }
 }
 
@@ -315,7 +396,7 @@ impl PyObjectEvent {
     /// * `false` if the operation failed (trigger already exists or not found)
     fn manage_data_trigger(
         &mut self,
-        source_key: u32,
+        source_key: String,
         trigger: PyTriggerTarget,
         event_type:  Bound<'_, DataTriggerType>,
         add_action: bool, // true for add, false for delete
@@ -327,7 +408,7 @@ impl PyObjectEvent {
         if add_action {
             // Get or create the data trigger entry
             let d_trigger_entry = data_trigger_map
-                .entry(source_key)
+                .entry(source_key.clone())
                 .or_insert_with(Default::default);
 
             // Get the appropriate vector based on event type
@@ -379,11 +460,11 @@ impl PyObjectEvent {
     /// Gets the data triggers associated with this event.
     ///
     /// Returns a map where keys are source data key IDs and values are `PyDataTriggerEntry` objects.
-    pub fn get_data_triggers(&self) -> HashMap<u32, PyDataTriggerEntry> {
+    pub fn get_data_triggers(&self) -> HashMap<String, PyDataTriggerEntry> {
         self.inner
             .data_trigger
             .iter()
-            .map(|(k, v)| (*k, PyDataTriggerEntry::from(v.clone())))
+            .map(|(k, v)| (k.clone(), PyDataTriggerEntry::from(v.clone())))
             .collect()
     }
 }
@@ -519,16 +600,15 @@ impl PyTriggerTarget {
 #[pyo3::pymethods]
 impl PyTriggerTarget {
     #[new]
-    #[pyo3(signature = (cls_id, partition_id,  fn_id, object_id=None, req_options=HashMap::new(), object_id_str=None))]
+    #[pyo3(signature = (cls_id, partition_id,  fn_id, object_id=None, req_options=HashMap::new()))]
     /// Creates a new `PyTriggerTarget`.
     #[allow(deprecated)]
     pub fn new(
         cls_id: String,
         partition_id: u32,
         fn_id: String,
-        object_id: Option<u64>,
+        object_id: Option<String>,
         req_options: HashMap<String, String>,
-        object_id_str: Option<String>,
     ) -> Self {
         Self {
             inner: oprc_grpc::TriggerTarget {
@@ -536,7 +616,6 @@ impl PyTriggerTarget {
                 partition_id,
                 fn_id,
                 object_id,
-                object_id_str,
                 req_options,
             },
         }
@@ -586,27 +665,15 @@ impl PyTriggerTarget {
     #[getter]
     /// Gets the object ID of the trigger target, if any.
     #[allow(deprecated)]
-    pub fn get_object_id(&self) -> Option<u64> {
-        self.inner.object_id
+    pub fn get_object_id(&self) -> Option<String> {
+        self.inner.object_id.clone()
     }
 
     #[setter]
     /// Sets the object ID of the trigger target.
     #[allow(deprecated)]
-    pub fn set_object_id(&mut self, object_id: Option<u64>) {
+    pub fn set_object_id(&mut self, object_id: Option<String>) {
         self.inner.object_id = object_id;
-    }
-
-    #[getter]
-    /// Gets the string object ID of the trigger target, if any.
-    pub fn get_object_id_str(&self) -> Option<String> {
-        self.inner.object_id_str.clone()
-    }
-
-    #[setter]
-    /// Sets the string object ID of the trigger target.
-    pub fn set_object_id_str(&mut self, object_id_str: Option<String>) {
-        self.inner.object_id_str = object_id_str;
     }
 
     #[getter]

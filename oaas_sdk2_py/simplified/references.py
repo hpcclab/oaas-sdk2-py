@@ -96,10 +96,10 @@ class ObjectRef:
                             obj = None
                         if obj is None:
                             return None
-                        idx = accessor_spec.storage_index
-                        if idx is None:
+                        key = accessor_spec.storage_key
+                        if key is None:
                             return None
-                        raw = obj.entries.get(idx)
+                        raw = obj.entries.get(key)
                         if raw is None:
                             return None
                         payload = bytes(raw) if not isinstance(raw, (bytes, bytearray, memoryview)) else bytes(raw)
@@ -123,10 +123,10 @@ class ObjectRef:
                             obj = None
                         if obj is None:
                             return None
-                        idx = accessor_spec.storage_index
-                        if idx is None:
+                        key = accessor_spec.storage_key
+                        if key is None:
                             return None
-                        raw = obj.entries.get(idx)
+                        raw = obj.entries.get(key)
                         if raw is None:
                             return None
                         payload = bytes(raw) if not isinstance(raw, (bytes, bytearray, memoryview)) else bytes(raw)
@@ -144,9 +144,9 @@ class ObjectRef:
                         from .serialization import UnifiedSerializer
                         auto = OaasService._get_auto_session_manager()
                         session = auto.get_session(self._metadata.partition_id)
-                        idx = accessor_spec.storage_index
-                        if idx is None:
-                            raise AttributeError(f"Setter '{name}' missing storage index on service '{self._metadata.cls_id}'")
+                        key = accessor_spec.storage_key
+                        if key is None:
+                            raise AttributeError(f"Setter '{name}' missing storage key on service '{self._metadata.cls_id}'")
                         # Fetch existing entries, update idx
                         try:
                             existing: oprc_py.ObjectData | None = await session.data_manager.get_obj_async(
@@ -162,9 +162,9 @@ class ObjectRef:
                         param_type = getattr(accessor_spec, 'param_type', None)
                         converted = serializer.convert_value(value, param_type) if param_type is not None else value
                         raw = serializer.serialize(converted, param_type)
-                        entries[idx] = raw
-                        obj_data = oprc_py.ObjectData(meta=self._metadata, entries=entries, event=None)
-                        await session.data_manager.set_obj_async(obj_data)
+                        entries[key] = raw
+                        obj_data = oprc_py.ObjectData(meta=self._metadata, entries=entries, event=None, legacy_entries=False)
+                        await session.data_manager.set_obj_move_async(obj_data)
                         # If accessor returns a value, honor it; otherwise None
                         return converted if accessor_spec.returns_value else None
                     return _accessor_setter
@@ -174,9 +174,9 @@ class ObjectRef:
                         from .serialization import UnifiedSerializer
                         auto = OaasService._get_auto_session_manager()
                         session = auto.get_session(self._metadata.partition_id)
-                        idx = accessor_spec.storage_index
-                        if idx is None:
-                            raise AttributeError(f"Setter '{name}' missing storage index on service '{self._metadata.cls_id}'")
+                        key = accessor_spec.storage_key
+                        if key is None:
+                            raise AttributeError(f"Setter '{name}' missing storage key on service '{self._metadata.cls_id}'")
                         # Fetch existing entries, update idx
                         try:
                             existing: oprc_py.ObjectData | None = session.data_manager.get_obj(
@@ -192,9 +192,9 @@ class ObjectRef:
                         param_type = getattr(accessor_spec, 'param_type', None)
                         converted = serializer.convert_value(value, param_type) if param_type is not None else value
                         raw = serializer.serialize(converted, param_type)
-                        entries[idx] = raw
-                        obj_data = oprc_py.ObjectData(meta=self._metadata, entries=entries, event=None)
-                        session.data_manager.set_obj(obj_data)
+                        entries[key] = raw
+                        obj_data = oprc_py.ObjectData(meta=self._metadata, entries=entries, event=None, legacy_entries=False)
+                        session.data_manager.set_obj_move(obj_data)
                         return converted if accessor_spec.returns_value else None
                     return _accessor_setter_sync
 
@@ -262,8 +262,7 @@ class ObjectRef:
                         cls_id=self._metadata.cls_id,
                         fn_id=name,
                         partition_id=self._metadata.partition_id,
-                        object_id=None,
-                        object_id_str=meta_object_id(self._metadata),
+                        object_id=meta_object_id(self._metadata),
                         payload=payload or b"",
                     )
                     resp = await session.obj_rpc_async(req)
@@ -286,8 +285,7 @@ class ObjectRef:
                         cls_id=self._metadata.cls_id,
                         fn_id=name,
                         partition_id=self._metadata.partition_id,
-                        object_id=None,
-                        object_id_str=meta_object_id(self._metadata),
+                        object_id=meta_object_id(self._metadata),
                         payload=payload or b"",
                     )
                     resp = session.obj_rpc(req)

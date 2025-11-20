@@ -32,7 +32,7 @@ dev = [
     "pytest>=9.0.1",
     "pytest-xdist>=3.8.0",
     "pytest-asyncio>=1.2.0",
-    "oaas-sdk2-py>=0.3.7",
+    "oaas-sdk2-py>=0.4.0",
     "ipykernel"
 ]
 

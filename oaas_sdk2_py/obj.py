@@ -7,12 +7,13 @@ from oprc_py.oprc_py import FnTriggerType, DataTriggerType
 from oaas_sdk2_py.model import ClsMeta
 from oaas_sdk2_py.session import Session
 from .object_ids import meta_object_id
+from .simplified.errors import UnsupportedFeatureError
 
 
 class BaseObject:
     meta: ObjectMetadata
     session: Session
-    _state: dict[int, bytes]
+    _state: dict[str, bytes]
     _obj: ObjectData
     # TODO implement per entry dirty checking. Now it is all or nothing
     _dirty: bool
@@ -36,15 +37,15 @@ class BaseObject:
     def object_id(self) -> str:
         return meta_object_id(self.meta)
 
-    async def set_data_async(self, index: int, data: bytes):
-        self._state[index] = data
+    async def set_data_async(self, key: str, data: bytes):
+        self._state[key] = data
         self._dirty = True
         if self._auto_commit:
             await self.commit_async()
 
-    async def get_data_async(self, index: int) -> bytes:
-        if index in self._state:
-            return self._state[index]
+    async def get_data_async(self, key: str) -> bytes:
+        if key in self._state:
+            return self._state[key]
         if self._full_loaded:
             return None
         obj: oprc_py.ObjectData | None = await self.session.data_manager.get_obj_async(
@@ -54,14 +55,13 @@ class BaseObject:
         )
         if obj is None:
             return None
-        self._obj = obj
-        self._state = obj.entries
+        self._assign_object_data(obj)
         self._full_loaded = True
-        return self._state.get(index)
+        return self._state.get(key)
 
-    def get_data(self, index: int) -> bytes:
-        if index in self._state:
-            return self._state[index]
+    def get_data(self, key: str) -> bytes:
+        if key in self._state:
+            return self._state[key]
         if self._full_loaded:
             return None
         obj: oprc_py.ObjectData | None = self.session.data_manager.get_obj(
@@ -71,13 +71,12 @@ class BaseObject:
         )
         if obj is None:
             return None
-        self._obj = obj
-        self._state = obj.entries
+        self._assign_object_data(obj)
         self._full_loaded = True
-        return self._state.get(index)
+        return self._state.get(key)
 
-    def set_data(self, index: int, data: bytes):
-        self._state[index] = data
+    def set_data(self, key: str, data: bytes):
+        self._state[key] = data
         self._dirty = True
         if self._auto_commit:
             self.commit()
@@ -92,8 +91,7 @@ class BaseObject:
         )
         if obj is None:
             raise ValueError("Object not found")
-        self._obj = obj
-        self._state = obj.entries
+        self._assign_object_data(obj)
         self._dirty = False
         self._full_loaded = True
 
@@ -175,7 +173,7 @@ class BaseObject:
             req_options={} if req_options is None else req_options,
         )
 
-        if isinstance(source, int):  # Data trigger
+        if isinstance(source, str):  # Data trigger using string keys
             if not isinstance(event_type, DataTriggerType):
                 raise ValueError(
                     "event_type must be an instance of DataTriggerType for data source"
@@ -203,7 +201,7 @@ class BaseObject:
             self._obj.event = event 
         else:
             raise ValueError(
-                "Invalid source type. Must be an integer (data key) or a function with _meta attribute."
+                "Invalid source type. Must be a string data key or a function with _meta attribute."
             )
         self._dirty = True  # Mark object as dirty as event is part of ObjectData
         return out
@@ -213,7 +211,7 @@ class BaseObject:
         return self._dirty
 
     @property
-    def state(self) -> dict[int, bytes]:
+    def state(self) -> dict[str, bytes]:
         return self._state
 
     @property
@@ -243,7 +241,7 @@ class BaseObject:
         o = oprc_py.ObjectInvocationRequest(
             cls_id=self.meta.cls_id,
             partition_id=self.meta.partition_id,
-            object_id_str=meta_object_id(self.meta),
+            object_id=meta_object_id(self.meta),
             fn_id=fn_name,
             payload=payload,
         )
@@ -266,8 +264,9 @@ class BaseObject:
                 meta=self.meta,
                 entries=self._state,
                 event=self._obj.event if self._obj else None,  # Ensure event is included
+                legacy_entries=False,
             )
-            await self.session.data_manager.set_obj_async(obj_data)
+            await self.session.data_manager.set_obj_move_async(obj_data)
             self._dirty = False
 
     def commit(self):
@@ -276,9 +275,22 @@ class BaseObject:
                 meta=self.meta,
                 entries=self._state,
                 event=self._obj.event if self._obj else None,  # Ensure event is included
+                legacy_entries=False,
             )
-            self.session.data_manager.set_obj(obj_data)
+            self.session.data_manager.set_obj_move(obj_data)
             self._dirty = False
+
+    def _assign_object_data(self, obj: oprc_py.ObjectData) -> None:
+        if getattr(obj, "legacy_entries", False):
+            raise UnsupportedFeatureError(
+                "Connected runtime does not support string-based entries",
+                details={
+                    "object_id": meta_object_id(self.meta),
+                    "cls_id": self.meta.cls_id,
+                },
+            )
+        self._obj = obj
+        self._state = obj.entries
 
     def create_object(
         self,

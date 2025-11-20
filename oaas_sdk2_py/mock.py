@@ -52,12 +52,12 @@ class LocalDataManager:
         raise KeyError(f"Object with metadata {metadata} not found")
 
 
-    async def set_obj_async(self, obj: ObjectData) -> None:
+    async def set_obj_move_async(self, obj: ObjectData) -> None:
         self.repo[obj.meta] = obj.copy()
         logging.info(f"Set object {obj.meta}")
         
     
-    def set_obj(self, obj: ObjectData) -> None:
+    def set_obj_move(self, obj: ObjectData) -> None:
         self.repo[obj.meta] = obj.copy()
         logging.info(f"Set object {obj.meta}")
         

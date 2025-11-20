@@ -165,8 +165,7 @@ pub struct ObjectInvocationRequest {
     partition_id: u32,
     cls_id: String,
     fn_id: String,
-    object_id: Option<u64>,
-    object_id_str: Option<String>,
+    object_id: Option<String>,
     options: HashMap<String, String>,
     payload: Vec<u8>,
 }
@@ -175,23 +174,21 @@ pub struct ObjectInvocationRequest {
 #[pyo3::pymethods]
 impl ObjectInvocationRequest {
     #[new]
-    #[pyo3(signature = (cls_id, fn_id, object_id=None, partition_id=0,  options=HashMap::new(), payload=vec![], object_id_str=None))]
+    #[pyo3(signature = (cls_id, fn_id, object_id=None, partition_id=0,  options=HashMap::new(), payload=vec![]))]
     /// Creates a new `ObjectInvocationRequest`.
     pub fn new(
         cls_id: String,
         fn_id: String,
-        object_id: Option<u64>,
+        object_id: Option<String>,
         partition_id: u32,
         options: HashMap<String, String>,
         payload: Vec<u8>,
-        object_id_str: Option<String>,
     ) -> Self {
         ObjectInvocationRequest {
             partition_id,
             cls_id,
             fn_id,
             object_id,
-            object_id_str,
             options,
             payload,
         }
@@ -205,11 +202,7 @@ impl From<oprc_grpc::ObjectInvocationRequest> for ObjectInvocationRequest {
             partition_id: value.partition_id,
             cls_id: value.cls_id,
             fn_id: value.fn_id,
-            object_id: match (value.object_id, value.object_id_str.as_ref()) {
-                (0, Some(_)) => None,
-                (id, _) => Some(id),
-            },
-            object_id_str: value.object_id_str,
+            object_id: value.object_id,
             options: value.options,
             payload: value.payload,
         }
@@ -223,8 +216,7 @@ impl ObjectInvocationRequest {
             partition_id: self.partition_id,
             cls_id: self.cls_id.clone(),
             fn_id: self.fn_id.clone(),
-            object_id: self.object_id.unwrap_or_default(),
-            object_id_str: self.object_id_str.clone(),
+            object_id: self.object_id.clone(),
             options: self.options.clone(),
             payload: self.payload.clone(),
         }

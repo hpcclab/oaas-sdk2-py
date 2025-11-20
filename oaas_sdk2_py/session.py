@@ -4,7 +4,7 @@ from typing import Dict
 import oprc_py
 
 from oprc_py.oprc_py import InvocationResponse, InvocationResponseCode
-from oprc_py import ObjectMetadata, RpcManager, DataManager
+from oprc_py import ObjectData, ObjectMetadata, RpcManager, DataManager
 import logging
 
 from typing import TYPE_CHECKING
@@ -316,12 +316,13 @@ class Session:
                 v.dirty,
             )
             if v.dirty:
-                await self.data_manager.set_obj_async(
-                    cls_id=v.meta.cls_id,
-                    partition_id=v.meta.partition_id,
-                    object_id=meta_object_id(v.meta),
-                    data=v.state,
+                obj_data = ObjectData(
+                    meta=v.meta,
+                    entries=v.state,
+                    event=v._obj.event if getattr(v, "_obj", None) else None,
+                    legacy_entries=False,
                 )
+                await self.data_manager.set_obj_move_async(obj_data)
                 v._dirty = False
         while self.delete_obj_set:
             meta = self.delete_obj_set.pop()
@@ -360,12 +361,13 @@ class Session:
                 v.dirty,
             )
             if v.dirty:
-                self.data_manager.set_obj(
-                    cls_id=v.meta.cls_id,
-                    partition_id=v.meta.partition_id,
-                    object_id=meta_object_id(v.meta),
-                    data=v.state,
+                obj_data = ObjectData(
+                    meta=v.meta,
+                    entries=v.state,
+                    event=v._obj.event if getattr(v, "_obj", None) else None,
+                    legacy_entries=False,
                 )
+                self.data_manager.set_obj_move(obj_data)
                 v._dirty = False
         while self.delete_obj_set:
             meta = self.delete_obj_set.pop()

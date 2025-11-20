@@ -86,6 +86,5 @@ def ensure_object_metadata_kwargs(
     return {
         "cls_id": cls_id,
         "partition_id": partition_id,
-        "object_id": None,
-        "object_id_str": object_id_str,
+        "object_id": object_id_str,
     }

@@ -58,7 +58,7 @@ impl OprcFunction for SyncInvocationHandler {
             debug!("invoke_obj: {:?}", invocation_request);
         } else {
             info!(
-                "invoke_obj: {} {} {} {}",
+                "invoke_obj: {} {} {:?} {}",
                 invocation_request.cls_id,
                 invocation_request.partition_id,
                 invocation_request.object_id,
@@ -116,7 +116,7 @@ impl InvocationExecutor for SyncInvocationHandler {
             debug!("invoke_obj: {:?}", invocation_request);
         } else {
             info!(
-                "invoke_obj: {} {} {} {}",
+                "invoke_obj: {} {} {:?} {}",
                 invocation_request.cls_id,
                 invocation_request.partition_id,
                 invocation_request.object_id,
